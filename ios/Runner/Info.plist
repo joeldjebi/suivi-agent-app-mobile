@@ -55,8 +55,12 @@
 	<string>Votre position est partagée avec votre structure pendant votre journée de travail, même lorsque l'application est en arrière-plan.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- Développement : API locale en HTTP. La production utilise HTTPS. -->
+		<!-- Développement : API locale en HTTP. -->
 		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<!-- Production provisoire en HTTP sur adresse IP (les exceptions par domaine ne
+		     s'appliquent pas aux adresses IP). À retirer dès le nom de domaine en HTTPS. -->
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 	<key>LSApplicationQueriesSchemes</key>
