@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
 import 'core/providers.dart';
+import 'features/onboarding/onboarding_data.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +12,8 @@ Future<void> main() async {
   final container = ProviderContainer();
   // Reprise de session (et de l'apparence de la structure) avant le premier écran utile.
   container.read(authProvider.notifier).restore();
+  // Onboarding vérifié en même temps (affiché au premier lancement ou à une nouvelle version).
+  container.read(onboardingProvider);
   runApp(
     UncontrolledProviderScope(
       container: container,

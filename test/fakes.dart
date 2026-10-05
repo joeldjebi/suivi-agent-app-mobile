@@ -15,6 +15,7 @@ import 'package:suivi_agent/core/sync.dart';
 import 'package:suivi_agent/core/tracking.dart';
 import 'package:suivi_agent/core/zone_guard.dart';
 import 'package:suivi_agent/features/team/team_map_screen.dart';
+import 'package:suivi_agent/features/onboarding/onboarding_data.dart';
 
 Me fakeMe({
   String role = 'agent',
@@ -1001,6 +1002,12 @@ class FakeAlerts implements AlertSink {
   Future<void> cancel(int id) async => cancelled++;
 }
 
+/// Onboarding déjà vu : les tests ouvrent directement la connexion ou l'accueil.
+class SeenOnboarding extends OnboardingController {
+  @override
+  OnboardingState build() => const OnboardingDone();
+}
+
 Widget testApp({
   required AuthController Function() auth,
   FakeRepository? repo,
@@ -1011,6 +1018,7 @@ Widget testApp({
   return ProviderScope(
     overrides: [
       authProvider.overrideWith(auth),
+      onboardingProvider.overrideWith(SeenOnboarding.new),
       repositoryProvider.overrideWithValue(repository),
       databaseProvider.overrideWithValue(db),
       // Pas de fonds de carte téléchargés pendant les tests.

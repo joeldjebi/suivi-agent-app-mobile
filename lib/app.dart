@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,9 @@ import 'features/day/zone_map.dart';
 import 'features/team/alerts_screen.dart';
 import 'features/team/report_screen.dart';
 import 'features/missions/mission_editor_screen.dart';
+import 'features/onboarding/onboarding_data.dart';
+import 'features/onboarding/onboarding_screen.dart';
+import 'features/onboarding/splash_screen.dart';
 import 'features/shell/live_updates.dart';
 import 'features/missions/mission_form_screen.dart';
 import 'features/missions/mission_screen.dart';
@@ -141,6 +145,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     authProvider.select((a) => a.runtimeType),
     (_, _) => listenable.notify(),
   );
+  // Onboarding : vérifié au démarrage, puis terminé par l'utilisateur.
+  ref.listen(
+    onboardingProvider.select((o) => o.runtimeType),
+    (_, _) => listenable.notify(),
+  );
   final role = ref.watch(
     authProvider.select((a) => a is SignedIn ? a.me.role : null),
   );
@@ -158,22 +167,51 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: listenable,
     redirect: (context, state) {
       final auth = ref.read(authProvider);
+      final onboarding = ref.read(onboardingProvider);
       final atLogin = state.matchedLocation == '/login';
+      final at = state.matchedLocation;
+      // Démarrage : session et onboarding vérifiés derrière l'écran de démarrage.
+      if (auth is AuthLoading || onboarding is OnboardingChecking) {
+        return at == '/splash' ? null : '/splash';
+      }
+      if (onboarding is OnboardingPending) {
+        return at == '/onboarding' ? null : '/onboarding';
+      }
       return switch (auth) {
         AuthLoading() => state.matchedLocation == '/splash' ? null : '/splash',
-        SignedOut() => atLogin ? null : '/login',
+        SignedOut() => atLogin || at == '/welcome' ? null : '/login',
         SignedIn() when suspended =>
           state.matchedLocation == '/suspended' ? null : '/suspended',
         SignedIn() =>
           atLogin ||
-                  state.matchedLocation == '/splash' ||
-                  state.matchedLocation == '/suspended'
+                  at == '/splash' ||
+                  at == '/onboarding' ||
+                  at == '/suspended'
               ? home
               : null,
       };
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const _Splash()),
+      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (_, _) => Consumer(
+          builder: (_, ref, _) {
+            final state = ref.watch(onboardingProvider);
+            return OnboardingScreen(
+              content: state is OnboardingPending
+                  ? state.content
+                  : OnboardingContent.defaults,
+              onDone: () => ref.read(onboardingProvider.notifier).complete(),
+            );
+          },
+        ),
+      ),
+      // Revoir la présentation depuis le profil (ou l'écran de connexion).
+      GoRoute(
+        path: '/welcome',
+        builder: (_, _) => const OnboardingReplayScreen(),
+      ),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/suspended', builder: (_, _) => const SuspendedScreen()),
       if (role != null)
@@ -240,14 +278,14 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
       supportedLocales: const [Locale('fr', 'FR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       routerConfig: ref.watch(routerProvider),
+      // Barre d'état lisible sur les écrans sans barre d'app (connexion, onboarding) ;
+      // les écrans colorés (démarrage, cartes) posent la leur.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: Theme.of(context).brightness == Brightness.dark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
+        child: child!,
+      ),
     );
   }
-}
-
-class _Splash extends StatelessWidget {
-  const _Splash();
-
-  @override
-  Widget build(BuildContext context) =>
-      const Scaffold(body: Center(child: CircularProgressIndicator()));
 }

@@ -258,6 +258,14 @@ class ProfileScreen extends ConsumerWidget {
                 value: _themeLabel(theme),
                 onTap: () => _editTheme(context, ref),
               ),
+              ListRow(
+                leading: icon(
+                  Icons.auto_awesome_rounded,
+                  const Color(0xFF0EA5E9),
+                ),
+                title: 'Découvrir l’app',
+                onTap: () => context.push('/welcome'),
+              ),
             ],
           ),
           if (me.isAgent)
