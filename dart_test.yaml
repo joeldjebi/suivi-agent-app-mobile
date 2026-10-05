@@ -1,0 +1,5 @@
+tags:
+  # Rendus d'écrans (design), lancés à la demande :
+  # flutter test --tags screens --run-skipped --update-goldens
+  screens:
+    skip: "Rendus d'écrans : lancer avec --tags screens --run-skipped --update-goldens"
