@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../design/components.dart';
 import '../team/team_controller.dart';
+import 'live_updates.dart';
 
 /// Agent : Journée, Missions, Profil.
 const agentTabs = [
@@ -67,6 +68,8 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Mises à jour en direct tant que l'espace connecté est affiché.
+    ref.watch(liveUpdatesProvider);
     final pending = leader ? ref.watch(requestsProvider).value?.length ?? 0 : 0;
     return Scaffold(
       body: shell,
