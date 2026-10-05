@@ -61,6 +61,8 @@ class LiveUpdates {
       serverOrigin,
       io.OptionBuilder()
           .setTransports(['websocket'])
+          // Nouvelle connexion à chaque session (pas de réutilisation après déconnexion).
+          .enableForceNew()
           .disableAutoConnect()
           // Jeton relu à chaque (re)connexion : il change au fil des rafraîchissements.
           .setAuthFn((send) => send({'token': session.accessToken}))
@@ -88,6 +90,17 @@ class LiveUpdates {
       schedule(const [LiveArea.day]);
     });
     socket.connect();
+  }
+
+  /// Retour au premier plan : le téléphone a pu couper la connexion en arrière-plan. On relit
+  /// tout et on se reconnecte si besoin.
+  void resume() {
+    schedule(LiveArea.values);
+    final socket = _socket;
+    if (socket != null && !socket.connected) {
+      _retry?.cancel();
+      socket.connect();
+    }
   }
 
   void _reconnectLater() {

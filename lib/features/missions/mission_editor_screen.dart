@@ -62,6 +62,7 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
   String _method = 'count';
   MissionField? _sumField;
   DateTime? _due;
+  DateTime? _initialDue;
 
   bool get _editing => widget.missionId != null;
 
@@ -77,6 +78,7 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
   void _fill(Mission m) {
     if (_loaded) return;
     _loaded = true;
+    _initialDue = m.dueDate?.toLocal();
     _title.text = m.title;
     _description.text = m.description ?? '';
     if (m.targetValue != null) _target.text = formatNumber(m.targetValue!);
@@ -86,16 +88,19 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
 
   Future<void> _pickDue() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Pas d'échéance dans le passé ; une échéance dépassée s'ouvre sur aujourd'hui.
+    final current = _due ?? now.add(const Duration(days: 7));
     final picked = await showDatePicker(
       context: context,
-      initialDate: _due ?? now.add(const Duration(days: 7)),
-      firstDate: DateTime(now.year, now.month, now.day),
+      initialDate: current.isBefore(today) ? today : current,
+      firstDate: today,
       lastDate: now.add(const Duration(days: 365 * 2)),
       helpText: 'Échéance de la mission',
     );
     if (picked != null) {
       setState(
-        () => _due = DateTime(picked.year, picked.month, picked.day, 18),
+        () => _due = DateTime(picked.year, picked.month, picked.day, 23, 59),
       );
     }
   }
@@ -137,7 +142,9 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         if (_method != 'manual') 'targetValue': _targetValue,
-        if (_due != null) 'dueDate': _due!.toUtc().toIso8601String(),
+        // Échéance inchangée (même dépassée) : non renvoyée.
+        if (_due != null && _due != _initialDue)
+          'dueDate': _due!.toUtc().toIso8601String(),
       };
       if (_editing) {
         await repo.updateMission(widget.missionId!, common);

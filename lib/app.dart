@@ -11,6 +11,7 @@ import 'features/day/zone_map.dart';
 import 'features/team/alerts_screen.dart';
 import 'features/team/report_screen.dart';
 import 'features/missions/mission_editor_screen.dart';
+import 'features/shell/live_updates.dart';
 import 'features/missions/mission_form_screen.dart';
 import 'features/missions/mission_screen.dart';
 import 'features/missions/missions_screen.dart';
@@ -218,6 +219,10 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(authProvider.notifier).refresh();
+      // Écrans relus au retour : les annonces ont pu être manquées en arrière-plan.
+      if (ref.exists(liveUpdatesProvider)) {
+        ref.read(liveUpdatesProvider).resume();
+      }
     }
   }
 
