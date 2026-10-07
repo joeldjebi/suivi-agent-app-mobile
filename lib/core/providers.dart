@@ -12,6 +12,7 @@ import 'branding.dart';
 import 'database.dart';
 import 'local_alerts.dart';
 import 'models.dart';
+import 'push.dart';
 import 'repository.dart';
 import 'session.dart';
 import 'sync.dart';
@@ -244,6 +245,8 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Avant la fin de session : ce téléphone ne recevra plus les notifications du compte.
+    await ref.read(pushProvider).unregister();
     final refresh = await _session.refreshToken();
     if (refresh != null) {
       try {
@@ -268,6 +271,7 @@ class AuthController extends Notifier<AuthState> {
     await ref.read(trackerProvider).stop();
     ref.read(zoneGuardProvider).stop();
     ref.read(syncProvider).stop();
+    await ref.read(pushProvider).forget();
     await _session.clear();
     await ref.read(databaseProvider).wipe();
     await ref.read(brandingCacheProvider).clear();

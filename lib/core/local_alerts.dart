@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import 'local_notifications.dart';
 import 'zone_guard.dart';
 
 /// Notifications locales du téléphone : l'alerte s'affiche même application en arrière-plan,
 /// et en bannière quand elle est ouverte.
 class LocalAlerts implements AlertSink {
-  final _plugin = FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin get _plugin => LocalNotifications.plugin;
   Future<bool>? _ready;
 
   static const _channel = AndroidNotificationDetails(
@@ -31,12 +32,7 @@ class LocalAlerts implements AlertSink {
 
   Future<bool> _init() async {
     try {
-      await _plugin.initialize(
-        settings: const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(),
-        ),
-      );
+      await LocalNotifications.init();
       final ios = _plugin
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin

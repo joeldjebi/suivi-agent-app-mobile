@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../design/components.dart';
 import '../team/team_controller.dart';
 import 'live_updates.dart';
+import 'push_handler.dart';
 
 /// Agent : Journée, Missions, Profil.
 const agentTabs = [
@@ -71,21 +72,24 @@ class AppShell extends ConsumerWidget {
     // Mises à jour en direct tant que l'espace connecté est affiché.
     ref.watch(liveUpdatesProvider);
     final pending = leader ? ref.watch(requestsProvider).value?.length ?? 0 : 0;
-    return Scaffold(
-      body: shell,
-      bottomNavigationBar: AppNavBar(
-        index: shell.currentIndex,
-        onSelect: (i) =>
-            shell.goBranch(i, initialLocation: i == shell.currentIndex),
-        items: [
-          for (final tab in tabs)
-            NavItem(
-              label: tab.label,
-              icon: tab.icon,
-              selectedIcon: tab.selectedIcon,
-              badge: tab.label == 'Demandes' ? pending : 0,
-            ),
-        ],
+    return PushHandler(
+      leader: leader,
+      child: Scaffold(
+        body: shell,
+        bottomNavigationBar: AppNavBar(
+          index: shell.currentIndex,
+          onSelect: (i) =>
+              shell.goBranch(i, initialLocation: i == shell.currentIndex),
+          items: [
+            for (final tab in tabs)
+              NavItem(
+                label: tab.label,
+                icon: tab.icon,
+                selectedIcon: tab.selectedIcon,
+                badge: tab.label == 'Demandes' ? pending : 0,
+              ),
+          ],
+        ),
       ),
     );
   }

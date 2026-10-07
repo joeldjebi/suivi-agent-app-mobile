@@ -823,6 +823,16 @@ class FakeRepository extends Repository {
     ),
   ];
 
+  /// Décisions sur les demandes de zone (bouton de notification, écran Demandes).
+  final decisions = <({String id, bool approve})>[];
+
+  @override
+  Future<void> decide(
+    String requestId, {
+    required bool approve,
+    String? reason,
+  }) async => decisions.add((id: requestId, approve: approve));
+
   @override
   Future<List<PendingRequest>> pendingRequests() async => [
     PendingRequest(

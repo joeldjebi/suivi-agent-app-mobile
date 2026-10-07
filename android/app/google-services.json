@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "414870340041",
+    "project_id": "suivi-agent",
+    "storage_bucket": "suivi-agent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:414870340041:android:b5fb9745fb9436036aa818",
+        "android_client_info": {
+          "package_name": "ci.suiviagent.suivi_agent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXY6Z4exXBkpmqL4_5cNZUBt95T1k-Bno"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
