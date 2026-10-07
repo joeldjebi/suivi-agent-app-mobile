@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +10,18 @@ import '../../core/models.dart';
 import '../../design/components.dart';
 import '../../widgets/common.dart';
 import 'missions_controller.dart';
+import '../../core/providers.dart';
+import '../../core/sync.dart';
 
 /// Formulaire généré à partir des champs définis par la structure (RG-13).
 /// Enregistré sur le téléphone puis envoyé ; fonctionne sans réseau.
 class MissionFormScreen extends ConsumerStatefulWidget {
-  const MissionFormScreen({super.key, required this.id});
+  const MissionFormScreen({super.key, required this.id, this.retry});
 
   final String id;
+
+  /// Formulaire refusé à corriger : ses valeurs sont reprises, il est remplacé à l'envoi.
+  final String? retry;
 
   @override
   ConsumerState<MissionFormScreen> createState() => _MissionFormScreenState();
@@ -25,10 +32,48 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   final _values = <String, Object?>{};
   bool _saving = false;
   bool _submitted = false;
+  String? _rejectedReason;
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Correction : les valeurs du formulaire refusé sont chargées avant l'affichage.
+  late bool _loadingRetry = widget.retry != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final retry = widget.retry;
+    if (retry != null) unawaited(_loadRetry(retry));
+  }
+
+  /// Reprend les valeurs et le motif du formulaire refusé.
+  Future<void> _loadRetry(String clientId) async {
+    final db = ref.read(databaseProvider);
+    final row = await (db.select(
+      db.pendingSubmissions,
+    )..where((s) => s.clientId.equals(clientId))).getSingleOrNull();
+    if (!mounted) return;
+    if (row == null) return setState(() => _loadingRetry = false);
+    setState(() {
+      _loadingRetry = false;
+      _values.addAll(
+        (jsonDecode(row.dataJson) as Map<String, dynamic>)
+            .cast<String, Object?>(),
+      );
+      _rejectedReason = row.error;
+    });
+  }
 
   Future<void> _save(Mission mission) async {
+    final form = _form.currentState;
+    if (form == null) return;
     setState(() => _submitted = true);
-    if (!_form.currentState!.validate()) {
+    if (!form.validate()) {
       showMessage(context, 'Complétez les champs signalés.', error: true);
       return;
     }
@@ -40,73 +85,123 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
           if (_values[f.key] != null && _values[f.key] != '')
             f.key: _values[f.key],
       };
-      await saveSubmission(ref, mission, data);
+      final outcome = await saveSubmission(
+        ref,
+        mission,
+        data,
+        replacing: widget.retry,
+      );
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(
         context,
-        'Formulaire enregistré. Il est envoyé dès que le réseau le permet.',
+        outcome == SubmitOutcome.sent
+            ? 'Formulaire envoyé.'
+            : 'Formulaire enregistré sur le téléphone. Il sera envoyé dès le retour du réseau.',
       );
     } on ApiException catch (e) {
-      if (mounted) showMessage(context, e.message, error: true);
+      // Refusé par le serveur : les valeurs restent à l'écran, le motif s'affiche en tête
+      // (pas de message flottant : il masquerait le bouton d'envoi).
+      if (mounted) {
+        HapticFeedback.heavyImpact();
+        setState(() => _rejectedReason = e.message);
+        if (_scroll.hasClients) {
+          unawaited(
+            _scroll.animateTo(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            ),
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
+  /// Mission telle qu'elle était à l'ouverture du formulaire : une relecture (mise à jour en
+  /// direct, mission close entre-temps) ne doit ni effacer la saisie ni bloquer l'écran ;
+  /// c'est l'envoi qui dira si la mission accepte encore des formulaires.
+  Mission? _mission;
+
   @override
   Widget build(BuildContext context) {
-    final mission = ref.watch(missionProvider(widget.id));
+    final async = ref.watch(missionProvider(widget.id));
+    _mission ??= async.value;
+    final loaded = _mission;
+    final AsyncValue<Mission> mission = loaded != null
+        ? AsyncData(loaded)
+        : async;
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouveau formulaire')),
-      body: mission.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: InfoBanner(
-            icon: Icons.error_outline_rounded,
-            message: ApiException.from(e).message,
-            tone: Tone.danger,
-          ),
-        ),
-        data: (m) => Form(
-          key: _form,
-          autovalidateMode: _submitted
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-            children: [
-              Text(m.title, style: text.titleLarge),
-              const SizedBox(height: 4),
-              Text(
-                'Les champs marqués * sont obligatoires.',
-                style: text.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (m.fields.isEmpty)
-                const InfoBanner(
-                  icon: Icons.info_outline_rounded,
-                  tone: Tone.info,
-                  message:
-                      'Aucun champ à remplir : enregistrez pour valider votre visite.',
-                ),
-              for (final f in m.fields) ...[
-                _FieldInput(
-                  field: f,
-                  value: _values[f.key],
-                  onChanged: (v) => setState(() => _values[f.key] = v),
-                ),
-                const SizedBox(height: 18),
-              ],
-            ],
-          ),
+      appBar: AppBar(
+        title: Text(
+          widget.retry == null
+              ? 'Nouveau formulaire'
+              : 'Corriger le formulaire',
         ),
       ),
+      body: _loadingRetry
+          ? const Center(child: CircularProgressIndicator())
+          : mission.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: InfoBanner(
+                  icon: Icons.error_outline_rounded,
+                  message: ApiException.from(e).message,
+                  tone: Tone.danger,
+                ),
+              ),
+              data: (m) => Form(
+                key: _form,
+                autovalidateMode: _submitted
+                    ? AutovalidateMode.onUserInteraction
+                    : AutovalidateMode.disabled,
+                child: ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
+                  children: [
+                    if (_rejectedReason != null) ...[
+                      InfoBanner(
+                        icon: Icons.error_outline_rounded,
+                        tone: Tone.danger,
+                        message: 'Refusé : $_rejectedReason',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Text(m.title, style: text.titleLarge),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Les champs marqués * sont obligatoires.',
+                      style: text.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (m.fields.isEmpty)
+                      const InfoBanner(
+                        icon: Icons.info_outline_rounded,
+                        tone: Tone.info,
+                        message:
+                            'Aucun champ à remplir : enregistrez pour valider votre visite.',
+                      ),
+                    for (final f in m.fields) ...[
+                      _FieldInput(
+                        // Clé stable : le champ garde sa saisie quand un bandeau s'insère au-dessus.
+                        key: ValueKey('field-${f.key}'),
+                        field: f,
+                        value: _values[f.key],
+                        onChanged: (v) => setState(() => _values[f.key] = v),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
+                  ],
+                ),
+              ),
+            ),
       bottomNavigationBar: mission.hasValue
           ? SafeArea(
               top: false,
@@ -127,6 +222,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
 
 class _FieldInput extends StatelessWidget {
   const _FieldInput({
+    super.key,
     required this.field,
     required this.value,
     required this.onChanged,
@@ -156,6 +252,7 @@ class _FieldInput extends StatelessWidget {
           children: [
             label,
             TextFormField(
+              initialValue: value is String ? value as String : null,
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.next,
               onChanged: (v) => onChanged(v.trim()),
@@ -169,6 +266,7 @@ class _FieldInput extends StatelessWidget {
           children: [
             label,
             TextFormField(
+              initialValue: value is num ? formatNumber(value as num) : null,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),

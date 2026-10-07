@@ -581,6 +581,17 @@ class $PendingSubmissionsTable extends PendingSubmissions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta(
+    'errorCode',
+  );
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     clientId,
@@ -591,6 +602,7 @@ class $PendingSubmissionsTable extends PendingSubmissions
     lng,
     submittedAt,
     error,
+    errorCode,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -668,6 +680,12 @@ class $PendingSubmissionsTable extends PendingSubmissions
         error.isAcceptableOrUnknown(data['error']!, _errorMeta),
       );
     }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
+    }
     return context;
   }
 
@@ -709,6 +727,10 @@ class $PendingSubmissionsTable extends PendingSubmissions
         DriftSqlType.string,
         data['${effectivePrefix}error'],
       ),
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
     );
   }
 
@@ -731,6 +753,10 @@ class PendingSubmission extends DataClass
 
   /// Refus définitif du serveur (formulaire invalide, mission close) : n'est plus renvoyé.
   final String? error;
+
+  /// Code du refus (DAY_REQUIRED, WRONG_ZONE, INVALID_FORM, MISSION_CLOSED…) : décide si
+  /// l'agent peut corriger et renvoyer.
+  final String? errorCode;
   const PendingSubmission({
     required this.clientId,
     required this.missionId,
@@ -740,6 +766,7 @@ class PendingSubmission extends DataClass
     this.lng,
     required this.submittedAt,
     this.error,
+    this.errorCode,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -758,6 +785,9 @@ class PendingSubmission extends DataClass
     if (!nullToAbsent || error != null) {
       map['error'] = Variable<String>(error);
     }
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
     return map;
   }
 
@@ -773,6 +803,9 @@ class PendingSubmission extends DataClass
       error: error == null && nullToAbsent
           ? const Value.absent()
           : Value(error),
+      errorCode: errorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCode),
     );
   }
 
@@ -790,6 +823,7 @@ class PendingSubmission extends DataClass
       lng: serializer.fromJson<double?>(json['lng']),
       submittedAt: serializer.fromJson<DateTime>(json['submittedAt']),
       error: serializer.fromJson<String?>(json['error']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
     );
   }
   @override
@@ -804,6 +838,7 @@ class PendingSubmission extends DataClass
       'lng': serializer.toJson<double?>(lng),
       'submittedAt': serializer.toJson<DateTime>(submittedAt),
       'error': serializer.toJson<String?>(error),
+      'errorCode': serializer.toJson<String?>(errorCode),
     };
   }
 
@@ -816,6 +851,7 @@ class PendingSubmission extends DataClass
     Value<double?> lng = const Value.absent(),
     DateTime? submittedAt,
     Value<String?> error = const Value.absent(),
+    Value<String?> errorCode = const Value.absent(),
   }) => PendingSubmission(
     clientId: clientId ?? this.clientId,
     missionId: missionId ?? this.missionId,
@@ -825,6 +861,7 @@ class PendingSubmission extends DataClass
     lng: lng.present ? lng.value : this.lng,
     submittedAt: submittedAt ?? this.submittedAt,
     error: error.present ? error.value : this.error,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
   );
   PendingSubmission copyWithCompanion(PendingSubmissionsCompanion data) {
     return PendingSubmission(
@@ -840,6 +877,7 @@ class PendingSubmission extends DataClass
           ? data.submittedAt.value
           : this.submittedAt,
       error: data.error.present ? data.error.value : this.error,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
     );
   }
 
@@ -853,7 +891,8 @@ class PendingSubmission extends DataClass
           ..write('lat: $lat, ')
           ..write('lng: $lng, ')
           ..write('submittedAt: $submittedAt, ')
-          ..write('error: $error')
+          ..write('error: $error, ')
+          ..write('errorCode: $errorCode')
           ..write(')'))
         .toString();
   }
@@ -868,6 +907,7 @@ class PendingSubmission extends DataClass
     lng,
     submittedAt,
     error,
+    errorCode,
   );
   @override
   bool operator ==(Object other) =>
@@ -880,7 +920,8 @@ class PendingSubmission extends DataClass
           other.lat == this.lat &&
           other.lng == this.lng &&
           other.submittedAt == this.submittedAt &&
-          other.error == this.error);
+          other.error == this.error &&
+          other.errorCode == this.errorCode);
 }
 
 class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
@@ -892,6 +933,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
   final Value<double?> lng;
   final Value<DateTime> submittedAt;
   final Value<String?> error;
+  final Value<String?> errorCode;
   final Value<int> rowid;
   const PendingSubmissionsCompanion({
     this.clientId = const Value.absent(),
@@ -902,6 +944,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     this.lng = const Value.absent(),
     this.submittedAt = const Value.absent(),
     this.error = const Value.absent(),
+    this.errorCode = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingSubmissionsCompanion.insert({
@@ -913,6 +956,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     this.lng = const Value.absent(),
     required DateTime submittedAt,
     this.error = const Value.absent(),
+    this.errorCode = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : clientId = Value(clientId),
        missionId = Value(missionId),
@@ -928,6 +972,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     Expression<double>? lng,
     Expression<DateTime>? submittedAt,
     Expression<String>? error,
+    Expression<String>? errorCode,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -939,6 +984,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
       if (lng != null) 'lng': lng,
       if (submittedAt != null) 'submitted_at': submittedAt,
       if (error != null) 'error': error,
+      if (errorCode != null) 'error_code': errorCode,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -952,6 +998,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     Value<double?>? lng,
     Value<DateTime>? submittedAt,
     Value<String?>? error,
+    Value<String?>? errorCode,
     Value<int>? rowid,
   }) {
     return PendingSubmissionsCompanion(
@@ -963,6 +1010,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
       lng: lng ?? this.lng,
       submittedAt: submittedAt ?? this.submittedAt,
       error: error ?? this.error,
+      errorCode: errorCode ?? this.errorCode,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -994,6 +1042,9 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     if (error.present) {
       map['error'] = Variable<String>(error.value);
     }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1011,6 +1062,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
           ..write('lng: $lng, ')
           ..write('submittedAt: $submittedAt, ')
           ..write('error: $error, ')
+          ..write('errorCode: $errorCode, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1304,6 +1356,7 @@ typedef $$PendingSubmissionsTableCreateCompanionBuilder =
       Value<double?> lng,
       required DateTime submittedAt,
       Value<String?> error,
+      Value<String?> errorCode,
       Value<int> rowid,
     });
 typedef $$PendingSubmissionsTableUpdateCompanionBuilder =
@@ -1316,6 +1369,7 @@ typedef $$PendingSubmissionsTableUpdateCompanionBuilder =
       Value<double?> lng,
       Value<DateTime> submittedAt,
       Value<String?> error,
+      Value<String?> errorCode,
       Value<int> rowid,
     });
 
@@ -1365,6 +1419,11 @@ class $$PendingSubmissionsTableFilterComposer
 
   ColumnFilters<String> get error => $composableBuilder(
     column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1417,6 +1476,11 @@ class $$PendingSubmissionsTableOrderingComposer
     column: $table.error,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingSubmissionsTableAnnotationComposer
@@ -1455,6 +1519,9 @@ class $$PendingSubmissionsTableAnnotationComposer
 
   GeneratedColumn<String> get error =>
       $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
 }
 
 class $$PendingSubmissionsTableTableManager
@@ -1505,6 +1572,7 @@ class $$PendingSubmissionsTableTableManager
                 Value<double?> lng = const Value.absent(),
                 Value<DateTime> submittedAt = const Value.absent(),
                 Value<String?> error = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingSubmissionsCompanion(
                 clientId: clientId,
@@ -1515,6 +1583,7 @@ class $$PendingSubmissionsTableTableManager
                 lng: lng,
                 submittedAt: submittedAt,
                 error: error,
+                errorCode: errorCode,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1527,6 +1596,7 @@ class $$PendingSubmissionsTableTableManager
                 Value<double?> lng = const Value.absent(),
                 required DateTime submittedAt,
                 Value<String?> error = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingSubmissionsCompanion.insert(
                 clientId: clientId,
@@ -1537,6 +1607,7 @@ class $$PendingSubmissionsTableTableManager
                 lng: lng,
                 submittedAt: submittedAt,
                 error: error,
+                errorCode: errorCode,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

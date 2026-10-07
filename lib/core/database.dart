@@ -29,6 +29,10 @@ class PendingSubmissions extends Table {
   /// Refus définitif du serveur (formulaire invalide, mission close) : n'est plus renvoyé.
   TextColumn get error => text().nullable()();
 
+  /// Code du refus (DAY_REQUIRED, WRONG_ZONE, INVALID_FORM, MISSION_CLOSED…) : décide si
+  /// l'agent peut corriger et renvoyer.
+  TextColumn get errorCode => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {clientId};
 }
@@ -39,7 +43,24 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'suivi_agent'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      // v2 : code du refus des formulaires.
+      if (from < 2) {
+        await m.addColumn(pendingSubmissions, pendingSubmissions.errorCode);
+      }
+    },
+  );
+
+  /// Formulaires refusés par le serveur, à corriger ou supprimer par l'agent.
+  Stream<List<PendingSubmission>> watchRejected() =>
+      (select(pendingSubmissions)
+            ..where((s) => s.error.isNotNull())
+            ..orderBy([(s) => OrderingTerm.desc(s.submittedAt)]))
+          .watch();
 
   Future<int> countPendingPositions() async {
     final count = pendingPositions.id.count();

@@ -77,4 +77,97 @@ void main() {
       expect(await db.countPendingPositions(), 0);
     },
   );
+
+  Future<String> addForm({String id = 'c1'}) async {
+    await db
+        .into(db.pendingSubmissions)
+        .insert(
+          PendingSubmissionsCompanion.insert(
+            clientId: id,
+            missionId: 'm1',
+            missionTitle: '120 visites',
+            dataJson: '{"commerce":"Boutique Awa"}',
+            submittedAt: DateTime.utc(2026, 10, 2, 9),
+          ),
+        );
+    return id;
+  }
+
+  test(
+    'formulaire refusé en arrière-plan : gardé avec motif et code, agent prévenu',
+    () async {
+      final notified = <String>[];
+      sync = SyncService(
+        db,
+        repo,
+        connectivity: const Stream<List<ConnectivityResult>>.empty(),
+        onRejected: (row, e) => notified.add('${row.missionTitle}|${e.code}'),
+      );
+      await addForm();
+      repo.submitError = ApiException(
+        'Démarrez votre journée pour envoyer un formulaire',
+        status: 409,
+        code: 'DAY_REQUIRED',
+      );
+      await sync.flush();
+      final rows = await db.select(db.pendingSubmissions).get();
+      expect(
+        rows.single.error,
+        'Démarrez votre journée pour envoyer un formulaire',
+      );
+      expect(rows.single.errorCode, 'DAY_REQUIRED');
+      expect(notified, ['120 visites|DAY_REQUIRED']);
+      expect(await db.watchRejected().first, hasLength(1));
+      // Refusé : plus jamais renvoyé automatiquement, plus compté « en attente ».
+      repo.submitError = null;
+      await sync.flush();
+      expect(repo.submittedForms, isEmpty);
+      expect(await db.watchPendingCount().first, 0);
+      expect(canRetrySubmission('DAY_REQUIRED'), isTrue);
+      expect(canRetrySubmission('MISSION_CLOSED'), isFalse);
+    },
+  );
+
+  test(
+    'sans réseau ou serveur en panne : le formulaire attend, sans refus',
+    () async {
+      await addForm();
+      repo.submitError = ApiException('Pas de connexion');
+      await sync.flush();
+      repo.submitError = ApiException('Erreur serveur', status: 503);
+      await sync.flush();
+      final rows = await db.select(db.pendingSubmissions).get();
+      expect(rows.single.error, isNull);
+      repo.submitError = null;
+      await sync.flush();
+      expect(repo.submittedForms.single['clientId'], 'c1');
+      expect(await db.select(db.pendingSubmissions).get(), isEmpty);
+    },
+  );
+
+  test(
+    'envoi immédiat : accepté, en attente, ou refusé et retiré du téléphone',
+    () async {
+      expect(await sync.submitNow(await addForm(id: 'ok')), SubmitOutcome.sent);
+      repo.submitError = ApiException('Pas de connexion');
+      expect(
+        await sync.submitNow(await addForm(id: 'off')),
+        SubmitOutcome.queued,
+      );
+      expect(sync.online, isFalse);
+      repo.submitError = ApiException(
+        'Cette mission se fait à : Plateau',
+        status: 409,
+        code: 'WRONG_ZONE',
+      );
+      await expectLater(
+        sync.submitNow(await addForm(id: 'ko')),
+        throwsA(
+          isA<ApiException>().having((e) => e.code, 'code', 'WRONG_ZONE'),
+        ),
+      );
+      final left = await db.select(db.pendingSubmissions).get();
+      expect(left.map((r) => r.clientId), ['off']);
+    },
+  );
 }

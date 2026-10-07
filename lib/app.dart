@@ -51,7 +51,10 @@ final _missionRoutes = GoRoute(
         ),
         GoRoute(
           path: 'new',
-          builder: (_, s) => MissionFormScreen(id: s.pathParameters['id']!),
+          builder: (_, s) => MissionFormScreen(
+            id: s.pathParameters['id']!,
+            retry: s.uri.queryParameters['retry'],
+          ),
         ),
       ],
     ),

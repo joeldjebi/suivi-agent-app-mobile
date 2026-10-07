@@ -16,7 +16,11 @@ class SyncService extends ChangeNotifier {
     this.db,
     this.repo, {
     Stream<List<ConnectivityResult>>? connectivity,
+    this.onRejected,
   }) : _connectivity = connectivity ?? Connectivity().onConnectivityChanged;
+
+  /// Un formulaire envoyé en arrière-plan a été refusé : prévenir l'agent.
+  final void Function(PendingSubmission row, ApiException error)? onRejected;
 
   final AppDatabase db;
   final Repository repo;
@@ -103,23 +107,66 @@ class SyncService extends ChangeNotifier {
     )..where((s) => s.error.isNull())).get();
     for (final row in rows) {
       try {
-        await repo.submit(row.missionId, {
-          'clientId': row.clientId,
-          'data': jsonDecode(row.dataJson),
-          if (row.lat != null) 'lat': row.lat,
-          if (row.lng != null) 'lng': row.lng,
-          'submittedAt': row.submittedAt.toUtc().toIso8601String(),
-        });
-        await (db.delete(
-          db.pendingSubmissions,
-        )..where((s) => s.clientId.equals(row.clientId))).go();
+        await _send(row);
       } on ApiException catch (e) {
-        if (e.isNetwork || (e.status ?? 500) >= 500 || e.status == 401) rethrow;
-        // Refus définitif (formulaire invalide, mission close) : conservé avec le motif.
-        await (db.update(db.pendingSubmissions)
-              ..where((s) => s.clientId.equals(row.clientId)))
-            .write(PendingSubmissionsCompanion(error: Value(e.message)));
+        if (_retryable(e)) rethrow;
+        // Refus définitif : conservé avec son motif, l'agent corrige ou supprime.
+        await _markRejected(row.clientId, e);
+        onRejected?.call(row, e);
       }
+    }
+  }
+
+  /// Envoi d'un formulaire puis retrait du téléphone.
+  Future<void> _send(PendingSubmission row) async {
+    await repo.submit(row.missionId, {
+      'clientId': row.clientId,
+      'data': jsonDecode(row.dataJson),
+      if (row.lat != null) 'lat': row.lat,
+      if (row.lng != null) 'lng': row.lng,
+      'submittedAt': row.submittedAt.toUtc().toIso8601String(),
+    });
+    await (db.delete(
+      db.pendingSubmissions,
+    )..where((s) => s.clientId.equals(row.clientId))).go();
+  }
+
+  /// Réseau, serveur indisponible ou session expirée : on réessaiera plus tard.
+  static bool _retryable(ApiException e) =>
+      e.isNetwork || (e.status ?? 500) >= 500 || e.status == 401;
+
+  Future<void> _markRejected(String clientId, ApiException e) =>
+      (db.update(
+        db.pendingSubmissions,
+      )..where((s) => s.clientId.equals(clientId))).write(
+        PendingSubmissionsCompanion(
+          error: Value(e.message),
+          errorCode: Value(e.code),
+        ),
+      );
+
+  /// Envoi immédiat d'un formulaire qui vient d'être saisi. Refusé : il est retiré du
+  /// téléphone et l'erreur remonte (l'agent corrige sur place). Sans réseau : il attend.
+  Future<SubmitOutcome> submitNow(String clientId) async {
+    final row = await (db.select(
+      db.pendingSubmissions,
+    )..where((s) => s.clientId.equals(clientId))).getSingleOrNull();
+    if (row == null) return SubmitOutcome.sent;
+    try {
+      await _send(row);
+      return SubmitOutcome.sent;
+    } on ApiException catch (e) {
+      if (_retryable(e)) {
+        if (e.isNetwork) {
+          online = false;
+          notifyListeners();
+        }
+        return SubmitOutcome.queued;
+      }
+      await (db.delete(
+        db.pendingSubmissions,
+      )..where((s) => s.clientId.equals(clientId))).go();
+      rethrow;
     }
   }
 
@@ -129,3 +176,17 @@ class SyncService extends ChangeNotifier {
     super.dispose();
   }
 }
+
+/// Résultat de l'envoi immédiat d'un formulaire.
+enum SubmitOutcome {
+  /// Accepté par le serveur.
+  sent,
+
+  /// Sans réseau (ou serveur indisponible) : envoyé dès que possible.
+  queued,
+}
+
+/// Peut-on corriger et renvoyer ce formulaire refusé ? Non si la mission est close ou
+/// n'existe plus pour l'agent.
+bool canRetrySubmission(String? errorCode) =>
+    errorCode != 'MISSION_CLOSED' && errorCode != 'NOT_FOUND';

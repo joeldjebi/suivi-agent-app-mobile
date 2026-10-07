@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -50,9 +51,18 @@ final zoneGuardProvider = ChangeNotifierProvider<ZoneGuard>(
 );
 
 final syncProvider = ChangeNotifierProvider<SyncService>((ref) {
+  final alerts = ref.watch(alertSinkProvider);
   final sync = SyncService(
     ref.watch(databaseProvider),
     ref.watch(repositoryProvider),
+    // Formulaire refusé pendant un envoi en arrière-plan : l'agent est prévenu.
+    onRejected: (row, error) => unawaited(
+      alerts.show(
+        row.clientId.hashCode & 0x7fffffff,
+        'Formulaire refusé',
+        '${row.missionTitle} : ${error.message}',
+      ),
+    ),
   );
   return sync;
 });

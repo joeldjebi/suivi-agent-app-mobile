@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show OrderingTerm, Value;
@@ -8,6 +9,7 @@ import '../../core/api_client.dart';
 import '../../core/database.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
+import '../../core/sync.dart';
 
 /// Missions de l'agent. Mises en cache : consultables et remplissables hors connexion.
 final missionsProvider = FutureProvider.autoDispose<List<Mission>>((ref) async {
@@ -83,19 +85,24 @@ final localSubmissionsProvider = StreamProvider.autoDispose
           .watch();
     });
 
-/// Enregistre le formulaire sur le téléphone puis tente l'envoi immédiatement.
-Future<void> saveSubmission(
+/// Enregistre le formulaire sur le téléphone puis l'envoie aussitôt. Refusé par le serveur :
+/// [ApiException] (le formulaire reste à l'écran pour être corrigé). Sans réseau : il
+/// attend sur le téléphone. `replacing` : formulaire refusé que celui-ci remplace.
+Future<SubmitOutcome> saveSubmission(
   WidgetRef ref,
   Mission mission,
-  Map<String, dynamic> data,
-) async {
+  Map<String, dynamic> data, {
+  String? replacing,
+}) async {
   final db = ref.read(databaseProvider);
+  final sync = ref.read(syncProvider);
   final position = await ref.read(trackerProvider).lastKnown();
+  final clientId = const Uuid().v4();
   await db
       .into(db.pendingSubmissions)
       .insert(
         PendingSubmissionsCompanion.insert(
-          clientId: const Uuid().v4(),
+          clientId: clientId,
           missionId: mission.id,
           missionTitle: mission.title,
           dataJson: jsonEncode(data),
@@ -104,11 +111,24 @@ Future<void> saveSubmission(
           submittedAt: DateTime.now().toUtc(),
         ),
       );
-  await ref.read(syncProvider).flush();
+  final outcome = await sync.submitNow(clientId);
+  // Accepté ou en attente : l'ancien formulaire refusé n'a plus lieu d'être.
+  if (replacing != null) {
+    await (db.delete(
+      db.pendingSubmissions,
+    )..where((s) => s.clientId.equals(replacing))).go();
+  }
+  unawaited(sync.flush());
   ref.invalidate(missionProvider(mission.id));
   ref.invalidate(submissionsProvider);
   ref.invalidate(missionsProvider);
+  return outcome;
 }
+
+/// Formulaires refusés par le serveur, tous missions confondues.
+final rejectedSubmissionsProvider = StreamProvider<List<PendingSubmission>>(
+  (ref) => ref.watch(databaseProvider).watchRejected(),
+);
 
 Future<void> discardSubmission(WidgetRef ref, String clientId) {
   final db = ref.read(databaseProvider);

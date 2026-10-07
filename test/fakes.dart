@@ -16,6 +16,7 @@ import 'package:suivi_agent/core/tracking.dart';
 import 'package:suivi_agent/core/zone_guard.dart';
 import 'package:suivi_agent/features/team/team_map_screen.dart';
 import 'package:suivi_agent/features/onboarding/onboarding_data.dart';
+import 'package:geolocator/geolocator.dart';
 
 Me fakeMe({
   String role = 'agent',
@@ -23,8 +24,10 @@ Me fakeMe({
   String subscriptionStatus = 'active',
   Set<String>? features,
   int workdayMinutes = 480,
+  bool submissionRequiresDay = true,
 }) => Me(
   workdayMinutes: workdayMinutes,
+  submissionRequiresDay: submissionRequiresDay,
   subscriptionStatus: subscriptionStatus,
   features:
       features ??
@@ -431,6 +434,16 @@ class FakeRepository extends Repository {
 
   /// Liste vue par un agent : formulaires envoyés sur chaque mission.
   bool withMyForms = false;
+
+  /// Formulaires envoyés au serveur ; `submitError` simule un refus ou une coupure.
+  final submittedForms = <Map<String, dynamic>>[];
+  ApiException? submitError;
+
+  @override
+  Future<void> submit(String missionId, Map<String, dynamic> body) async {
+    if (submitError != null) throw submitError!;
+    submittedForms.add({...body, 'missionId': missionId});
+  }
 
   /// Équipe de l'agent (/me/team).
   AgentTeam agentTeam = const AgentTeam(
@@ -1004,6 +1017,21 @@ class FakeTracker extends LocationTracker {
 
   @override
   bool get isTracking => _tracking;
+
+  /// Dernière position connue (formulaires) : position fixe au Plateau.
+  @override
+  Future<Position?> lastKnown() async => Position(
+    latitude: 5.32,
+    longitude: -4.02,
+    timestamp: DateTime.now(),
+    accuracy: 8,
+    altitude: 0,
+    altitudeAccuracy: 0,
+    heading: 0,
+    headingAccuracy: 0,
+    speed: 0,
+    speedAccuracy: 0,
+  );
 
   @override
   Future<void> start(String dayId, {required String structure}) async {

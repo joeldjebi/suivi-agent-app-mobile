@@ -13,6 +13,7 @@ import '../../widgets/common.dart';
 import '../profile/my_team.dart';
 import 'missions_controller.dart';
 import '../day/day_controller.dart';
+import 'rejected_submissions.dart';
 
 class MissionsScreen extends ConsumerStatefulWidget {
   const MissionsScreen({super.key});
@@ -116,6 +117,9 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
                         onChanged: (v) => setState(() => _done = v),
                       ),
                       if (!leader) ...[
+                        const RejectedSubmissionsBanner(
+                          padding: EdgeInsets.only(top: Space.md),
+                        ),
                         const SizedBox(height: Space.md),
                         _ScopeChips(
                           all: all,

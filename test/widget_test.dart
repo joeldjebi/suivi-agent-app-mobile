@@ -17,6 +17,8 @@ import 'package:suivi_agent/features/team/map_options.dart';
 import 'package:suivi_agent/widgets/form_rows.dart';
 
 import 'fakes.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:suivi_agent/core/database.dart';
 
 /// Écran de téléphone (390 × 844) : la mise en page réelle, pas une fenêtre 800 × 600.
 void _phone(WidgetTester tester) {
@@ -1118,6 +1120,8 @@ void main() {
     await _tapText(tester, 'Mes participations (2)');
     expect(find.text('120 visites cette semaine'), findsOneWidget);
     expect(find.text('Relance clients Cocody'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('agent sans groupe : la raison de l’absence de zones', (
@@ -1141,6 +1145,8 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.textContaining('rattaché à aucun groupe'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets(
@@ -1173,6 +1179,8 @@ void main() {
         scrollable: find.byType(Scrollable).last,
       );
       expect(find.text('Par formulaire accepté'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
     },
   );
 
@@ -1189,6 +1197,8 @@ void main() {
     expect(find.textContaining('Démarrez votre journée'), findsOneWidget);
     expect(find.text('Nouveau formulaire'), findsNothing);
     expect(find.text('Ma journée'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('agent à temps partiel : objectif du jour selon sa durée', (
@@ -1201,5 +1211,124 @@ void main() {
     await _settle(tester);
     expect(find.text('4 h 30 de terrain'), findsOneWidget);
     expect(find.text('sur 4 h 30'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
   });
+
+  Future<void> fillForm(WidgetTester tester, String commerce) async {
+    await tester.enterText(find.byType(TextFormField).first, commerce);
+    await tester.tap(find.text('Oui'));
+    await _settle(tester);
+  }
+
+  testWidgets('formulaire refusé à l’envoi : reste à l’écran avec le motif', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FakeRepository()
+      ..submitError = ApiException(
+        'Cette mission se fait à : Plateau',
+        status: 409,
+        code: 'WRONG_ZONE',
+      );
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(submissionRequiresDay: false)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await tester.tap(_tab('Missions'));
+    await _settle(tester);
+    await _tapText(tester, '120 visites cette semaine');
+    await _tapText(tester, 'Nouveau formulaire');
+    await fillForm(tester, 'Boutique Awa');
+    await _tapText(tester, 'Enregistrer');
+
+    // Le formulaire n'est ni perdu ni annoncé « enregistré » : le motif s'affiche.
+    expect(
+      find.text('Refusé : Cette mission se fait à : Plateau'),
+      findsOneWidget,
+    );
+    expect(find.text('Boutique Awa'), findsOneWidget);
+    expect(find.textContaining('enregistré'), findsNothing);
+
+    // Une fois le problème réglé, l'envoi passe.
+    repo.submitError = null;
+    await _tapText(tester, 'Enregistrer');
+    debugPrint(
+      'T2: ${repo.submittedForms.length} ${find.byType(Text).evaluate().map((e) => (e.widget as Text).data).where((t) => t != null).join(' | ')}',
+    );
+    expect(find.text('Formulaire envoyé.'), findsOneWidget);
+    expect(repo.submittedForms.single['data'], {
+      'commerce': 'Boutique Awa',
+      'interesse': true,
+    });
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets(
+    'formulaire refusé en arrière-plan : bandeau, correction et renvoi',
+    (tester) async {
+      _phone(tester);
+      final repo = FakeRepository();
+      await tester.pumpWidget(
+        testApp(
+          auth: () => SignedInAuth(fakeMe(submissionRequiresDay: false)),
+          repo: repo,
+        ),
+      );
+      await _settle(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SuiviAgentApp)),
+      );
+      final db = container.read(databaseProvider);
+      await db
+          .into(db.pendingSubmissions)
+          .insert(
+            PendingSubmissionsCompanion.insert(
+              clientId: 'old',
+              missionId: 'm1',
+              missionTitle: '120 visites cette semaine',
+              dataJson: '{"commerce":"Boutique Awa","interesse":true}',
+              submittedAt: DateTime.now().toUtc(),
+              error: const Value(
+                'Démarrez votre journée pour envoyer un formulaire',
+              ),
+              errorCode: const Value('DAY_REQUIRED'),
+            ),
+          );
+      await _settle(tester);
+
+      expect(
+        find.text('1 formulaire refusé : à corriger ou supprimer.'),
+        findsOneWidget,
+      );
+      await _tapText(tester, 'Voir');
+      expect(
+        find.text('Démarrez votre journée pour envoyer un formulaire'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Démarrez votre journée dans la zone'),
+        findsOneWidget,
+      );
+      await _tapText(tester, 'Corriger');
+
+      // Formulaire rouvert avec ses valeurs et le motif du refus.
+      expect(find.text('Corriger le formulaire'), findsOneWidget);
+      expect(find.text('Boutique Awa'), findsOneWidget);
+      expect(
+        find.textContaining('Refusé : Démarrez votre journée'),
+        findsOneWidget,
+      );
+      await _tapText(tester, 'Enregistrer');
+      expect(repo.submittedForms, hasLength(1));
+      expect(await db.select(db.pendingSubmissions).get(), isEmpty);
+      expect(find.textContaining('formulaire refusé'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
+    },
+  );
 }

@@ -17,6 +17,7 @@ import 'location_consent.dart';
 import 'zone_map.dart';
 import 'zone_picker.dart';
 import '../profile/my_team.dart';
+import '../missions/rejected_submissions.dart';
 
 /// Durée de référence d'une journée, pour la barre de progression.
 
@@ -186,6 +187,10 @@ class _DayContent extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (state.isWorking) const OutsideZoneBanner(),
+        if (me.isAgent)
+          const RejectedSubmissionsBanner(
+            padding: EdgeInsets.only(bottom: Space.lg),
+          ),
         _StatusCard(
           state: state,
           zoneName: zone,

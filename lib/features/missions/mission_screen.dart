@@ -15,6 +15,7 @@ import '../../widgets/common.dart';
 import 'missions_controller.dart';
 import 'missions_screen.dart';
 import '../day/day_controller.dart';
+import '../../core/sync.dart';
 
 enum _Tab { overview, team, forms }
 
@@ -795,6 +796,11 @@ class _FormsTabState extends ConsumerState<_FormsTab> {
                 onDiscard: s.error != null
                     ? () => discardSubmission(ref, s.clientId)
                     : null,
+                onRetry: s.error != null && canRetrySubmission(s.errorCode)
+                    ? () => context.push(
+                        '/missions/${mission.id}/new?retry=${s.clientId}',
+                      )
+                    : null,
               ),
           ],
         ),
@@ -1304,6 +1310,7 @@ class _SubmissionRow extends StatelessWidget {
     required this.subtitle,
     this.chip,
     this.onDiscard,
+    this.onRetry,
     this.onTap,
   });
 
@@ -1311,6 +1318,9 @@ class _SubmissionRow extends StatelessWidget {
   final String subtitle;
   final Widget? chip;
   final VoidCallback? onDiscard;
+
+  /// Formulaire refusé : le rouvrir pour corriger et renvoyer.
+  final VoidCallback? onRetry;
   final VoidCallback? onTap;
 
   @override
@@ -1344,6 +1354,12 @@ class _SubmissionRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             ?chip,
+            if (onRetry != null)
+              IconButton(
+                tooltip: 'Corriger et renvoyer',
+                onPressed: onRetry,
+                icon: const Icon(Icons.edit_note_rounded),
+              ),
             if (onDiscard != null)
               IconButton(
                 tooltip: 'Supprimer ce formulaire',
