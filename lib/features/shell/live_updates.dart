@@ -10,6 +10,7 @@ import '../day/day_controller.dart';
 import '../missions/mission_editor_screen.dart';
 import '../missions/missions_controller.dart';
 import '../pay/pay_screens.dart';
+import '../profile/my_team.dart';
 import '../profile/notifications_screen.dart';
 import '../team/alerts_screen.dart';
 import '../team/report_screen.dart';
@@ -136,7 +137,9 @@ class LiveUpdates {
       switch (area) {
         case LiveArea.profile:
           unawaited(ref.read(authProvider.notifier).refresh());
+          ref.invalidate(myTeamProvider);
         case LiveArea.day:
+          ref.invalidate(myTeamProvider);
           if (ref.exists(dayProvider)) {
             unawaited(ref.read(dayProvider.notifier).refresh());
           }

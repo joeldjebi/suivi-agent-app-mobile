@@ -15,6 +15,7 @@ import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../../widgets/user_avatar.dart';
 import '../pay/pay_screens.dart';
+import 'my_team.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -217,6 +218,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
               ],
             ),
+          if (me.isAgent) const MyTeamSection(),
           GroupedList(
             header: 'Ma structure',
             children: [
@@ -227,7 +229,7 @@ class ProfileScreen extends ConsumerWidget {
               if (branding.supportPhone != null)
                 ListRow(
                   leading: icon(Icons.call_rounded, const Color(0xFF34A853)),
-                  title: 'Appeler mon responsable',
+                  title: 'Appeler la structure',
                   value: branding.supportPhone,
                   onTap: () => launchUrl(
                     Uri(

@@ -16,6 +16,7 @@ import 'day_controller.dart';
 import 'location_consent.dart';
 import 'zone_map.dart';
 import 'zone_picker.dart';
+import '../profile/my_team.dart';
 
 /// Durée de référence d'une journée, pour la barre de progression.
 const _workdayTarget = Duration(hours: 8);
@@ -192,6 +193,7 @@ class _DayContent extends ConsumerWidget {
         if (state.pending != null ||
             (!state.isWorking && state.approved != null))
           _ZoneGroup(state: state, zoneName: zoneName, me: me),
+        if (!state.isWorking && me.isAgent) const MyTeamCard(),
         if (!state.isWorking && branding.welcomeMessage != null) ...[
           const SizedBox(height: Space.xl),
           _MessageCard(branding: branding),

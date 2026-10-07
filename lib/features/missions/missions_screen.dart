@@ -10,6 +10,7 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/common.dart';
+import '../profile/my_team.dart';
 import 'missions_controller.dart';
 
 class MissionsScreen extends ConsumerStatefulWidget {
@@ -19,8 +20,20 @@ class MissionsScreen extends ConsumerStatefulWidget {
   ConsumerState<MissionsScreen> createState() => _MissionsScreenState();
 }
 
+/// Filtre de l'agent : toutes, assignées à lui, à son groupe, ou celles où il a envoyé
+/// des formulaires.
+enum _Scope { all, mine, group, contributed }
+
+bool _inScope(Mission m, _Scope scope) => switch (scope) {
+  _Scope.all => true,
+  _Scope.mine => !m.forGroup,
+  _Scope.group => m.forGroup,
+  _Scope.contributed => (m.myForms ?? 0) > 0,
+};
+
 class _MissionsScreenState extends ConsumerState<MissionsScreen> {
   bool _done = false;
+  _Scope _scope = _Scope.all;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +63,14 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
               ),
             ],
           ),
-          data: (list) {
+          data: (all) {
+            // Agent : filtre par affectation (le chef voit toutes les missions de ses équipes).
+            final list = leader
+                ? all
+                : all.where((m) => _inScope(m, _scope)).toList();
+            final groupName = leader
+                ? null
+                : ref.watch(myTeamProvider).value?.groupName;
             final open = list
                 .where(
                   (m) =>
@@ -87,12 +107,22 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
                         selected: _done,
                         onChanged: (v) => setState(() => _done = v),
                       ),
+                      if (!leader) ...[
+                        const SizedBox(height: Space.md),
+                        _ScopeChips(
+                          all: all,
+                          selected: _scope,
+                          onChanged: (s) => setState(() => _scope = s),
+                        ),
+                      ],
                       const SizedBox(height: Space.lg),
                       if (shown.isEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: Space.xxxl),
                           child: Text(
-                            _done
+                            _scope != _Scope.all
+                                ? 'Aucune mission dans ce filtre.'
+                                : _done
                                 ? 'Aucune mission terminée.'
                                 : 'Aucune mission en cours.\nVos missions apparaîtront ici.',
                             textAlign: TextAlign.center,
@@ -105,7 +135,8 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
                         GroupedList(
                           indent: 62,
                           children: [
-                            for (final m in shown) MissionCard(mission: m),
+                            for (final m in shown)
+                              MissionCard(mission: m, groupName: groupName),
                           ],
                         ),
                     ],
@@ -141,9 +172,12 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
 
 /// Ligne de mission : petit anneau de progression, titre, avancement, pourcentage.
 class MissionCard extends StatelessWidget {
-  const MissionCard({super.key, required this.mission});
+  const MissionCard({super.key, required this.mission, this.groupName});
 
   final Mission mission;
+
+  /// Agent : nom de son groupe, pour les missions collectives.
+  final String? groupName;
 
   @override
   Widget build(BuildContext context) {
@@ -152,9 +186,17 @@ class MissionCard extends StatelessWidget {
     final (label, _, tone) = missionStatus(mission.status);
     final p = mission.progress;
     final color = toneColor(context, tone == Tone.neutral ? Tone.info : tone);
+    // Agent (la liste porte ses formulaires envoyés) : affectation et participation.
+    final agentView = mission.myForms != null;
+    final forms = mission.myForms ?? 0;
     final details = [
       if (!mission.isActive) 'Désactivée',
-      if (mission.forGroup) 'Équipe',
+      if (agentView)
+        mission.forGroup ? (groupName ?? 'Mon groupe') : 'Personnelle'
+      else if (mission.forGroup)
+        'Équipe',
+      if (forms > 0)
+        '$forms formulaire${forms > 1 ? 's' : ''} envoyé${forms > 1 ? 's' : ''}',
       mission.progressMethod == 'manual'
           ? 'Validation du responsable'
           : '${formatNumber(p.current)} sur ${formatNumber(p.target)}',
@@ -184,6 +226,48 @@ class MissionCard extends StatelessWidget {
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Filtres de l'agent, avec le nombre de missions de chacun.
+class _ScopeChips extends StatelessWidget {
+  const _ScopeChips({
+    required this.all,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<Mission> all;
+  final _Scope selected;
+  final ValueChanged<_Scope> onChanged;
+
+  static const _labels = {
+    _Scope.all: 'Toutes',
+    _Scope.mine: 'À moi',
+    _Scope.group: 'Mon groupe',
+    _Scope.contributed: 'Mes participations',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final scope in _Scope.values) ...[
+            ChoiceChip(
+              label: Text(
+                '${_labels[scope]} (${all.where((m) => _inScope(m, scope)).length})',
+              ),
+              selected: selected == scope,
+              showCheckmark: false,
+              onSelected: (_) => onChanged(scope),
+            ),
+            const SizedBox(width: Space.sm),
+          ],
+        ],
       ),
     );
   }

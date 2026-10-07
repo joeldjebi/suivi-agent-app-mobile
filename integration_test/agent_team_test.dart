@@ -1,12 +1,10 @@
-// Affichage des cartes sur simulateur (vraies tuiles OpenStreetMap), contre l'API locale.
-// Le script de lancement prépare des agents en journée et choisit le thème du simulateur.
+// Agent : son chef, son groupe, ses zones et ses missions, sur simulateur contre l'API locale (démo).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:suivi_agent/core/database.dart';
 import 'package:suivi_agent/core/session.dart';
-import 'package:suivi_agent/design/components.dart';
 import 'package:suivi_agent/main.dart' as app;
 
 Future<void> waitFor(
@@ -63,34 +61,28 @@ void main() {
     await tester.tap(find.text('Se connecter'));
   }
 
-  testWidgets('chef : carte de l’équipe', (tester) async {
-    await login(tester, '07 01 01 01 01');
-    await waitFor(tester, find.text('Mon équipe'));
-    await tester.tap(
-      find.descendant(of: find.byType(AppNavBar), matching: find.text('Carte')),
+  testWidgets('agent : mon équipe et mes missions', (tester) async {
+    await login(tester, '07 02 02 02 01');
+    await waitFor(tester, find.text('Ma journée'));
+    await waitFor(tester, find.text('Yao Kouassi'));
+    await tester.scrollUntilVisible(
+      find.text('Yao Kouassi'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
-    await settle(tester, 2000);
-    await shot(tester, '01-carte-equipe');
-    await tester.tap(find.byIcon(Icons.add_rounded));
-    await tester.tap(find.byIcon(Icons.add_rounded));
-    await shot(tester, '02-zoom');
-    await tester.tap(find.byIcon(Icons.zoom_out_map_rounded));
-    await settle(tester, 1500);
-    await tester.tap(find.text('AD').last);
-    await settle(tester, 1500);
-    await shot(tester, '03-fiche-agent');
-    await tester.tapAt(const Offset(200, 300));
+    await shot(tester, '01-journee');
+
+    await tester.tap(find.text('Profil').last);
+    await waitFor(tester, find.text('MON ÉQUIPE'));
+    await shot(tester, '02-profil');
+
+    await tester.tap(find.text('Missions').last);
+    await waitFor(tester, find.textContaining('Toutes ('));
+    await tester.tap(find.textContaining('Terminées'));
+    await waitFor(tester, find.textContaining('formulaires envoyés'));
+    await shot(tester, '03-missions');
+    await tester.tap(find.textContaining('Mes participations'));
     await settle(tester);
-    await tester.tap(find.byIcon(Icons.layers_outlined));
-    await settle(tester);
-    await shot(tester, '04-options');
-    await tester.tap(find.text('Sombre'));
-    await tester.tapAt(const Offset(200, 120));
-    await settle(tester);
-    await shot(tester, '05-sombre');
-    await tester.tap(find.byIcon(Icons.layers_outlined));
-    await settle(tester);
-    await tester.tap(find.text('Standard'));
-    await settle(tester);
+    await shot(tester, '04-participations');
   });
 }

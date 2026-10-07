@@ -407,8 +407,40 @@ class FakeRepository extends Repository {
     groupMissing: false,
   );
 
+  /// Liste vue par un agent : formulaires envoyés sur chaque mission.
+  bool withMyForms = false;
+
+  /// Équipe de l'agent (/me/team).
+  AgentTeam agentTeam = const AgentTeam(
+    usesGroups: true,
+    groupMissing: false,
+    groupId: 'g1',
+    groupName: 'Équipe Nord',
+    members: 4,
+    leads: [
+      TeamLeadContact(
+        id: 'l1',
+        firstName: 'Yao',
+        lastName: 'Kouassi',
+        phone: '07 01 01 01 01',
+      ),
+    ],
+    zones: [(id: 'z1', name: 'Plateau', capacity: 5)],
+  );
+
+  @override
+  Future<AgentTeam> myTeam() async => agentTeam;
+
   @override
   Future<List<Map<String, dynamic>>> missionsJson() async => [
+    for (final m in await _missions())
+      {
+        ...m,
+        if (withMyForms) 'myForms': const {'m1': 3, 'm3': 1}[m['id']] ?? 0,
+      },
+  ];
+
+  Future<List<Map<String, dynamic>>> _missions() async => [
     {
       'id': 'm1',
       'title': '120 visites cette semaine',

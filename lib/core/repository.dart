@@ -20,6 +20,10 @@ class Repository {
   Future<Map<String, dynamic>> meJson() =>
       api.get<Map<String, dynamic>>('/auth/me');
 
+  /// Agent : son groupe, son ou ses chefs et les zones qu'il peut choisir.
+  Future<AgentTeam> myTeam() async =>
+      AgentTeam.fromJson(await api.get<Map<String, dynamic>>('/me/team'));
+
   Future<void> logout(String refreshToken) =>
       api.post<void>('/auth/logout', {'refreshToken': refreshToken});
 

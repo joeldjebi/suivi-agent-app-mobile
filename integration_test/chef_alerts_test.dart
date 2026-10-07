@@ -50,6 +50,16 @@ void main() {
     tester,
   ) async {
     app.main();
+    // Premier lancement : l'onboarding passe avant la connexion.
+    await waitFor(
+      tester,
+      find.byWidgetPredicate(
+        (w) => w is Text && (w.data == 'Se connecter' || w.data == 'Passer'),
+      ),
+    );
+    if (find.text('Passer').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Passer'));
+    }
     await waitFor(tester, find.text('Se connecter'));
     await tester.enterText(find.byType(TextFormField).at(0), '07 01 01 01 01');
     await tester.enterText(find.byType(TextFormField).at(1), 'Password123!');

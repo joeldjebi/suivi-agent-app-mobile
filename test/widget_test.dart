@@ -515,7 +515,7 @@ void main() {
       await tester.tap(find.text('Sombre').last);
       await _settle(tester);
       expect(
-        Theme.of(tester.element(find.text('MON COMPTE'))).brightness,
+        Theme.of(tester.element(find.text('Apparence').first)).brightness,
         Brightness.dark,
       );
       expect(tester.takeException(), isNull);
@@ -1060,5 +1060,76 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('agent : son chef, son groupe, ses zones et ses missions', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FakeRepository()..withMyForms = true;
+    await tester.pumpWidget(
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+    );
+    await _settle(tester);
+
+    // Journée : le chef à contacter et le groupe.
+    await tester.scrollUntilVisible(
+      find.text('Yao Kouassi'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Mon chef d’équipe · Équipe Nord'), findsOneWidget);
+    expect(find.byTooltip('Appeler Yao Kouassi'), findsOneWidget);
+    expect(find.byTooltip('WhatsApp Yao Kouassi'), findsOneWidget);
+
+    // Profil : section « Mon équipe ».
+    await tester.tap(_tab('Profil'));
+    await _settle(tester);
+    expect(find.text('MON ÉQUIPE'), findsOneWidget);
+    expect(find.text('Équipe Nord'), findsOneWidget);
+    expect(find.text('4 agents'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Ma zone'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Plateau'), findsOneWidget);
+
+    // Missions : affectation, participations et filtres.
+    await tester.tap(_tab('Missions'));
+    await _settle(tester);
+    expect(find.text('Toutes (3)'), findsOneWidget);
+    expect(find.textContaining('Équipe Nord · '), findsWidgets);
+    expect(find.textContaining('3 formulaires envoyés'), findsOneWidget);
+    expect(find.textContaining('Personnelle'), findsOneWidget);
+    await _tapText(tester, 'À moi (1)');
+    expect(find.text('Relance clients Cocody'), findsOneWidget);
+    expect(find.text('120 visites cette semaine'), findsNothing);
+    await _tapText(tester, 'Mes participations (2)');
+    expect(find.text('120 visites cette semaine'), findsOneWidget);
+    expect(find.text('Relance clients Cocody'), findsNothing);
+  });
+
+  testWidgets('agent sans groupe : la raison de l’absence de zones', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FakeRepository()
+      ..agentTeam = const AgentTeam(
+        usesGroups: true,
+        groupMissing: true,
+        leads: [],
+        zones: [],
+      );
+    await tester.pumpWidget(
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+    );
+    await _settle(tester);
+    await tester.scrollUntilVisible(
+      find.textContaining('rattaché à aucun groupe'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('rattaché à aucun groupe'), findsOneWidget);
   });
 }

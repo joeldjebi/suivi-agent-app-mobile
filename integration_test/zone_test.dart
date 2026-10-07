@@ -66,6 +66,16 @@ void main() {
     // Au cœur du Plateau avant l'ouverture de l'app.
     await moveTo(tester, 5.3205, -4.0215);
     app.main();
+    // Premier lancement : l'onboarding passe avant la connexion.
+    await waitFor(
+      tester,
+      find.byWidgetPredicate(
+        (w) => w is Text && (w.data == 'Se connecter' || w.data == 'Passer'),
+      ),
+    );
+    if (find.text('Passer').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Passer'));
+    }
     await waitFor(tester, find.text('Se connecter'));
     await tester.enterText(find.byType(TextFormField).at(0), '07 02 02 02 02');
     await tester.enterText(find.byType(TextFormField).at(1), 'Password123!');

@@ -415,9 +415,13 @@ class Mission {
     this.assigneeGroupId,
     this.hasOwnPay = false,
     this.earnings,
+    this.myForms,
   });
 
   final String? typeId;
+
+  /// Agent : formulaires qu'il a envoyés sur cette mission (liste des missions).
+  final int? myForms;
 
   /// Rémunération propre à la mission (fixée par l'administrateur).
   final bool hasOwnPay;
@@ -481,6 +485,7 @@ class Mission {
       assigneeAgentId: json['assigneeAgentId'] as String?,
       assigneeGroupId: json['assigneeGroupId'] as String?,
       hasOwnPay: json['hasOwnPay'] as bool? ?? false,
+      myForms: (json['myForms'] as num?)?.toInt(),
       earnings: json['myEarnings'] == null
           ? null
           : MissionEarnings.fromJson(
@@ -1305,4 +1310,76 @@ class PayRunDetail {
         PayAdjustmentInfo.fromJson(a as Map<String, dynamic>),
     ],
   );
+}
+
+/// Chef d'équipe à contacter depuis l'app de l'agent.
+class TeamLeadContact {
+  const TeamLeadContact({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    this.phone,
+  });
+
+  final String id;
+  final String firstName;
+  final String lastName;
+  final String? phone;
+
+  String get fullName => '$firstName $lastName'.trim();
+  String get initials =>
+      '${firstName.isEmpty ? '' : firstName[0]}${lastName.isEmpty ? '' : lastName[0]}'
+          .toUpperCase();
+
+  factory TeamLeadContact.fromJson(Map<String, dynamic> j) => TeamLeadContact(
+    id: j['id'] as String,
+    firstName: j['firstName'] as String? ?? '',
+    lastName: j['lastName'] as String? ?? '',
+    phone: j['phone'] as String?,
+  );
+}
+
+/// Équipe de l'agent : groupe, chef(s) et zones qu'il peut choisir.
+class AgentTeam {
+  const AgentTeam({
+    required this.usesGroups,
+    required this.groupMissing,
+    required this.leads,
+    required this.zones,
+    this.groupId,
+    this.groupName,
+    this.members = 0,
+  });
+
+  final bool usesGroups;
+
+  /// Groupes utilisés mais agent rattaché à aucun : aucune zone possible.
+  final bool groupMissing;
+  final String? groupId;
+  final String? groupName;
+  final int members;
+  final List<TeamLeadContact> leads;
+  final List<({String id, String name, int? capacity})> zones;
+
+  factory AgentTeam.fromJson(Map<String, dynamic> j) {
+    final group = j['group'] as Map<String, dynamic>?;
+    return AgentTeam(
+      usesGroups: j['usesGroups'] as bool? ?? false,
+      groupMissing: j['groupMissing'] as bool? ?? false,
+      groupId: group?['id'] as String?,
+      groupName: group?['name'] as String?,
+      members: (group?['members'] as num?)?.toInt() ?? 0,
+      leads: (j['leads'] as List? ?? [])
+          .map((l) => TeamLeadContact.fromJson(l as Map<String, dynamic>))
+          .toList(),
+      zones: (j['zones'] as List? ?? []).map((z) {
+        final m = z as Map<String, dynamic>;
+        return (
+          id: m['id'] as String,
+          name: m['name'] as String,
+          capacity: (m['capacity'] as num?)?.toInt(),
+        );
+      }).toList(),
+    );
+  }
 }
