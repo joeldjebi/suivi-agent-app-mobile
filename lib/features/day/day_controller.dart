@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/day_timer.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 
@@ -14,6 +15,7 @@ class DayController extends AsyncNotifier<DayState> {
     ref.onDispose(() => _poll?.cancel());
     final state = await ref.read(repositoryProvider).currentDay();
     await _applyTracking(state);
+    unawaited(_applyTimer(state));
     _schedulePoll(state);
     return state;
   }
@@ -26,6 +28,7 @@ class DayController extends AsyncNotifier<DayState> {
     if (next.hasValue || !state.hasValue) state = next;
     if (next.hasValue) {
       await _applyTracking(next.requireValue);
+      unawaited(_applyTimer(next.requireValue));
       _schedulePoll(next.requireValue);
     }
   }
@@ -73,6 +76,46 @@ class DayController extends AsyncNotifier<DayState> {
       await tracker.stop();
       ref.read(zoneGuardProvider).stop();
     }
+  }
+
+  /// Noms des zones déjà lus, pour l'affichage du chrono.
+  final _zoneNames = <String, String>{};
+
+  /// Chrono de la journée sur l'écran verrouillé : affiché en journée et en pause, retiré
+  /// à la fin de la journée.
+  Future<void> _applyTimer(DayState s) async {
+    final timer = ref.read(dayTimerProvider);
+    final day = s.day;
+    if (day == null || day.status == DayStatus.ended) return timer.clear();
+    final me = ref.read(meProvider);
+    final zoneId = day.zoneId;
+    String? zone;
+    if (zoneId != null) {
+      final guarded = ref.read(zoneGuardProvider).zone;
+      if (guarded?.id == zoneId) _zoneNames[zoneId] = guarded!.name;
+      if (!_zoneNames.containsKey(zoneId)) {
+        try {
+          final zones = await ref.read(repositoryProvider).availableZones();
+          for (final z in zones.zones) {
+            _zoneNames[z.id] = z.name;
+          }
+        } catch (_) {
+          // Sans réseau : le chrono s'affiche sans le nom de la zone.
+        }
+      }
+      zone = _zoneNames[zoneId];
+    }
+    final now = DateTime.now();
+    await timer.show(
+      DayTimerInfo(
+        paused: day.status == DayStatus.paused,
+        worked: day.worked(now),
+        pausedAt: day.currentPauseStartedAt,
+        objective: Duration(minutes: me.workdayMinutes),
+        zone: zone,
+        structure: ref.read(brandingProvider).displayName,
+      ),
+    );
   }
 
   /// Zone du jour pour la surveillance sur le téléphone ; contours chargés au changement.

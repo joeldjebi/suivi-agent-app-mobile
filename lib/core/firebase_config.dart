@@ -21,10 +21,10 @@ class FirebaseConfig {
 
   static const ios = FirebaseOptions(
     apiKey: 'AIzaSyA4YFLjKru_W9WF6KdI3QmTzpUcK9gXUrg',
-    appId: '1:414870340041:ios:0855b4cf4e95ec8d6aa818',
+    appId: '1:414870340041:ios:a5bde55e97f825196aa818',
     messagingSenderId: '414870340041',
     projectId: 'suivi-agent',
     storageBucket: 'suivi-agent.firebasestorage.app',
-    iosBundleId: 'ci.suiviagent.suiviAgent',
+    iosBundleId: 'ci.suiviagent.app',
   );
 }

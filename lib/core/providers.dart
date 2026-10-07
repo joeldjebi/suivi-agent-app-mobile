@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart' show ThemeMode;
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'branding.dart';
 import 'database.dart';
+import 'day_timer.dart';
 import 'local_alerts.dart';
 import 'models.dart';
 import 'push.dart';
@@ -67,6 +69,13 @@ final syncProvider = ChangeNotifierProvider<SyncService>((ref) {
   );
   return sync;
 });
+
+/// Chrono de la journée sur l'écran verrouillé (inactif pendant les tests automatisés).
+final dayTimerProvider = Provider<DayTimer>(
+  (ref) => Platform.environment.containsKey('FLUTTER_TEST')
+      ? const NoDayTimer()
+      : DeviceDayTimer(),
+);
 
 final pendingCountProvider = StreamProvider<int>(
   (ref) => ref.watch(databaseProvider).watchPendingCount(),
@@ -271,6 +280,7 @@ class AuthController extends Notifier<AuthState> {
     await ref.read(trackerProvider).stop();
     ref.read(zoneGuardProvider).stop();
     ref.read(syncProvider).stop();
+    await ref.read(dayTimerProvider).clear();
     await ref.read(pushProvider).forget();
     await _session.clear();
     await ref.read(databaseProvider).wipe();

@@ -27,6 +27,9 @@ import UserNotifications
       }
       pushActions = channel
     }
+    if let registrar = registrar(forPlugin: "SuiviDayActivity") {
+      DayActivityBridge.register(messenger: registrar.messenger())
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

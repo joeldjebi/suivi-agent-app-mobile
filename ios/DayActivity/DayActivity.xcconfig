@@ -1,0 +1,2 @@
+// Version de l’app (FLUTTER_BUILD_NAME, FLUTTER_BUILD_NUMBER), sans les réglages CocoaPods de Runner.
+#include "../Flutter/Generated.xcconfig"

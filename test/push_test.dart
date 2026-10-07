@@ -34,6 +34,9 @@ void main() {
     expect(chef({'type': 'zone_exit'}), '/alerts');
     expect(chef({'type': 'team.message'}), '/report');
     expect(agent({'type': 'team.message'}), '/notifications');
+    // Message de l'administrateur : la liste des notifications, où il est lu en entier.
+    expect(agent({'type': 'broadcast'}), '/notifications');
+    expect(chef({'type': 'broadcast'}), '/notifications');
     // Type inconnu ou avis d'abonnement : la liste des notifications.
     expect(agent({'type': 'subscription.suspended'}), '/notifications');
     expect(agent({}), '/notifications');

@@ -161,7 +161,7 @@ class LocationTracker extends ChangeNotifier {
         distanceFilter: distanceFilterMeters,
         intervalDuration: const Duration(seconds: 20),
         foregroundNotificationConfig: ForegroundNotificationConfig(
-          notificationTitle: 'Journée en cours',
+          notificationTitle: 'Position partagée',
           notificationText:
               'Votre position est partagée avec $structure jusqu’à la fin de votre journée.',
           notificationChannelName: 'Suivi de la journée',

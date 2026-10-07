@@ -67,7 +67,9 @@
 		<array>
 			<string>tel</string>
 		</array>
-		<key>UIBackgroundModes</key>
+		<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIBackgroundModes</key>
 		<array>
 			<string>location</string>
 			<string>fetch</string>
