@@ -58,6 +58,9 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
   local_auth: ^3.0.2
+  battery_plus: ^7.1.2
+  package_info_plus: ^10.2.2
+  sentry_flutter: ^9.0.0
 
 dev_dependencies:
   flutter_test:

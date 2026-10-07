@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'core/app_version.dart';
+import 'features/shell/update_screen.dart';
 import 'features/safety/sos.dart';
 import 'features/safety/lock_screen.dart';
 import 'core/app_lock.dart';
@@ -153,6 +155,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     authProvider.select((a) => a.runtimeType),
     (_, _) => listenable.notify(),
   );
+  // Mise à jour obligatoire : l'app est bloquée sur son écran.
+  ref.listen(
+    updateProvider.select((u) => u?.required ?? false),
+    (_, _) => listenable.notify(),
+  );
   // Onboarding : vérifié au démarrage, puis terminé par l'utilisateur.
   ref.listen(
     onboardingProvider.select((o) => o.runtimeType),
@@ -178,6 +185,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onboarding = ref.read(onboardingProvider);
       final atLogin = state.matchedLocation == '/login';
       final at = state.matchedLocation;
+      if (ref.read(updateProvider)?.required ?? false) {
+        return at == '/update' ? null : '/update';
+      }
       // Démarrage : session et onboarding vérifiés derrière l'écran de démarrage.
       if (auth is AuthLoading || onboarding is OnboardingChecking) {
         return at == '/splash' ? null : '/splash';
@@ -194,13 +204,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           atLogin ||
                   at == '/splash' ||
                   at == '/onboarding' ||
-                  at == '/suspended'
+                  at == '/suspended' ||
+                  at == '/update'
               ? home
               : null,
       };
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/update', builder: (_, _) => const UpdateScreen()),
       GoRoute(
         path: '/onboarding',
         builder: (_, _) => Consumer(

@@ -95,6 +95,17 @@ class $PendingPositionsTable extends PendingPositions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _batteryMeta = const VerificationMeta(
+    'battery',
+  );
+  @override
+  late final GeneratedColumn<double> battery = GeneratedColumn<double>(
+    'battery',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -105,6 +116,7 @@ class $PendingPositionsTable extends PendingPositions
     speed,
     isMocked,
     recordedAt,
+    battery,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -173,6 +185,12 @@ class $PendingPositionsTable extends PendingPositions
     } else if (isInserting) {
       context.missing(_recordedAtMeta);
     }
+    if (data.containsKey('battery')) {
+      context.handle(
+        _batteryMeta,
+        battery.isAcceptableOrUnknown(data['battery']!, _batteryMeta),
+      );
+    }
     return context;
   }
 
@@ -214,6 +232,10 @@ class $PendingPositionsTable extends PendingPositions
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at'],
       )!,
+      battery: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}battery'],
+      ),
     );
   }
 
@@ -232,6 +254,9 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
   final double? speed;
   final bool isMocked;
   final DateTime recordedAt;
+
+  /// Batterie du téléphone, de 0 à 1 (alerte « batterie faible » du chef).
+  final double? battery;
   const PendingPosition({
     required this.id,
     required this.dayId,
@@ -241,6 +266,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
     this.speed,
     required this.isMocked,
     required this.recordedAt,
+    this.battery,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -255,6 +281,9 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
     }
     map['is_mocked'] = Variable<bool>(isMocked);
     map['recorded_at'] = Variable<DateTime>(recordedAt);
+    if (!nullToAbsent || battery != null) {
+      map['battery'] = Variable<double>(battery);
+    }
     return map;
   }
 
@@ -270,6 +299,9 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
           : Value(speed),
       isMocked: Value(isMocked),
       recordedAt: Value(recordedAt),
+      battery: battery == null && nullToAbsent
+          ? const Value.absent()
+          : Value(battery),
     );
   }
 
@@ -287,6 +319,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
       speed: serializer.fromJson<double?>(json['speed']),
       isMocked: serializer.fromJson<bool>(json['isMocked']),
       recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      battery: serializer.fromJson<double?>(json['battery']),
     );
   }
   @override
@@ -301,6 +334,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
       'speed': serializer.toJson<double?>(speed),
       'isMocked': serializer.toJson<bool>(isMocked),
       'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'battery': serializer.toJson<double?>(battery),
     };
   }
 
@@ -313,6 +347,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
     Value<double?> speed = const Value.absent(),
     bool? isMocked,
     DateTime? recordedAt,
+    Value<double?> battery = const Value.absent(),
   }) => PendingPosition(
     id: id ?? this.id,
     dayId: dayId ?? this.dayId,
@@ -322,6 +357,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
     speed: speed.present ? speed.value : this.speed,
     isMocked: isMocked ?? this.isMocked,
     recordedAt: recordedAt ?? this.recordedAt,
+    battery: battery.present ? battery.value : this.battery,
   );
   PendingPosition copyWithCompanion(PendingPositionsCompanion data) {
     return PendingPosition(
@@ -335,6 +371,7 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
       recordedAt: data.recordedAt.present
           ? data.recordedAt.value
           : this.recordedAt,
+      battery: data.battery.present ? data.battery.value : this.battery,
     );
   }
 
@@ -348,14 +385,24 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
           ..write('accuracy: $accuracy, ')
           ..write('speed: $speed, ')
           ..write('isMocked: $isMocked, ')
-          ..write('recordedAt: $recordedAt')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('battery: $battery')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, dayId, lat, lng, accuracy, speed, isMocked, recordedAt);
+  int get hashCode => Object.hash(
+    id,
+    dayId,
+    lat,
+    lng,
+    accuracy,
+    speed,
+    isMocked,
+    recordedAt,
+    battery,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -367,7 +414,8 @@ class PendingPosition extends DataClass implements Insertable<PendingPosition> {
           other.accuracy == this.accuracy &&
           other.speed == this.speed &&
           other.isMocked == this.isMocked &&
-          other.recordedAt == this.recordedAt);
+          other.recordedAt == this.recordedAt &&
+          other.battery == this.battery);
 }
 
 class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
@@ -379,6 +427,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
   final Value<double?> speed;
   final Value<bool> isMocked;
   final Value<DateTime> recordedAt;
+  final Value<double?> battery;
   const PendingPositionsCompanion({
     this.id = const Value.absent(),
     this.dayId = const Value.absent(),
@@ -388,6 +437,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
     this.speed = const Value.absent(),
     this.isMocked = const Value.absent(),
     this.recordedAt = const Value.absent(),
+    this.battery = const Value.absent(),
   });
   PendingPositionsCompanion.insert({
     this.id = const Value.absent(),
@@ -398,6 +448,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
     this.speed = const Value.absent(),
     this.isMocked = const Value.absent(),
     required DateTime recordedAt,
+    this.battery = const Value.absent(),
   }) : dayId = Value(dayId),
        lat = Value(lat),
        lng = Value(lng),
@@ -412,6 +463,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
     Expression<double>? speed,
     Expression<bool>? isMocked,
     Expression<DateTime>? recordedAt,
+    Expression<double>? battery,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -422,6 +474,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
       if (speed != null) 'speed': speed,
       if (isMocked != null) 'is_mocked': isMocked,
       if (recordedAt != null) 'recorded_at': recordedAt,
+      if (battery != null) 'battery': battery,
     });
   }
 
@@ -434,6 +487,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
     Value<double?>? speed,
     Value<bool>? isMocked,
     Value<DateTime>? recordedAt,
+    Value<double?>? battery,
   }) {
     return PendingPositionsCompanion(
       id: id ?? this.id,
@@ -444,6 +498,7 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
       speed: speed ?? this.speed,
       isMocked: isMocked ?? this.isMocked,
       recordedAt: recordedAt ?? this.recordedAt,
+      battery: battery ?? this.battery,
     );
   }
 
@@ -474,6 +529,9 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
     if (recordedAt.present) {
       map['recorded_at'] = Variable<DateTime>(recordedAt.value);
     }
+    if (battery.present) {
+      map['battery'] = Variable<double>(battery.value);
+    }
     return map;
   }
 
@@ -487,7 +545,8 @@ class PendingPositionsCompanion extends UpdateCompanion<PendingPosition> {
           ..write('accuracy: $accuracy, ')
           ..write('speed: $speed, ')
           ..write('isMocked: $isMocked, ')
-          ..write('recordedAt: $recordedAt')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('battery: $battery')
           ..write(')'))
         .toString();
   }
@@ -1097,6 +1156,7 @@ typedef $$PendingPositionsTableCreateCompanionBuilder =
       Value<double?> speed,
       Value<bool> isMocked,
       required DateTime recordedAt,
+      Value<double?> battery,
     });
 typedef $$PendingPositionsTableUpdateCompanionBuilder =
     PendingPositionsCompanion Function({
@@ -1108,6 +1168,7 @@ typedef $$PendingPositionsTableUpdateCompanionBuilder =
       Value<double?> speed,
       Value<bool> isMocked,
       Value<DateTime> recordedAt,
+      Value<double?> battery,
     });
 
 class $$PendingPositionsTableFilterComposer
@@ -1156,6 +1217,11 @@ class $$PendingPositionsTableFilterComposer
 
   ColumnFilters<DateTime> get recordedAt => $composableBuilder(
     column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get battery => $composableBuilder(
+    column: $table.battery,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1208,6 +1274,11 @@ class $$PendingPositionsTableOrderingComposer
     column: $table.recordedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get battery => $composableBuilder(
+    column: $table.battery,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingPositionsTableAnnotationComposer
@@ -1244,6 +1315,9 @@ class $$PendingPositionsTableAnnotationComposer
     column: $table.recordedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get battery =>
+      $composableBuilder(column: $table.battery, builder: (column) => column);
 }
 
 class $$PendingPositionsTableTableManager
@@ -1291,6 +1365,7 @@ class $$PendingPositionsTableTableManager
                 Value<double?> speed = const Value.absent(),
                 Value<bool> isMocked = const Value.absent(),
                 Value<DateTime> recordedAt = const Value.absent(),
+                Value<double?> battery = const Value.absent(),
               }) => PendingPositionsCompanion(
                 id: id,
                 dayId: dayId,
@@ -1300,6 +1375,7 @@ class $$PendingPositionsTableTableManager
                 speed: speed,
                 isMocked: isMocked,
                 recordedAt: recordedAt,
+                battery: battery,
               ),
           createCompanionCallback:
               ({
@@ -1311,6 +1387,7 @@ class $$PendingPositionsTableTableManager
                 Value<double?> speed = const Value.absent(),
                 Value<bool> isMocked = const Value.absent(),
                 required DateTime recordedAt,
+                Value<double?> battery = const Value.absent(),
               }) => PendingPositionsCompanion.insert(
                 id: id,
                 dayId: dayId,
@@ -1320,6 +1397,7 @@ class $$PendingPositionsTableTableManager
                 speed: speed,
                 isMocked: isMocked,
                 recordedAt: recordedAt,
+                battery: battery,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

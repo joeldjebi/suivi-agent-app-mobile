@@ -87,6 +87,7 @@ class SyncService extends ChangeNotifier {
               'lng': r.lng,
               'accuracy': r.accuracy,
               if (r.speed != null) 'speed': r.speed,
+              if (r.battery != null) 'batteryLevel': r.battery,
               'isMocked': r.isMocked,
               'recordedAt': r.recordedAt.toUtc().toIso8601String(),
             },

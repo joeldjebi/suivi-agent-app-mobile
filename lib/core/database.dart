@@ -13,6 +13,9 @@ class PendingPositions extends Table {
   RealColumn get speed => real().nullable()();
   BoolColumn get isMocked => boolean().withDefault(const Constant(false))();
   DateTimeColumn get recordedAt => dateTime()();
+
+  /// Batterie du téléphone, de 0 à 1 (alerte « batterie faible » du chef).
+  RealColumn get battery => real().nullable()();
 }
 
 /// Formulaires de mission saisis, en attente d'envoi.
@@ -43,7 +46,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'suivi_agent'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,6 +54,10 @@ class AppDatabase extends _$AppDatabase {
       // v2 : code du refus des formulaires.
       if (from < 2) {
         await m.addColumn(pendingSubmissions, pendingSubmissions.errorCode);
+      }
+      // v3 : batterie relevée avec chaque position.
+      if (from < 3) {
+        await m.addColumn(pendingPositions, pendingPositions.battery);
       }
     },
   );

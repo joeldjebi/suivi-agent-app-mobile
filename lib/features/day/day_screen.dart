@@ -10,6 +10,7 @@ import '../../core/branding.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
+import '../../core/tracking.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/brand_header.dart';
@@ -458,6 +459,13 @@ class _LiveRows extends ConsumerWidget {
           )
         : tracker.error != null
         ? ('GPS indisponible', 'À vérifier', Tone.danger, Icons.gps_off_rounded)
+        : tracker.mode == PowerMode.saver
+        ? (
+            'Économie de batterie',
+            'Suivi allégé · ${((tracker.battery ?? 0) * 100).round()} %',
+            Tone.warning,
+            Icons.battery_saver_rounded,
+          )
         : (
             'Position partagée',
             tracker.lastFixAt == null

@@ -1,3 +1,4 @@
+import 'app_version.dart';
 import 'app_lock.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -37,6 +38,9 @@ final apiProvider = Provider<ApiClient>((ref) {
   // Session expirée (jeton révoqué, compte désactivé) : retour à l'écran de connexion.
   api.onSessionExpired = () => ref.read(authProvider.notifier).expire();
   api.onPlanChanged = () => ref.read(authProvider.notifier).refresh();
+  api.onUpdateRequired = (url, min) => ref
+      .read(updateProvider.notifier)
+      .requireUpdate(storeUrl: url, version: min);
   return api;
 });
 

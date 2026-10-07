@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,6 +9,18 @@ import 'package:latlong2/latlong.dart';
 import 'package:drift/drift.dart' show Value;
 
 import 'database.dart';
+
+/// Rythme du suivi, adapté à la situation pour ménager la batterie.
+enum PowerMode {
+  /// En mouvement : précision maximale.
+  normal,
+
+  /// Immobile depuis quelques minutes : relevés espacés, précision moyenne.
+  still,
+
+  /// Batterie faible (hors charge) : suivi allégé.
+  saver,
+}
 
 enum LocationAccess {
   granted,
@@ -45,6 +58,23 @@ class LocationTracker extends ChangeNotifier {
   static const distanceFilterMeters = 25;
   static const heartbeat = Duration(minutes: 3);
 
+  /// GPS adaptatif : immobile au-delà de [stillAfter] dans un rayon de [stillRadius],
+  /// économie sous [saverBelow] de batterie (hors charge).
+  static const stillAfter = Duration(minutes: 5);
+  static const stillRadius = 40.0;
+  static const saverBelow = 0.2;
+
+  PowerMode mode = PowerMode.normal;
+  String _structure = '';
+  LatLng? _anchor;
+  DateTime? _anchorAt;
+
+  /// Batterie : relue au plus une fois par minute.
+  final _batteryApi = Battery();
+  double? battery;
+  bool charging = false;
+  DateTime? _batteryAt;
+
   Future<LocationAccess> access({bool request = false}) async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       return LocationAccess.serviceDisabled;
@@ -70,10 +100,21 @@ class LocationTracker extends ChangeNotifier {
     if (_dayId == dayId && isTracking) return;
     await stop();
     _dayId = dayId;
+    _structure = structure;
     error = null;
+    mode = PowerMode.normal;
+    _anchor = null;
+    _anchorAt = null;
+    _listen();
+    _heartbeat = Timer.periodic(heartbeat, (_) => _checkIn());
+    unawaited(_checkIn());
+    notifyListeners();
+  }
+
+  void _listen() {
     _subscription =
         Geolocator.getPositionStream(
-          locationSettings: _settings(structure),
+          locationSettings: _settings(_structure),
         ).listen(
           _record,
           onError: (Object e) {
@@ -81,9 +122,58 @@ class LocationTracker extends ChangeNotifier {
             notifyListeners();
           },
         );
-    _heartbeat = Timer.periodic(heartbeat, (_) => _checkIn());
-    unawaited(_checkIn());
+  }
+
+  /// Nouveau rythme : le flux de positions repart avec les réglages adaptés.
+  Future<void> _switchMode(PowerMode next) async {
+    if (next == mode || _subscription == null) return;
+    mode = next;
+    await _subscription?.cancel();
+    _listen();
     notifyListeners();
+  }
+
+  Future<void> _readBattery() async {
+    final now = DateTime.now();
+    if (_batteryAt != null &&
+        now.difference(_batteryAt!) < const Duration(minutes: 1)) {
+      return;
+    }
+    _batteryAt = now;
+    try {
+      battery = (await _batteryApi.batteryLevel) / 100;
+      final state = await _batteryApi.batteryState;
+      charging = state == BatteryState.charging || state == BatteryState.full;
+    } catch (_) {
+      // Batterie illisible (simulateur, tests) : pas d'économie automatique.
+    }
+  }
+
+  /// Rythme voulu d'après la batterie et l'immobilité.
+  PowerMode _wantedMode(LatLng at, DateTime now) {
+    final anchor = _anchor;
+    if (anchor == null ||
+        const Distance().as(LengthUnit.Meter, anchor, at) > stillRadius) {
+      _anchor = at;
+      _anchorAt = now;
+    }
+    return decideMode(
+      battery: battery,
+      charging: charging,
+      stillFor: now.difference(_anchorAt!),
+    );
+  }
+
+  /// Batterie faible hors charge : économie ; immobile assez longtemps : relevés espacés.
+  static PowerMode decideMode({
+    required double? battery,
+    required bool charging,
+    required Duration stillFor,
+  }) {
+    if (battery != null && battery < saverBelow && !charging) {
+      return PowerMode.saver;
+    }
+    return stillFor >= stillAfter ? PowerMode.still : PowerMode.normal;
   }
 
   Future<void> stop() async {
@@ -105,9 +195,11 @@ class LocationTracker extends ChangeNotifier {
     try {
       _record(
         await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 30),
+          locationSettings: LocationSettings(
+            accuracy: mode == PowerMode.normal
+                ? LocationAccuracy.high
+                : LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 30),
           ),
         ),
       );
@@ -122,6 +214,7 @@ class LocationTracker extends ChangeNotifier {
     lastFixAt = DateTime.now();
     error = null;
     lastPosition = LatLng(p.latitude, p.longitude);
+    await _readBattery();
     onFix?.call(lastPosition!, p.accuracy, p.timestamp.toLocal());
     await db
         .into(db.pendingPositions)
@@ -134,8 +227,10 @@ class LocationTracker extends ChangeNotifier {
             speed: Value(p.speed >= 0 ? p.speed : null),
             isMocked: Value(p.isMocked),
             recordedAt: p.timestamp.toUtc(),
+            battery: Value(battery),
           ),
         );
+    unawaited(_switchMode(_wantedMode(lastPosition!, lastFixAt!)));
     notifyListeners();
   }
 
@@ -155,11 +250,28 @@ class LocationTracker extends ChangeNotifier {
   }
 
   LocationSettings _settings(String structure) {
+    final (accuracy, distance, interval) = switch (mode) {
+      PowerMode.normal => (
+        LocationAccuracy.high,
+        distanceFilterMeters,
+        const Duration(seconds: 20),
+      ),
+      PowerMode.still => (
+        LocationAccuracy.medium,
+        50,
+        const Duration(seconds: 60),
+      ),
+      PowerMode.saver => (
+        LocationAccuracy.medium,
+        75,
+        const Duration(seconds: 90),
+      ),
+    };
     if (Platform.isAndroid) {
       return AndroidSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: distanceFilterMeters,
-        intervalDuration: const Duration(seconds: 20),
+        accuracy: accuracy,
+        distanceFilter: distance,
+        intervalDuration: interval,
         foregroundNotificationConfig: ForegroundNotificationConfig(
           notificationTitle: 'Position partagée',
           notificationText:
@@ -172,17 +284,14 @@ class LocationTracker extends ChangeNotifier {
     }
     if (Platform.isIOS) {
       return AppleSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: distanceFilterMeters,
+        accuracy: mode == PowerMode.normal ? LocationAccuracy.best : accuracy,
+        distanceFilter: distance,
         activityType: ActivityType.otherNavigation,
         pauseLocationUpdatesAutomatically: false,
         allowBackgroundLocationUpdates: true,
         showBackgroundLocationIndicator: true,
       );
     }
-    return const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: distanceFilterMeters,
-    );
+    return LocationSettings(accuracy: accuracy, distanceFilter: distance);
   }
 }

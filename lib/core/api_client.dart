@@ -1,3 +1,4 @@
+import 'app_version.dart';
 import 'package:dio/dio.dart';
 
 import 'config.dart';
@@ -61,12 +62,24 @@ class ApiClient {
         onRequest: (options, handler) {
           final token = session.accessToken;
           if (token != null) options.headers['Authorization'] = 'Bearer $token';
+          // Version de l'app : le serveur peut exiger une mise à jour.
+          options.headers['X-App-Version'] = AppVersion.current;
+          options.headers['X-App-Platform'] = AppVersion.platform;
           handler.next(options);
         },
         onError: (error, handler) async {
           final request = error.requestOptions;
           // Formule changée ou abonnement suspendu : l'app relit le profil et s'adapte.
           if (error.response?.statusCode == 402) onPlanChanged?.call();
+          // App trop ancienne : écran de mise à jour.
+          if (error.response?.statusCode == 426) {
+            final body = error.response?.data;
+            onUpdateRequired?.call(
+              body is Map ? body['storeUrl'] as String? : null,
+              body is Map ? body['minVersion'] as String? : null,
+            );
+            return handler.next(error);
+          }
           final isAuthCall = request.path.startsWith('/auth/');
           if (error.response?.statusCode != 401 ||
               isAuthCall ||
@@ -95,6 +108,9 @@ class ApiClient {
 
   /// Réponse 402 (fonctionnalité hors formule, abonnement suspendu).
   void Function()? onPlanChanged;
+
+  /// Réponse 426 : mise à jour de l'app obligatoire (lien de téléchargement, version).
+  void Function(String? storeUrl, String? minVersion)? onUpdateRequired;
 
   Future<bool>? _refreshing;
 
