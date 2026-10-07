@@ -1190,4 +1190,16 @@ void main() {
     expect(find.text('Nouveau formulaire'), findsNothing);
     expect(find.text('Ma journée'), findsOneWidget);
   });
+
+  testWidgets('agent à temps partiel : objectif du jour selon sa durée', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(auth: () => SignedInAuth(fakeMe(workdayMinutes: 270))),
+    );
+    await _settle(tester);
+    expect(find.text('4 h 30 de terrain'), findsOneWidget);
+    expect(find.text('sur 4 h 30'), findsOneWidget);
+  });
 }

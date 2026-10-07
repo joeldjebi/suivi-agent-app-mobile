@@ -345,7 +345,9 @@ class _AgentRow extends StatelessWidget {
                     Expanded(child: Text(r.name, style: text.titleSmall)),
                     if (r.started)
                       Text(
-                        _hours(r.workedMinutes),
+                        r.targetMinutes == null
+                            ? _hours(r.workedMinutes)
+                            : '${_hours(r.workedMinutes)} · ${(r.workedMinutes * 100 / r.targetMinutes!).round()} %',
                         style: text.titleSmall?.copyWith(
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),

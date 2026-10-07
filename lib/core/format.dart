@@ -44,3 +44,11 @@ String formatAgo(DateTime d, [DateTime? now]) {
 
 String greeting([DateTime? now]) =>
     (now ?? DateTime.now()).hour < 18 ? 'Bonjour' : 'Bonsoir';
+
+/// Durée de travail : 480 → « 8 h », 450 → « 7 h 30 », 30 → « 30 min ».
+String formatWorkday(int minutes) {
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  if (h == 0) return '$m min';
+  return m == 0 ? '$h h' : '$h h ${m.toString().padLeft(2, '0')}';
+}

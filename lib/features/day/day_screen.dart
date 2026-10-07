@@ -19,7 +19,6 @@ import 'zone_picker.dart';
 import '../profile/my_team.dart';
 
 /// Durée de référence d'une journée, pour la barre de progression.
-const _workdayTarget = Duration(hours: 8);
 
 /// Écran principal de l'agent : sa journée, une action à la fois.
 class DayScreen extends ConsumerStatefulWidget {
@@ -187,7 +186,11 @@ class _DayContent extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (state.isWorking) const OutsideZoneBanner(),
-        _StatusCard(state: state, zoneName: zone),
+        _StatusCard(
+          state: state,
+          zoneName: zone,
+          target: Duration(minutes: me.workdayMinutes),
+        ),
         if (state.isWorking) const ZoneCard(),
         if (state.isWorking) const _LiveRows(),
         if (state.pending != null ||
@@ -205,7 +208,14 @@ class _DayContent extends ConsumerWidget {
 
 /// Carte principale : statut, anneau du temps travaillé, repères de la journée.
 class _StatusCard extends StatefulWidget {
-  const _StatusCard({required this.state, required this.zoneName});
+  const _StatusCard({
+    required this.state,
+    required this.zoneName,
+    required this.target,
+  });
+
+  /// Durée de travail attendue de l'agent (objectif du jour).
+  final Duration target;
 
   final DayState state;
   final String? zoneName;
@@ -304,10 +314,10 @@ class _StatusCardState extends State<_StatusCard> {
             children: [
               Semantics(
                 label:
-                    'Temps travaillé : ${formatShortDuration(worked)} sur ${_workdayTarget.inHours} heures',
+                    'Temps travaillé : ${formatShortDuration(worked)} sur ${formatWorkday(widget.target.inMinutes)}',
                 excludeSemantics: true,
                 child: ProgressRing(
-                  value: worked.inSeconds / _workdayTarget.inSeconds,
+                  value: worked.inSeconds / widget.target.inSeconds,
                   size: 118,
                   stroke: 12,
                   color: ringColor,
@@ -322,7 +332,7 @@ class _StatusCardState extends State<_StatusCard> {
                         ),
                       ),
                       Text(
-                        'sur ${_workdayTarget.inHours} h',
+                        'sur ${formatWorkday(widget.target.inMinutes)}',
                         style: text.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -344,7 +354,7 @@ class _StatusCardState extends State<_StatusCard> {
                             ),
                           ),
                           Text(
-                            '${_workdayTarget.inHours} h de terrain',
+                            '${formatWorkday(widget.target.inMinutes)} de terrain',
                             style: text.titleLarge,
                           ),
                           const SizedBox(height: Space.sm),
@@ -373,7 +383,7 @@ class _StatusCardState extends State<_StatusCard> {
                           const SizedBox(height: Space.md),
                           _Metric(
                             label: 'Restant',
-                            value: formatShortDuration(_workdayTarget - worked),
+                            value: formatShortDuration(widget.target - worked),
                           ),
                         ],
                       ),

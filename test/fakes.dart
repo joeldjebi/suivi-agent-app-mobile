@@ -22,7 +22,9 @@ Me fakeMe({
   String first = 'Koffi',
   String subscriptionStatus = 'active',
   Set<String>? features,
+  int workdayMinutes = 480,
 }) => Me(
+  workdayMinutes: workdayMinutes,
   subscriptionStatus: subscriptionStatus,
   features:
       features ??

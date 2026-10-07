@@ -32,6 +32,7 @@ class Me {
     this.zoneExitToleranceMeters = 30,
     this.zoneExitAlertMinutes = 5,
     this.submissionRequiresDay = true,
+    this.workdayMinutes = 480,
     this.phone,
     this.avatarVersion,
     this.subscriptionStatus = 'active',
@@ -78,6 +79,9 @@ class Me {
   /// Formulaires envoyés seulement pendant une journée dans une zone de la mission.
   final bool submissionRequiresDay;
 
+  /// Agent : durée de travail attendue par jour (la sienne, celle de son groupe ou de la structure).
+  final int workdayMinutes;
+
   /// Marge autour de la zone avant de compter une sortie, en mètres.
   final int zoneExitToleranceMeters;
 
@@ -106,6 +110,10 @@ class Me {
           settings['allowZoneChangeBeforeStart'] as bool,
       zoneRequired: settings['zoneRequired'] as bool,
       submissionRequiresDay: settings['submissionRequiresDay'] as bool? ?? true,
+      workdayMinutes:
+          ((json['workday'] as Map<String, dynamic>?)?['minutes'] as num?)
+              ?.toInt() ??
+          480,
       zoneExitToleranceMeters:
           settings['zoneExitToleranceMeters'] as int? ?? 30,
       zoneExitAlertMinutes: settings['zoneExitAlertMinutes'] as int? ?? 5,
@@ -913,7 +921,11 @@ class DailyReportRow {
     required this.zoneExits,
     required this.alerts,
     required this.late,
+    this.targetMinutes,
   });
+
+  /// Durée de travail attendue de l'agent, en minutes.
+  final int? targetMinutes;
 
   final String id;
   final String name;
@@ -942,6 +954,7 @@ class DailyReportRow {
     startedAt: _date(json['startedAt']),
     endedAt: _date(json['endedAt']),
     workedMinutes: (json['workedMinutes'] as num?)?.toInt() ?? 0,
+    targetMinutes: (json['targetMinutes'] as num?)?.toInt(),
     formsAccepted: (json['formsAccepted'] as num?)?.toInt() ?? 0,
     formsRejected: (json['formsRejected'] as num?)?.toInt() ?? 0,
     zoneExits: (json['zoneExits'] as num?)?.toInt() ?? 0,
