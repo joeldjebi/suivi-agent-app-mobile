@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'features/day/week_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/day/day_screen.dart';
 import 'features/day/zone_map.dart';
@@ -94,6 +95,7 @@ StatefulShellRoute _agentShell({required bool missions}) =>
               builder: (_, _) => const DayScreen(),
               routes: [
                 GoRoute(path: 'zone', builder: (_, _) => const MyZoneScreen()),
+                GoRoute(path: 'week', builder: (_, _) => const WeekScreen()),
               ],
             ),
           ],

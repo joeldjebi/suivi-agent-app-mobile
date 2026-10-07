@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'database.dart';
+import 'field_photo.dart';
 import 'repository.dart';
 
 /// Envoie les positions et les formulaires enregistrés sur le téléphone.
@@ -117,11 +118,28 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  /// Envoi d'un formulaire puis retrait du téléphone.
+  /// Envoi d'un formulaire puis retrait du téléphone. Ses photos partent d'abord ; le
+  /// formulaire n'en garde que l'identifiant donné par le serveur.
   Future<void> _send(PendingSubmission row) async {
+    final data = (jsonDecode(row.dataJson) as Map<String, dynamic>)
+        .cast<String, Object?>();
+    final photos = <FieldPhoto>[];
+    for (final entry in data.entries.toList()) {
+      final photo = FieldPhoto.tryParse(entry.value);
+      if (photo == null) continue;
+      if (!photo.file.existsSync()) {
+        throw ApiException(
+          'La photo « ${entry.key} » n’est plus sur le téléphone : reprenez-la.',
+          code: 'PHOTO_MISSING',
+          status: 400,
+        );
+      }
+      data[entry.key] = await repo.uploadPhoto(photo);
+      photos.add(photo);
+    }
     await repo.submit(row.missionId, {
       'clientId': row.clientId,
-      'data': jsonDecode(row.dataJson),
+      'data': data,
       if (row.lat != null) 'lat': row.lat,
       if (row.lng != null) 'lng': row.lng,
       'submittedAt': row.submittedAt.toUtc().toIso8601String(),
@@ -129,6 +147,7 @@ class SyncService extends ChangeNotifier {
     await (db.delete(
       db.pendingSubmissions,
     )..where((s) => s.clientId.equals(row.clientId))).go();
+    await PhotoStore.delete(photos);
   }
 
   /// Réseau, serveur indisponible ou session expirée : on réessaiera plus tard.

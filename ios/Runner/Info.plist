@@ -46,7 +46,7 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>NSCameraUsageDescription</key>
-		<string>Prendre votre photo de profil.</string>
+		<string>Prendre votre photo de profil et les photos demandées dans les formulaires de mission.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Choisir votre photo de profil.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>

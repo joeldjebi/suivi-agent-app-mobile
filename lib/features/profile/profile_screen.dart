@@ -187,6 +187,21 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
+          if (me.isAgent)
+            GroupedList(
+              header: 'Mon activité',
+              children: [
+                ListRow(
+                  leading: icon(
+                    Icons.bar_chart_rounded,
+                    const Color(0xFF8B5CF6),
+                  ),
+                  title: 'Ma semaine',
+                  subtitle: 'Heures, objectif et formulaires',
+                  onTap: () => context.push('/day/week'),
+                ),
+              ],
+            ),
           if (me.hasPayroll)
             GroupedList(
               header: 'Rémunération',

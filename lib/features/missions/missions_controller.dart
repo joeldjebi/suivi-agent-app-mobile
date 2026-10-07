@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
 import '../../core/database.dart';
+import '../../core/field_photo.dart';
+import '../../core/form_drafts.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/sync.dart';
@@ -130,9 +132,26 @@ final rejectedSubmissionsProvider = StreamProvider<List<PendingSubmission>>(
   (ref) => ref.watch(databaseProvider).watchRejected(),
 );
 
-Future<void> discardSubmission(WidgetRef ref, String clientId) {
+Future<void> discardSubmission(WidgetRef ref, String clientId) async {
   final db = ref.read(databaseProvider);
-  return (db.delete(
+  final row = await (db.select(
+    db.pendingSubmissions,
+  )..where((s) => s.clientId.equals(clientId))).getSingleOrNull();
+  await (db.delete(
     db.pendingSubmissions,
   )..where((s) => s.clientId.equals(clientId))).go();
+  // Ses photos ne partiront plus.
+  if (row != null) {
+    await PhotoStore.delete(
+      FieldPhoto.inData(
+        (jsonDecode(row.dataJson) as Map<String, dynamic>)
+            .cast<String, Object?>(),
+      ),
+    );
+  }
 }
+
+/// Brouillon du formulaire d'une mission (relu à chaque retour sur la mission).
+final draftProvider = FutureProvider.autoDispose.family<FormDraft?, String>(
+  (ref, missionId) => FormDrafts.read(missionId),
+);

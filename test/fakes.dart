@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +10,7 @@ import 'package:suivi_agent/app.dart';
 import 'package:suivi_agent/core/api_client.dart';
 import 'package:suivi_agent/core/branding.dart';
 import 'package:suivi_agent/core/database.dart';
+import 'package:suivi_agent/core/field_photo.dart';
 import 'package:suivi_agent/core/models.dart';
 import 'package:suivi_agent/core/providers.dart';
 import 'package:suivi_agent/core/repository.dart';
@@ -435,6 +439,28 @@ class FakeRepository extends Repository {
   /// Liste vue par un agent : formulaires envoyés sur chaque mission.
   bool withMyForms = false;
 
+  /// Champs ajoutés au type de la mission (photo, type inconnu…).
+  List<Map<String, dynamic>> extraFields = [];
+
+  /// Photos envoyées ; chacune reçoit l’identifiant « photo-N ».
+  final uploadedPhotos = <FieldPhoto>[];
+
+  @override
+  Future<String> uploadPhoto(FieldPhoto photo) async {
+    uploadedPhotos.add(photo);
+    return 'photo-${uploadedPhotos.length}';
+  }
+
+  /// « Ma semaine » (/me/week).
+  Map<String, dynamic>? weekJson;
+
+  @override
+  Future<WeekSummary> week([String? date]) async {
+    final json = weekJson;
+    if (json == null) throw ApiException('Pas de connexion');
+    return WeekSummary.fromJson(json);
+  }
+
   /// Formulaires envoyés au serveur ; `submitError` simule un refus ou une coupure.
   final submittedForms = <Map<String, dynamic>>[];
   ApiException? submitError;
@@ -603,6 +629,7 @@ class FakeRepository extends Repository {
           'type': 'boolean',
           'required': true,
         },
+        ...extraFields,
       ],
     },
     'contributions': [
@@ -1104,6 +1131,7 @@ Widget testApp({
   required AuthController Function() auth,
   FakeRepository? repo,
   FakeAlerts? alerts,
+  PhotoCapture? photos,
 }) {
   final db = AppDatabase(NativeDatabase.memory());
   final repository = repo ?? FakeRepository();
@@ -1117,6 +1145,7 @@ Widget testApp({
       mapTilesProvider.overrideWithValue(false),
       trackerProvider.overrideWith((ref) => FakeTracker(db)),
       alertSinkProvider.overrideWithValue(alerts ?? FakeAlerts()),
+      photoCaptureProvider.overrideWithValue(photos ?? FakePhotoCapture()),
       syncProvider.overrideWith(
         (ref) => SyncService(
           db,
@@ -1150,3 +1179,28 @@ Map<String, dynamic> meJsonWith({
   },
   'subscription': {'status': status, 'features': features},
 };
+
+/// Appareil photo simulé : une petite image écrite dans un dossier temporaire.
+class FakePhotoCapture implements PhotoCapture {
+  int taken = 0;
+
+  @override
+  Future<FieldPhoto?> take() async {
+    taken++;
+    final dir = Directory.systemTemp.createTempSync('photo');
+    final file = File('${dir.path}/p$taken.jpg')
+      ..writeAsBytesSync(base64Decode(_tinyPng));
+    return FieldPhoto(
+      clientId: 'c$taken',
+      path: file.path,
+      takenAt: DateTime(2026, 10, 7, 14, 32),
+      lat: 5.32,
+      lng: -4.02,
+      accuracy: 8,
+    );
+  }
+}
+
+/// PNG de 1 × 1 pixel.
+const _tinyPng =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

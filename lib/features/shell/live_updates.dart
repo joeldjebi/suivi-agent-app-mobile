@@ -7,6 +7,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../core/config.dart';
 import '../../core/providers.dart';
 import '../day/day_controller.dart';
+import '../day/week_screen.dart';
 import '../missions/mission_editor_screen.dart';
 import '../missions/missions_controller.dart';
 import '../pay/pay_screens.dart';
@@ -149,6 +150,7 @@ class LiveUpdates {
             unawaited(ref.read(dayProvider.notifier).refresh());
           }
           ref.invalidate(availableZonesProvider);
+          ref.invalidate(weekProvider);
         case LiveArea.team:
           if (ref.exists(teamProvider)) {
             unawaited(ref.read(teamProvider.notifier).refresh());

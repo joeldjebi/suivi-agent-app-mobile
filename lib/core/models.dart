@@ -368,7 +368,9 @@ class DayState {
   );
 }
 
-enum FieldType { text, number, boolean, date, select }
+/// [unsupported] : type ajouté par une version plus récente de la plateforme ; affiché
+/// sans être saisi, l'app reste utilisable en attendant sa mise à jour.
+enum FieldType { text, number, boolean, date, select, photo, unsupported }
 
 class MissionField {
   MissionField({
@@ -388,7 +390,7 @@ class MissionField {
   factory MissionField.fromJson(Map<String, dynamic> json) => MissionField(
     key: json['key'] as String,
     label: json['label'] as String,
-    type: FieldType.values.byName(json['type'] as String),
+    type: FieldType.values.asNameMap()[json['type']] ?? FieldType.unsupported,
     required: json['required'] as bool,
     options: (json['options'] as List?)?.cast<String>() ?? const [],
   );
@@ -1496,4 +1498,111 @@ class ZoneMission {
         ? null
         : MissionEarnings.fromJson(j['myEarnings'] as Map<String, dynamic>),
   );
+}
+
+/// Un jour de « Ma semaine ».
+class WeekDay {
+  WeekDay({
+    required this.date,
+    required this.worked,
+    required this.zones,
+    required this.forms,
+    required this.rejected,
+    required this.future,
+  });
+
+  final DateTime date;
+  final Duration worked;
+  final List<String> zones;
+  final int forms;
+  final int rejected;
+
+  /// Jour à venir (pas encore travaillé).
+  final bool future;
+
+  factory WeekDay.fromJson(Map<String, dynamic> json) => WeekDay(
+    date: DateTime.parse(json['date'] as String),
+    worked: Duration(seconds: json['workedSeconds'] as int),
+    zones: (json['zones'] as List).cast<String>(),
+    forms: json['forms'] as int,
+    rejected: json['rejected'] as int,
+    future: json['future'] as bool? ?? false,
+  );
+}
+
+/// Totaux d'une semaine.
+class WeekTotals {
+  WeekTotals({
+    required this.worked,
+    required this.daysWorked,
+    required this.forms,
+    required this.rejected,
+  });
+
+  final Duration worked;
+  final int daysWorked;
+  final int forms;
+  final int rejected;
+
+  factory WeekTotals.fromJson(Map<String, dynamic> json) => WeekTotals(
+    worked: Duration(seconds: json['workedSeconds'] as int),
+    daysWorked: json['daysWorked'] as int,
+    forms: json['forms'] as int,
+    rejected: json['rejected'] as int,
+  );
+}
+
+/// « Ma semaine » : lundi à dimanche, face à l'objectif et à la semaine précédente.
+class WeekSummary {
+  WeekSummary({
+    required this.from,
+    required this.to,
+    required this.today,
+    required this.objective,
+    required this.days,
+    required this.totals,
+    required this.objectiveTotal,
+    required this.previous,
+    required this.missions,
+  });
+
+  final DateTime from;
+  final DateTime to;
+  final DateTime today;
+
+  /// Objectif d'une journée.
+  final Duration objective;
+  final List<WeekDay> days;
+  final WeekTotals totals;
+
+  /// Objectif des jours travaillés.
+  final Duration objectiveTotal;
+  final WeekTotals previous;
+  final List<({String id, String title, int forms})> missions;
+
+  bool get isCurrent => !today.isBefore(from) && !today.isAfter(to);
+
+  factory WeekSummary.fromJson(Map<String, dynamic> json) {
+    final totals = json['totals'] as Map<String, dynamic>;
+    return WeekSummary(
+      from: DateTime.parse(json['from'] as String),
+      to: DateTime.parse(json['to'] as String),
+      today: DateTime.parse(json['today'] as String),
+      objective: Duration(minutes: json['objectiveMinutes'] as int),
+      days: (json['days'] as List)
+          .map((d) => WeekDay.fromJson(d as Map<String, dynamic>))
+          .toList(),
+      totals: WeekTotals.fromJson(totals),
+      objectiveTotal: Duration(seconds: totals['objectiveSeconds'] as int),
+      previous: WeekTotals.fromJson(json['previous'] as Map<String, dynamic>),
+      missions: [
+        for (final m in (json['missions'] as List).cast<Map<String, dynamic>>())
+          (
+            id: m['id'] as String,
+            title: m['title'] as String,
+            forms: m['forms'] as int,
+          ),
+      ],
+    );
+  }
 }

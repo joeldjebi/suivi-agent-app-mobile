@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'api_client.dart';
+import 'field_photo.dart';
 import 'models.dart';
 
 /// Appels de l'API utilisés par l'app de l'agent.
@@ -123,6 +124,32 @@ class Repository {
     '/missions/$missionId/submissions',
     query: filter.query(DateTime.now()),
   )).map((s) => Submission.fromJson(s as Map<String, dynamic>)).toList();
+
+  /// Photo d'un formulaire : renvoie son identifiant (un renvoi ne crée pas de doublon).
+  Future<String> uploadPhoto(FieldPhoto photo) async =>
+      (await api.post<Map<String, dynamic>>(
+            '/photos',
+            FormData.fromMap({
+              'file': await MultipartFile.fromFile(
+                photo.path,
+                filename: 'photo.jpg',
+              ),
+              'clientId': photo.clientId,
+              'takenAt': photo.takenAt.toUtc().toIso8601String(),
+              if (photo.lat != null) 'lat': photo.lat,
+              if (photo.lng != null) 'lng': photo.lng,
+              if (photo.accuracy != null) 'accuracy': photo.accuracy,
+            }),
+          ))['id']
+          as String;
+
+  /// « Ma semaine » : la semaine du jour [date] (la semaine en cours par défaut).
+  Future<WeekSummary> week([String? date]) async => WeekSummary.fromJson(
+    await api.get<Map<String, dynamic>>(
+      '/me/week',
+      query: {if (date != null) 'date': date},
+    ),
+  );
 
   Future<void> submit(String missionId, Map<String, dynamic> body) =>
       api.post<Map<String, dynamic>>('/missions/$missionId/submissions', body);

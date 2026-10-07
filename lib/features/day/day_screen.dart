@@ -1,3 +1,4 @@
+import 'week_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -201,6 +202,7 @@ class _DayContent extends ConsumerWidget {
         if (state.pending != null ||
             (!state.isWorking && state.approved != null))
           _ZoneGroup(state: state, zoneName: zoneName, me: me),
+        if (me.isAgent) const WeekShortcut(),
         if (!state.isWorking && me.isAgent) const MyTeamCard(),
         if (!state.isWorking && branding.welcomeMessage != null) ...[
           const SizedBox(height: Space.xl),

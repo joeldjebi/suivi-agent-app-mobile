@@ -1385,6 +1385,7 @@ String _display(MissionField f, Object? v) => switch (f.type) {
   FieldType.boolean => v == true ? 'Oui' : 'Non',
   FieldType.number => formatNumber(v as num),
   FieldType.date => formatShortDate(DateTime.parse(v as String)),
+  FieldType.photo => 'Photo jointe',
   _ => '$v',
 };
 
@@ -1404,10 +1405,32 @@ class _SubmitAction extends ConsumerWidget {
     final inZone =
         mission.zones.isEmpty || mission.zones.any((z) => z.id == dayZone);
     if (!me.submissionRequiresDay || (working && inZone)) {
-      return PillButton(
-        label: 'Nouveau formulaire',
-        icon: Icons.add_rounded,
-        onPressed: () => context.push('/missions/${mission.id}/new'),
+      final draft = ref.watch(draftProvider(mission.id)).value;
+      final button = PillButton(
+        label: draft == null ? 'Nouveau formulaire' : 'Reprendre mon brouillon',
+        icon: draft == null ? Icons.add_rounded : Icons.edit_note_rounded,
+        onPressed: () async {
+          await context.push('/missions/${mission.id}/new');
+          ref.invalidate(draftProvider(mission.id));
+        },
+      );
+      if (draft == null) return button;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Brouillon commencé ${formatAgo(draft.updatedAt)} · ${draft.filled} champ${draft.filled > 1 ? 's' : ''} rempli${draft.filled > 1 ? 's' : ''}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          button,
+        ],
       );
     }
     final zones = mission.zones.map((z) => z.name).join(', ');

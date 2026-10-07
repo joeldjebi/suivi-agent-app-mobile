@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
+import '../../core/field_photo.dart';
+import '../../core/form_drafts.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../design/components.dart';
@@ -35,20 +37,74 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   String? _rejectedReason;
   final _scroll = ScrollController();
 
+  /// Brouillon : enregistré pendant la saisie (nouveau formulaire seulement), repris à la
+  /// réouverture, retiré à l'envoi.
+  Timer? _draftTimer;
+  DateTime? _draftAt;
+  bool _sent = false;
+
+  /// Change à l'effacement du brouillon : les champs repartent vides.
+  int _generation = 0;
+
   @override
   void dispose() {
     _scroll.dispose();
+    if (_draftTimer?.isActive ?? false) {
+      _draftTimer!.cancel();
+      if (!_sent) unawaited(FormDrafts.save(widget.id, {..._values}));
+    }
     super.dispose();
   }
 
-  /// Correction : les valeurs du formulaire refusé sont chargées avant l'affichage.
-  late bool _loadingRetry = widget.retry != null;
+  /// Valeurs reprises (formulaire refusé ou brouillon), chargées avant l'affichage.
+  bool _loadingRetry = true;
 
   @override
   void initState() {
     super.initState();
     final retry = widget.retry;
-    if (retry != null) unawaited(_loadRetry(retry));
+    unawaited(retry != null ? _loadRetry(retry) : _loadDraft());
+  }
+
+  Future<void> _loadDraft() async {
+    final draft = await FormDrafts.read(widget.id);
+    if (!mounted) return;
+    setState(() {
+      _loadingRetry = false;
+      if (draft != null) {
+        _values.addAll(draft.values);
+        _draftAt = draft.updatedAt;
+      }
+    });
+  }
+
+  void _change(String key, Object? value) {
+    setState(() => _values[key] = value);
+    if (widget.retry != null) return;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!_sent) unawaited(FormDrafts.save(widget.id, {..._values}));
+    });
+  }
+
+  Future<void> _discardDraft() async {
+    final ok = await confirmSheet(
+      context,
+      title: 'Effacer le brouillon ?',
+      message: 'Les valeurs saisies et les photos prises seront perdues.',
+      confirmLabel: 'Effacer',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    _draftTimer?.cancel();
+    await FormDrafts.delete(widget.id);
+    if (!mounted) return;
+    setState(() {
+      _values.clear();
+      _draftAt = null;
+      _generation++;
+      _submitted = false;
+    });
   }
 
   /// Reprend les valeurs et le motif du formulaire refusé.
@@ -82,7 +138,9 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     try {
       final data = {
         for (final f in mission.fields)
-          if (_values[f.key] != null && _values[f.key] != '')
+          if (f.type != FieldType.unsupported &&
+              _values[f.key] != null &&
+              _values[f.key] != '')
             f.key: _values[f.key],
       };
       final outcome = await saveSubmission(
@@ -91,6 +149,10 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
         data,
         replacing: widget.retry,
       );
+      _sent = true;
+      _draftTimer?.cancel();
+      // Le formulaire est parti (ou attend le réseau) avec ses photos.
+      await FormDrafts.delete(widget.id, keepPhotos: true);
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(
@@ -172,10 +234,24 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    if (_draftAt != null && _rejectedReason == null) ...[
+                      InfoBanner(
+                        icon: Icons.edit_note_rounded,
+                        tone: Tone.info,
+                        message: 'Brouillon repris (${formatAgo(_draftAt!)}).',
+                        action: TextButton(
+                          onPressed: _discardDraft,
+                          child: const Text('Effacer'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Text(m.title, style: text.titleLarge),
                     const SizedBox(height: 4),
                     Text(
-                      'Les champs marqués * sont obligatoires.',
+                      widget.retry == null
+                          ? 'Les champs marqués * sont obligatoires. Votre saisie est gardée en brouillon au fur et à mesure.'
+                          : 'Les champs marqués * sont obligatoires.',
                       style: text.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -191,10 +267,10 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                     for (final f in m.fields) ...[
                       _FieldInput(
                         // Clé stable : le champ garde sa saisie quand un bandeau s'insère au-dessus.
-                        key: ValueKey('field-${f.key}'),
+                        key: ValueKey('field-${f.key}-$_generation'),
                         field: f,
                         value: _values[f.key],
-                        onChanged: (v) => setState(() => _values[f.key] = v),
+                        onChanged: (v) => _change(f.key, v),
                       ),
                       const SizedBox(height: 18),
                     ],
@@ -358,6 +434,20 @@ class _FieldInput extends StatelessWidget {
             ],
           ),
         );
+      case FieldType.photo:
+        return _PhotoInput(
+          label: label,
+          value: value,
+          required: field.required,
+          onChanged: onChanged,
+        );
+      case FieldType.unsupported:
+        return InfoBanner(
+          icon: Icons.system_update_outlined,
+          tone: Tone.info,
+          message:
+              '« ${field.label} » : champ pas encore pris en charge par cette version de l’app. Mettez-la à jour pour le remplir.',
+        );
       case FieldType.date:
         return FormField<String>(
           initialValue: value as String?,
@@ -419,4 +509,142 @@ class _ErrorText extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Champ photo : prise avec l'appareil photo (jamais la galerie), position et heure de la
+/// prise conservées ; aperçu, nouvelle prise ou retrait.
+class _PhotoInput extends ConsumerStatefulWidget {
+  const _PhotoInput({
+    required this.label,
+    required this.value,
+    required this.required,
+    required this.onChanged,
+  });
+
+  final Widget label;
+  final Object? value;
+  final bool required;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  ConsumerState<_PhotoInput> createState() => _PhotoInputState();
+}
+
+class _PhotoInputState extends ConsumerState<_PhotoInput> {
+  bool _busy = false;
+
+  Future<void> _take(FormFieldState<Object?> state) async {
+    setState(() => _busy = true);
+    try {
+      final photo = await ref.read(photoCaptureProvider).take();
+      if (photo == null || !mounted) return;
+      final previous = FieldPhoto.tryParse(state.value);
+      if (previous != null) await PhotoStore.delete([previous]);
+      state.didChange(photo.toJson());
+      widget.onChanged(photo.toJson());
+    } on PlatformException {
+      if (mounted) {
+        showMessage(
+          context,
+          'Appareil photo indisponible : autorisez-le dans les réglages du téléphone.',
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove(FormFieldState<Object?> state) async {
+    final previous = FieldPhoto.tryParse(state.value);
+    if (previous != null) await PhotoStore.delete([previous]);
+    state.didChange(null);
+    widget.onChanged(null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return FormField<Object?>(
+      initialValue: widget.value,
+      validator: (v) =>
+          widget.required && v == null ? 'Photo obligatoire' : null,
+      builder: (state) {
+        final photo = FieldPhoto.tryParse(state.value);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            widget.label,
+            if (photo != null && photo.file.existsSync()) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: Image.file(
+                    photo.file,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Photo prise',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    photo.located
+                        ? Icons.location_on_rounded
+                        : Icons.location_off_outlined,
+                    size: 16,
+                    color: photo.located ? scheme.primary : scheme.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      photo.located
+                          ? 'Prise à ${formatTime(photo.takenAt)}${photo.accuracy != null ? ', position à ${photo.accuracy!.round()} m près' : ''}'
+                          : 'Prise à ${formatTime(photo.takenAt)}, sans position (GPS indisponible)',
+                      style: text.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: _busy ? null : () => _take(state),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Reprendre'),
+                  ),
+                  TextButton.icon(
+                    onPressed: _busy ? null : () => _remove(state),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    label: const Text('Retirer'),
+                  ),
+                ],
+              ),
+            ] else
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(96),
+                ),
+                onPressed: _busy ? null : () => _take(state),
+                icon: _busy
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.photo_camera_outlined),
+                label: Text(_busy ? 'Position en cours…' : 'Prendre la photo'),
+              ),
+            if (state.hasError) _ErrorText(state.errorText!),
+          ],
+        );
+      },
+    );
+  }
 }

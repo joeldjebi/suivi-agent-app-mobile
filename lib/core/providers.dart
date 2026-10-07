@@ -12,6 +12,8 @@ import 'api_client.dart';
 import 'branding.dart';
 import 'database.dart';
 import 'day_timer.dart';
+import 'field_photo.dart';
+import 'form_drafts.dart';
 import 'local_alerts.dart';
 import 'models.dart';
 import 'push.dart';
@@ -69,6 +71,11 @@ final syncProvider = ChangeNotifierProvider<SyncService>((ref) {
   );
   return sync;
 });
+
+/// Appareil photo des formulaires (remplacé dans les tests).
+final photoCaptureProvider = Provider<PhotoCapture>(
+  (ref) => CameraPhotoCapture(),
+);
 
 /// Chrono de la journée sur l'écran verrouillé (inactif pendant les tests automatisés).
 final dayTimerProvider = Provider<DayTimer>(
@@ -288,6 +295,9 @@ class AuthController extends Notifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_meKey);
     await prefs.remove(MissionCache.key);
+    // Brouillons et photos en attente : rien ne reste pour le compte suivant.
+    await FormDrafts.clearAll();
+    await PhotoStore.clear();
   }
 }
 
