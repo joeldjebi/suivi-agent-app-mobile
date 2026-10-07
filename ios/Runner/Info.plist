@@ -67,7 +67,9 @@
 		<array>
 			<string>tel</string>
 		</array>
-		<key>NSSupportsLiveActivities</key>
+		<key>NSFaceIDUsageDescription</key>
+	<string>Déverrouiller l’application avec Face ID.</string>
+	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 		<array>

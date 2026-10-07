@@ -1,3 +1,4 @@
+import '../safety/sos.dart';
 import 'week_screen.dart';
 import 'dart:async';
 
@@ -203,6 +204,7 @@ class _DayContent extends ConsumerWidget {
             (!state.isWorking && state.approved != null))
           _ZoneGroup(state: state, zoneName: zoneName, me: me),
         if (me.isAgent) const WeekShortcut(),
+        if (me.isAgent) const SosButton(),
         if (!state.isWorking && me.isAgent) const MyTeamCard(),
         if (!state.isWorking && branding.welcomeMessage != null) ...[
           const SizedBox(height: Space.xl),

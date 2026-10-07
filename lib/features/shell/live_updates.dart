@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import '../safety/sos.dart';
 import '../../core/config.dart';
 import '../../core/providers.dart';
 import '../day/day_controller.dart';
@@ -151,6 +152,9 @@ class LiveUpdates {
           }
           ref.invalidate(availableZonesProvider);
           ref.invalidate(weekProvider);
+          if (ref.exists(sosProvider)) {
+            unawaited(ref.read(sosProvider.notifier).refresh());
+          }
         case LiveArea.team:
           if (ref.exists(teamProvider)) {
             unawaited(ref.read(teamProvider.notifier).refresh());

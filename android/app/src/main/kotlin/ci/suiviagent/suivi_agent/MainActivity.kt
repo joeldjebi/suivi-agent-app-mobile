@@ -1,5 +1,6 @@
 package ci.suiviagent.suivi_agent
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// FlutterFragmentActivity : requis par le déverrouillage par empreinte (local_auth).
+class MainActivity : FlutterFragmentActivity()

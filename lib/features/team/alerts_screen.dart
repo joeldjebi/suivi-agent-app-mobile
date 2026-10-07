@@ -23,6 +23,7 @@ const alertMeta = <String, (String, IconData)>{
   'mocked': ('Position simulée', Icons.gpp_maybe_outlined),
   'out_of_zone': ('Hors zone', Icons.wrong_location_rounded),
   'late_start': ('Journée pas démarrée', Icons.wb_twilight_rounded),
+  'sos': ('Alerte sécurité', Icons.sos_rounded),
 };
 
 String alertLabelOf(String type) => alertMeta[type]?.$1 ?? 'Alerte';
@@ -32,6 +33,7 @@ String _chipLabel(AgentAlert a) => switch (a.type) {
   'low_battery' => 'Batterie ${a.data['percent']} %',
   'out_of_zone' =>
     'Hors zone · ${formatMeters((a.data['maxDistanceM'] as num? ?? 0).toDouble())}',
+  'sos' => 'Alerte sécurité',
   'late_start' => 'Pas démarrée',
   _ => alertLabelOf(a.type),
 };
@@ -69,8 +71,12 @@ List<_AgentAlerts> _byAgent(List<AgentAlert> alerts) {
     for (final g in groups.values)
       _AgentAlerts(g..sort((a, b) => a.startedAt.compareTo(b.startedAt))),
   ];
-  // À prendre en charge d'abord, puis les plus anciennes.
+  // Alertes sécurité d'abord, puis à prendre en charge, puis les plus anciennes.
   list.sort((a, b) {
+    final sos = (b.alerts.any((x) => x.isSos && x.isOpen) ? 1 : 0).compareTo(
+      a.alerts.any((x) => x.isSos && x.isOpen) ? 1 : 0,
+    );
+    if (sos != 0) return sos;
     final todo = (b.toAcknowledge.isNotEmpty ? 1 : 0).compareTo(
       a.toAcknowledge.isNotEmpty ? 1 : 0,
     );
@@ -105,6 +111,15 @@ String alertDetail(AgentAlert a) {
     'out_of_zone' =>
       'Hors de ${d['zoneName'] ?? 'sa zone'}, jusqu’à ${formatMeters((d['maxDistanceM'] as num? ?? 0).toDouble())}',
     'late_start' => 'Début attendu à ${d['expectedAt']}',
+    'sos' => [
+      if (d['message'] is String && (d['message'] as String).isNotEmpty)
+        '« ${d['message']} »'
+      else
+        'Demande d’aide',
+      if (a.position == null) 'position indisponible',
+      if (d['cancelled'] == true) 'annulée par l’agent',
+      if (d['closingNote'] is String) 'close : « ${d['closingNote']} »',
+    ].join(' · '),
     _ => '',
   };
 }
@@ -468,12 +483,31 @@ class _AgentAlertsSheetState extends ConsumerState<_AgentAlertsSheet> {
     }
   }
 
+  Future<void> _close(AgentAlert alert) async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(repositoryProvider).closeAlert(alert.id, note: _note.text);
+      await ref.read(openAlertsProvider.notifier).refresh();
+      if (!mounted) return;
+      Navigator.pop(context);
+      showMessage(context, 'Alerte close : l’agent est informé');
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showMessage(context, e.message, error: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final g = widget.group;
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final phone = ref.watch(teamProvider).value?.members[g.agentId]?.phone;
+    final phone =
+        ref.watch(teamProvider).value?.members[g.agentId]?.phone ??
+        g.first.agentPhone;
+    final sos = g.alerts.where((a) => a.isSos && a.isOpen).firstOrNull;
     final todo = widget.open && g.toAcknowledge.isNotEmpty;
 
     return SingleChildScrollView(
@@ -551,6 +585,27 @@ class _AgentAlertsSheetState extends ConsumerState<_AgentAlertsSheet> {
               icon: Icons.pan_tool_alt_outlined,
               loading: _saving,
               onPressed: _saving ? null : _acknowledge,
+            ),
+          ],
+          if (widget.open && sos != null) ...[
+            const SizedBox(height: Space.sm),
+            if (sos.position case final p?)
+              PillButton(
+                label: 'Voir la position',
+                icon: Icons.location_on_outlined,
+                style: PillStyle.tonal,
+                onPressed: () => launchUrl(
+                  Uri.parse('https://www.google.com/maps?q=${p.lat},${p.lng}'),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+            const SizedBox(height: Space.sm),
+            PillButton(
+              label: 'Clore l’alerte (agent en sécurité)',
+              icon: Icons.verified_user_outlined,
+              style: PillStyle.danger,
+              loading: _saving,
+              onPressed: _saving ? null : () => _close(sos),
             ),
           ],
           if (widget.open && (g.dayId != null || phone != null)) ...[

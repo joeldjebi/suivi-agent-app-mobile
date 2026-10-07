@@ -75,7 +75,7 @@ class _PushHandlerState extends ConsumerState<PushHandler> {
       route = '/notifications';
     }
     // Onglets : on y va ; écrans secondaires : ouverts par-dessus l'onglet en cours.
-    const pushed = ['/notifications', '/alerts', '/report'];
+    const pushed = ['/notifications', '/alerts', '/report', '/sos'];
     if (pushed.contains(route)) {
       unawaited(context.push(route));
     } else {

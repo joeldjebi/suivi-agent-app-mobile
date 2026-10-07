@@ -41,6 +41,7 @@ String pushRouteFor(Map<String, String> data, {required bool leader}) {
     'pay.adjustment_proposed' =>
       leader ? '/profile/team-earnings' : '/profile/earnings',
     'team.message' || 'report.daily' => leader ? '/report' : '/notifications',
+    _ when !leader && type.startsWith('alert.sos') => '/sos',
     _
         when leader &&
             (type.startsWith('alert.') || type.startsWith('zone_exit')) =>

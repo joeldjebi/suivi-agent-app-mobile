@@ -253,6 +253,37 @@ class Repository {
       )).map((a) => AgentAlert.fromJson(a as Map<String, dynamic>)).toList();
 
   /// « Je m'en occupe », avec une note facultative.
+  /// Clôture d'une alerte sécurité par le chef.
+  Future<void> closeAlert(String id, {String? note}) =>
+      api.post<Map<String, dynamic>>('/alerts/$id/close', {
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      });
+
+  /// Alerte sécurité de l'agent en cours (null : aucune).
+  Future<AgentAlert?> currentSos() async {
+    final json = await api.get<Object?>('/safety/sos');
+    return json is Map<String, dynamic> && json['id'] != null
+        ? AgentAlert.fromJson(json)
+        : null;
+  }
+
+  Future<AgentAlert> raiseSos({
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? message,
+  }) async => AgentAlert.fromJson(
+    await api.post<Map<String, dynamic>>('/safety/sos', {
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (accuracy != null) 'accuracy': accuracy,
+      if (message != null && message.trim().isNotEmpty)
+        'message': message.trim(),
+    }),
+  );
+
+  Future<void> cancelSos() => api.post<void>('/safety/sos/cancel');
+
   Future<void> acknowledgeAlert(String id, {String? note}) =>
       api.post<Map<String, dynamic>>('/alerts/$id/ack', {
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),

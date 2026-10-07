@@ -1,3 +1,4 @@
+import 'app_lock.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
@@ -288,6 +289,7 @@ class AuthController extends Notifier<AuthState> {
     ref.read(zoneGuardProvider).stop();
     ref.read(syncProvider).stop();
     await ref.read(dayTimerProvider).clear();
+    await ref.read(appLockProvider.notifier).reset();
     await ref.read(pushProvider).forget();
     await _session.clear();
     await ref.read(databaseProvider).wipe();

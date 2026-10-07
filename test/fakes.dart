@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:suivi_agent/app.dart';
 import 'package:suivi_agent/core/api_client.dart';
 import 'package:suivi_agent/core/branding.dart';
+import 'package:suivi_agent/core/app_lock.dart';
 import 'package:suivi_agent/core/database.dart';
 import 'package:suivi_agent/core/field_photo.dart';
 import 'package:suivi_agent/core/models.dart';
@@ -275,7 +276,12 @@ class FakeRepository extends Repository {
         resolvedAfter: const Duration(minutes: 40),
       ),
     ];
-    return (status == 'open' ? open : resolved)
+    return (status == 'open'
+            ? [
+                ...extraAlerts.where((a) => !closedAlerts.contains(a['id'])),
+                ...open,
+              ]
+            : resolved)
         .map(AgentAlert.fromJson)
         .where(
           (a) =>
@@ -288,6 +294,52 @@ class FakeRepository extends Repository {
   @override
   Future<void> acknowledgeAlert(String id, {String? note}) async =>
       acknowledged.add((id, note));
+
+  /// Alertes ajoutées en tête (alerte sécurité…), au format de l'API.
+  List<Map<String, dynamic>> extraAlerts = [];
+  final closedAlerts = <String>[];
+
+  @override
+  Future<void> closeAlert(String id, {String? note}) async =>
+      closedAlerts.add(id);
+
+  /// Alerte sécurité de l'agent : envois, annulations ; `sosError` simule une coupure.
+  final sosRaised = <Map<String, Object?>>[];
+  int sosCancelled = 0;
+  ApiException? sosError;
+  AgentAlert? sos;
+
+  @override
+  Future<AgentAlert?> currentSos() async => sos;
+
+  @override
+  Future<AgentAlert> raiseSos({
+    double? lat,
+    double? lng,
+    double? accuracy,
+    String? message,
+  }) async {
+    if (sosError != null) throw sosError!;
+    sosRaised.add({'lat': lat, 'lng': lng, 'accuracy': accuracy});
+    return sos = AgentAlert.fromJson({
+      'id': 'sos1',
+      'type': 'sos',
+      'agent': {'id': 'u1', 'firstName': 'Koffi', 'lastName': 'Brou'},
+      'dayId': null,
+      'startedAt': DateTime.now().toUtc().toIso8601String(),
+      'resolvedAt': null,
+      'data': {'lat': ?lat, 'lng': ?lng, 'accuracy': ?accuracy},
+      'acknowledgedAt': null,
+      'acknowledgedBy': null,
+      'note': null,
+    });
+  }
+
+  @override
+  Future<void> cancelSos() async {
+    sosCancelled++;
+    sos = null;
+  }
 
   // Chef d'équipe : missions et propositions de paie, enregistrées pour vérification.
   final createdMissions = <Map<String, dynamic>>[];
@@ -1132,6 +1184,7 @@ Widget testApp({
   FakeRepository? repo,
   FakeAlerts? alerts,
   PhotoCapture? photos,
+  Biometrics? biometrics,
 }) {
   final db = AppDatabase(NativeDatabase.memory());
   final repository = repo ?? FakeRepository();
@@ -1146,6 +1199,7 @@ Widget testApp({
       trackerProvider.overrideWith((ref) => FakeTracker(db)),
       alertSinkProvider.overrideWithValue(alerts ?? FakeAlerts()),
       photoCaptureProvider.overrideWithValue(photos ?? FakePhotoCapture()),
+      biometricsProvider.overrideWithValue(biometrics ?? FakeBiometrics()),
       syncProvider.overrideWith(
         (ref) => SyncService(
           db,
@@ -1204,3 +1258,24 @@ class FakePhotoCapture implements PhotoCapture {
 /// PNG de 1 × 1 pixel.
 const _tinyPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+/// Face ID / empreinte simulé : disponible ou non, vérification acceptée ou refusée.
+class FakeBiometrics implements Biometrics {
+  FakeBiometrics({this.isAvailable = false, this.accept = true});
+
+  bool isAvailable;
+  bool accept;
+  int prompts = 0;
+
+  @override
+  Future<bool> available() async => isAvailable;
+
+  @override
+  Future<String> label() async => 'Face ID';
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    prompts++;
+    return accept;
+  }
+}

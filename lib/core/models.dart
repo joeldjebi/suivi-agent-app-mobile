@@ -979,14 +979,16 @@ class AgentAlert {
     required this.acknowledgedAt,
     required this.acknowledgedBy,
     required this.note,
+    this.agentPhone,
   });
 
   final String id;
 
-  /// signal_lost, immobile, low_battery, mocked, out_of_zone, late_start
+  /// signal_lost, immobile, low_battery, mocked, out_of_zone, late_start, sos
   final String type;
   final String agentId;
   final String agentName;
+  final String? agentPhone;
   final String? dayId;
   final DateTime startedAt;
   final DateTime? resolvedAt;
@@ -998,6 +1000,16 @@ class AgentAlert {
   final String? note;
 
   bool get isOpen => resolvedAt == null;
+  bool get isSos => type == 'sos';
+
+  /// Position transmise avec une alerte sécurité.
+  ({double lat, double lng})? get position {
+    final lat = data['lat'];
+    final lng = data['lng'];
+    return lat is num && lng is num
+        ? (lat: lat.toDouble(), lng: lng.toDouble())
+        : null;
+  }
 
   factory AgentAlert.fromJson(Map<String, dynamic> json) {
     final agent = json['agent'] as Map<String, dynamic>;
@@ -1007,6 +1019,7 @@ class AgentAlert {
       type: json['type'] as String,
       agentId: agent['id'] as String,
       agentName: '${agent['firstName']} ${agent['lastName']}',
+      agentPhone: agent['phone'] as String?,
       dayId: json['dayId'] as String?,
       startedAt: _date(json['startedAt'])!,
       resolvedAt: _date(json['resolvedAt']),

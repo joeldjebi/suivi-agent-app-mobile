@@ -1,3 +1,4 @@
+import 'core/app_lock.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,8 @@ Future<void> main() async {
   container.read(authProvider.notifier).restore();
   // Onboarding vérifié en même temps (affiché au premier lancement ou à une nouvelle version).
   container.read(onboardingProvider);
+  // Verrouillage Face ID / empreinte relu avant le premier écran.
+  container.read(appLockProvider);
   // Notifications push : réception et notification qui a lancé l'app.
   unawaited(container.read(pushProvider).start());
   runApp(

@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'features/safety/sos.dart';
+import 'features/safety/lock_screen.dart';
+import 'core/app_lock.dart';
 import 'features/day/week_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/day/day_screen.dart';
@@ -229,6 +232,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/alerts', builder: (_, _) => const AlertsScreen()),
       GoRoute(path: '/report', builder: (_, _) => const DailyReportScreen()),
+      GoRoute(path: '/sos', builder: (_, _) => const SosScreen()),
     ],
   );
   ref.onDispose(router.dispose);
@@ -260,7 +264,13 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
   /// ou l'éditeur).
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final lock = ref.read(appLockProvider.notifier);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      lock.onBackground();
+    }
     if (state == AppLifecycleState.resumed) {
+      lock.onResume();
       ref.read(authProvider.notifier).refresh();
       // Écrans relus au retour : les annonces ont pu être manquées en arrière-plan.
       if (ref.exists(liveUpdatesProvider)) {
@@ -289,7 +299,8 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
         value: Theme.of(context).brightness == Brightness.dark
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark,
-        child: child!,
+        // Face ID / empreinte : l'app reste masquée tant qu'elle est verrouillée.
+        child: LockGate(child: child!),
       ),
     );
   }
