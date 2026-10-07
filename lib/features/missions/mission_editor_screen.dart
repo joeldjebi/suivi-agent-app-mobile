@@ -14,6 +14,11 @@ import '../../widgets/form_rows.dart';
 import 'missions_controller.dart';
 
 /// Types de mission de la structure (formulaires des agents).
+/// Zones que le chef peut attribuer (celles de ses groupes et les zones libres).
+final editorZonesProvider = FutureProvider.autoDispose<List<Zone>>(
+  (ref) => ref.read(repositoryProvider).leaderZones(),
+);
+
 final missionTypesProvider = FutureProvider.autoDispose<List<MissionType>>(
   (ref) => ref.read(repositoryProvider).missionTypes(),
 );
@@ -56,7 +61,10 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
   bool _loaded = false;
 
   MissionType? _type;
-  bool _toGroup = true;
+
+  /// Pour qui : un groupe, un agent, ou ouverte à tous les agents de ses zones.
+  String _assign = 'group';
+  Set<String> _zoneIds = {};
   TeamGroup? _group;
   TeamMember? _agent;
   String _method = 'count';
@@ -84,6 +92,17 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
     if (m.targetValue != null) _target.text = formatNumber(m.targetValue!);
     _due = m.dueDate?.toLocal();
     _method = m.progressMethod;
+    _zoneIds = {for (final z in m.zones) z.id};
+  }
+
+  /// Zones proposées : pour un groupe, les siennes et les zones libres ; pour un agent, celles
+  /// de son groupe et les zones libres ; ouverte (ou modification) : toutes celles du chef.
+  List<Zone> _eligible(List<Zone> zones) {
+    if (_editing || _assign == 'open') return zones;
+    final groupId = _assign == 'group' ? _group?.id : _agent?.groupId;
+    return zones
+        .where((z) => z.groupIds.isEmpty || z.groupIds.contains(groupId))
+        .toList();
   }
 
   Future<void> _pickDue() async {
@@ -112,6 +131,17 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
     if (!_form.currentState!.validate()) return;
+    final zones = ref.read(editorZonesProvider).value ?? const <Zone>[];
+    final zoneIds = _eligible(
+      zones,
+    ).map((z) => z.id).where(_zoneIds.contains).toList();
+    if (zoneIds.isEmpty) {
+      return showMessage(
+        context,
+        'Choisissez au moins une zone où la mission se fait',
+        error: true,
+      );
+    }
     if (!_editing) {
       if (_type == null) {
         return showMessage(
@@ -120,10 +150,11 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
           error: true,
         );
       }
-      if (_toGroup ? _group == null : _agent == null) {
+      if (_assign != 'open' &&
+          (_assign == 'group' ? _group == null : _agent == null)) {
         return showMessage(
           context,
-          _toGroup ? 'Choisissez le groupe' : 'Choisissez l’agent',
+          _assign == 'group' ? 'Choisissez le groupe' : 'Choisissez l’agent',
           error: true,
         );
       }
@@ -145,6 +176,7 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
         // Échéance inchangée (même dépassée) : non renvoyée.
         if (_due != null && _due != _initialDue)
           'dueDate': _due!.toUtc().toIso8601String(),
+        'zoneIds': zoneIds,
       };
       if (_editing) {
         await repo.updateMission(widget.missionId!, common);
@@ -153,10 +185,8 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
         final created = await repo.createMission({
           ...common,
           'typeId': _type!.id,
-          if (_toGroup)
-            'assigneeGroupId': _group!.id
-          else
-            'assigneeAgentId': _agent!.id,
+          if (_assign == 'group') 'assigneeGroupId': _group!.id,
+          if (_assign == 'agent') 'assigneeAgentId': _agent!.id,
           'progressMethod': _method,
           if (_method == 'field_sum') 'sumFieldKey': _sumField!.key,
         });
@@ -204,7 +234,10 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
     final agents = _editing ? null : ref.watch(teamMembersProvider);
     // Sans groupe (formule sans groupes, ou aucun groupe) : mission pour un agent.
     final hasGroups = (groups?.value ?? const []).isNotEmpty;
-    final toGroup = hasGroups && _toGroup;
+    // Sans groupe disponible : un agent, ou ouverte.
+    final assign = !hasGroups && _assign == 'group' ? 'agent' : _assign;
+    final toGroup = assign == 'group';
+    final zones = ref.watch(editorZonesProvider);
     final manual = _method == 'manual';
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
@@ -284,21 +317,30 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
           ),
           GroupedList(
             header: 'Pour qui',
-            footer: toGroup
-                ? 'Objectif d’équipe : tous les agents du groupe y contribuent.'
-                : 'Seul cet agent voit la mission.',
+            footer: switch (assign) {
+              'group' =>
+                'Objectif d’équipe : tous les agents du groupe y contribuent.',
+              'open' =>
+                'Tous les agents qui choisissent une de ses zones peuvent y contribuer.',
+              _ => 'Seul cet agent voit la mission.',
+            },
             indent: Space.lg,
             children: [
-              if (hasGroups)
-                Padding(
-                  padding: const EdgeInsets.all(Space.sm),
-                  child: AppSegmented<bool>(
-                    segments: const {true: 'Un groupe', false: 'Un agent'},
-                    selected: toGroup,
-                    onChanged: (v) => setState(() => _toGroup = v),
-                  ),
+              Padding(
+                padding: const EdgeInsets.all(Space.sm),
+                child: AppSegmented<String>(
+                  segments: {
+                    if (hasGroups) 'group': 'Un groupe',
+                    'agent': 'Un agent',
+                    'open': 'Ouverte',
+                  },
+                  selected: assign,
+                  onChanged: (v) => setState(() => _assign = v),
                 ),
-              if (toGroup)
+              ),
+              if (assign == 'open')
+                const SizedBox.shrink()
+              else if (toGroup)
                 pickRow('Groupe', _group?.name, () async {
                   final picked = await pickOption<TeamGroup?>(
                     context,
@@ -332,6 +374,43 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
             ],
           ),
         ],
+        GroupedList(
+          header: 'Où',
+          footer:
+              'L’agent voit la mission en choisissant l’une de ces zones et y envoie ses formulaires.',
+          indent: Space.lg,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(Space.md),
+              child: zones.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (_, _) =>
+                    const Text('Zones indisponibles hors connexion'),
+                data: (all) {
+                  final eligible = _eligible(all);
+                  if (eligible.isEmpty) {
+                    return const Text('Aucune zone disponible pour ce choix');
+                  }
+                  return Wrap(
+                    spacing: Space.sm,
+                    runSpacing: Space.sm,
+                    children: [
+                      for (final z in eligible)
+                        FilterChip(
+                          label: Text(z.name),
+                          selected: _zoneIds.contains(z.id),
+                          onSelected: (on) => setState(
+                            () =>
+                                on ? _zoneIds.add(z.id) : _zoneIds.remove(z.id),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
         GroupedList(
           header: 'Objectif',
           footer: _editing

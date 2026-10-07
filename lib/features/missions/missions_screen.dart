@@ -12,6 +12,7 @@ import '../../widgets/brand_header.dart';
 import '../../widgets/common.dart';
 import '../profile/my_team.dart';
 import 'missions_controller.dart';
+import '../day/day_controller.dart';
 
 class MissionsScreen extends ConsumerStatefulWidget {
   const MissionsScreen({super.key});
@@ -71,6 +72,13 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
             final groupName = leader
                 ? null
                 : ref.watch(myTeamProvider).value?.groupName;
+            // Agent : zone de sa journée (ou celle déjà obtenue pour aujourd'hui).
+            final dayState = leader ? null : ref.watch(dayProvider).value;
+            final dayZone = dayState == null
+                ? null
+                : dayState.isWorking
+                ? dayState.day!.zoneId
+                : dayState.approved?.zoneId;
             final open = list
                 .where(
                   (m) =>
@@ -132,12 +140,10 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
                           ),
                         )
                       else
-                        GroupedList(
-                          indent: 62,
-                          children: [
-                            for (final m in shown)
-                              MissionCard(mission: m, groupName: groupName),
-                          ],
+                        ..._sections(
+                          shown,
+                          dayZone: _done ? null : dayZone,
+                          groupName: groupName,
                         ),
                     ],
                   ),
@@ -171,8 +177,68 @@ class _MissionsScreenState extends ConsumerState<MissionsScreen> {
 };
 
 /// Ligne de mission : petit anneau de progression, titre, avancement, pourcentage.
+/// Agent avec une zone pour aujourd'hui : les missions de cette zone d'abord, puis les
+/// autres avec l'endroit où les faire. Sinon, une seule liste.
+List<Widget> _sections(
+  List<Mission> missions, {
+  required String? dayZone,
+  required String? groupName,
+}) {
+  if (dayZone == null) {
+    return [
+      GroupedList(
+        indent: 62,
+        children: [
+          for (final m in missions)
+            MissionCard(mission: m, groupName: groupName),
+        ],
+      ),
+    ];
+  }
+  bool here(Mission m) => m.zones.any((z) => z.id == dayZone);
+  final mine = missions.where(here).toList();
+  final others = missions.where((m) => !here(m)).toList();
+  final zoneName = missions
+      .expand((m) => m.zones)
+      .where((z) => z.id == dayZone)
+      .firstOrNull
+      ?.name;
+  return [
+    GroupedList(
+      header: zoneName == null ? 'Dans ma zone' : 'À faire à $zoneName',
+      indent: 62,
+      children: [
+        for (final m in mine) MissionCard(mission: m, groupName: groupName),
+        if (mine.isEmpty)
+          const ListRow(title: 'Aucune mission dans votre zone aujourd’hui'),
+      ],
+    ),
+    if (others.isNotEmpty)
+      GroupedList(
+        header: 'Autres zones',
+        indent: 62,
+        children: [
+          for (final m in others)
+            MissionCard(
+              mission: m,
+              groupName: groupName,
+              where: 'à faire à ${m.zones.map((z) => z.name).join(', ')}',
+            ),
+        ],
+      ),
+  ];
+}
+
 class MissionCard extends StatelessWidget {
-  const MissionCard({super.key, required this.mission, this.groupName});
+  const MissionCard({
+    super.key,
+    required this.mission,
+    this.groupName,
+    this.where,
+  });
+
+  /// Agent, mission d'une autre zone : où la faire.
+  final String? where;
 
   final Mission mission;
 
@@ -197,6 +263,7 @@ class MissionCard extends StatelessWidget {
         'Équipe',
       if (forms > 0)
         '$forms formulaire${forms > 1 ? 's' : ''} envoyé${forms > 1 ? 's' : ''}',
+      ?where,
       mission.progressMethod == 'manual'
           ? 'Validation du responsable'
           : '${formatNumber(p.current)} sur ${formatNumber(p.target)}',

@@ -3,6 +3,8 @@ library;
 
 import 'package:latlong2/latlong.dart';
 
+import 'format.dart';
+
 DateTime? _date(Object? v) =>
     v == null ? null : DateTime.parse(v as String).toLocal();
 double _num(Object? v) => v == null ? 0 : (v as num).toDouble();
@@ -29,6 +31,7 @@ class Me {
     required this.zoneRequired,
     this.zoneExitToleranceMeters = 30,
     this.zoneExitAlertMinutes = 5,
+    this.submissionRequiresDay = true,
     this.phone,
     this.avatarVersion,
     this.subscriptionStatus = 'active',
@@ -72,6 +75,9 @@ class Me {
   final bool allowZoneChangeBeforeStart;
   final bool zoneRequired;
 
+  /// Formulaires envoyés seulement pendant une journée dans une zone de la mission.
+  final bool submissionRequiresDay;
+
   /// Marge autour de la zone avant de compter une sortie, en mètres.
   final int zoneExitToleranceMeters;
 
@@ -99,6 +105,7 @@ class Me {
       allowZoneChangeBeforeStart:
           settings['allowZoneChangeBeforeStart'] as bool,
       zoneRequired: settings['zoneRequired'] as bool,
+      submissionRequiresDay: settings['submissionRequiresDay'] as bool? ?? true,
       zoneExitToleranceMeters:
           settings['zoneExitToleranceMeters'] as int? ?? 30,
       zoneExitAlertMinutes: settings['zoneExitAlertMinutes'] as int? ?? 5,
@@ -139,7 +146,15 @@ class Zone {
     required this.sensitive,
     this.mine,
     this.area = const [],
+    this.missions = const [],
+    this.groupIds = const [],
   });
+
+  /// Groupes actifs de la zone ; vide : zone libre, ouverte à tous.
+  final List<String> groupIds;
+
+  /// Agent : missions en cours de cette zone qui le concernent (choix de la zone).
+  final List<ZoneMission> missions;
 
   final String id;
   final String name;
@@ -165,6 +180,10 @@ class Zone {
         ? null
         : RequestStatus.values.byName(json['mine'] as String),
     area: _rings(json['area']),
+    groupIds: (json['groupIds'] as List? ?? const []).cast<String>(),
+    missions: (json['missions'] as List? ?? [])
+        .map((m) => ZoneMission.fromJson(m as Map<String, dynamic>))
+        .toList(),
   );
 
   /// Milieu du bord nord : l'étiquette se place au-dessus de la zone, pas sur les agents.
@@ -376,7 +395,7 @@ class MissionField {
 }
 
 class Progress {
-  Progress({
+  const Progress({
     required this.current,
     required this.target,
     required this.percent,
@@ -416,7 +435,11 @@ class Mission {
     this.hasOwnPay = false,
     this.earnings,
     this.myForms,
+    this.zones = const [],
   });
+
+  /// Zones où la mission se fait.
+  final List<({String id, String name})> zones;
 
   final String? typeId;
 
@@ -486,6 +509,10 @@ class Mission {
       assigneeGroupId: json['assigneeGroupId'] as String?,
       hasOwnPay: json['hasOwnPay'] as bool? ?? false,
       myForms: (json['myForms'] as num?)?.toInt(),
+      zones: [
+        for (final z in json['zones'] as List? ?? const [])
+          (id: (z as Map)['id'] as String, name: z['name'] as String),
+      ],
       earnings: json['myEarnings'] == null
           ? null
           : MissionEarnings.fromJson(
@@ -514,6 +541,19 @@ class MissionEarnings {
 
   bool get isEmpty =>
       (perForm ?? 0) == 0 && (commissionPercent ?? 0) == 0 && tiers.isEmpty;
+
+  /// Résumé d'une ligne : « 500 FCFA par formulaire · prime jusqu'à 10 000 FCFA ».
+  String? get summary {
+    if (isEmpty) return null;
+    final parts = [
+      if ((perForm ?? 0) > 0) '${formatMoney(perForm!)} par formulaire',
+      if ((commissionPercent ?? 0) > 0)
+        '${formatNumber(commissionPercent!)} % de commission',
+      if (tiers.isNotEmpty) 'prime jusqu’à ${formatMoney(tiers.first.amount)}',
+    ];
+    final text = parts.join(' · ');
+    return text[0].toUpperCase() + text.substring(1);
+  }
 
   factory MissionEarnings.fromJson(Map<String, dynamic> json) =>
       MissionEarnings(
@@ -704,6 +744,7 @@ class TeamMember {
     required this.lastName,
     required this.phone,
     required this.isActive,
+    this.groupId,
   });
 
   final String id;
@@ -711,6 +752,7 @@ class TeamMember {
   final String lastName;
   final String? phone;
   final bool isActive;
+  final String? groupId;
 
   String get fullName => '$firstName $lastName';
   String get initials =>
@@ -723,6 +765,7 @@ class TeamMember {
     lastName: json['lastName'] as String,
     phone: json['phone'] as String?,
     isActive: json['isActive'] as bool? ?? true,
+    groupId: json['groupId'] as String?,
   );
 }
 
@@ -1382,4 +1425,62 @@ class AgentTeam {
       }).toList(),
     );
   }
+}
+
+/// Mission présentée au choix de la zone : de quoi décider avant de démarrer la journée.
+class ZoneMission {
+  const ZoneMission({
+    required this.id,
+    required this.title,
+    required this.typeName,
+    required this.fields,
+    required this.progressMethod,
+    required this.targetValue,
+    required this.assignment,
+    required this.progress,
+    this.description,
+    this.dueDate,
+    this.myForms = 0,
+    this.earnings,
+  });
+
+  final String id;
+  final String title;
+  final String? description;
+  final String typeName;
+
+  /// Champs du formulaire à remplir (libellés).
+  final List<String> fields;
+  final String progressMethod;
+  final double targetValue;
+  final DateTime? dueDate;
+
+  /// Pour lui (agent), pour son groupe (group) ou ouverte à tous (open).
+  final String assignment;
+  final Progress progress;
+  final int myForms;
+  final MissionEarnings? earnings;
+
+  String get assignmentLabel => switch (assignment) {
+    'agent' => 'Pour vous',
+    'group' => 'Votre groupe',
+    _ => 'Ouverte à tous',
+  };
+
+  factory ZoneMission.fromJson(Map<String, dynamic> j) => ZoneMission(
+    id: j['id'] as String,
+    title: j['title'] as String,
+    description: j['description'] as String?,
+    typeName: j['typeName'] as String? ?? '',
+    fields: (j['fields'] as List? ?? const []).cast<String>(),
+    progressMethod: j['progressMethod'] as String,
+    targetValue: (j['targetValue'] as num).toDouble(),
+    dueDate: _date(j['dueDate']),
+    assignment: j['assignment'] as String? ?? 'open',
+    progress: Progress.fromJson(j['progress'] as Map<String, dynamic>),
+    myForms: (j['myForms'] as num?)?.toInt() ?? 0,
+    earnings: j['myEarnings'] == null
+        ? null
+        : MissionEarnings.fromJson(j['myEarnings'] as Map<String, dynamic>),
+  );
 }

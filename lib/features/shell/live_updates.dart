@@ -35,7 +35,12 @@ Set<LiveArea> areasFor(String topic) => switch (topic) {
   'zones' ||
   'zone-requests' ||
   'days' => {LiveArea.day, LiveArea.team, LiveArea.alerts},
-  'missions' || 'mission-types' => {LiveArea.missions, LiveArea.pay},
+  'missions' || 'mission-types' => {
+    LiveArea.missions,
+    LiveArea.pay,
+    // Missions affichées au choix de la zone.
+    LiveArea.day,
+  },
   'pay' => {LiveArea.pay},
   'alerts' => {LiveArea.alerts, LiveArea.report},
   'reports' || 'team-messages' => {LiveArea.report},

@@ -386,6 +386,26 @@ class FakeRepository extends Repository {
         isFull: false,
         sensitive: false,
         area: plateauArea,
+        missions: const [
+          ZoneMission(
+            id: 'm1',
+            title: '120 visites cette semaine',
+            description: 'Présentez la nouvelle offre aux commerces.',
+            typeName: 'Visite commerciale',
+            fields: ['Nom du commerce', 'Montant'],
+            progressMethod: 'count',
+            targetValue: 120,
+            assignment: 'group',
+            progress: Progress(current: 77, target: 120, percent: 64),
+            myForms: 3,
+            earnings: MissionEarnings(
+              source: 'mission',
+              perForm: 500,
+              commissionPercent: null,
+              tiers: [(threshold: 100, amount: 10000)],
+            ),
+          ),
+        ],
       ),
       Zone(
         id: 'z2',

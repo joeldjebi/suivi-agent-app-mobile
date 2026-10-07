@@ -14,6 +14,7 @@ import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import 'missions_controller.dart';
 import 'missions_screen.dart';
+import '../day/day_controller.dart';
 
 enum _Tab { overview, team, forms }
 
@@ -320,11 +321,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: PillButton(
-                  label: 'Nouveau formulaire',
-                  icon: Icons.add_rounded,
-                  onPressed: () => context.push('/missions/$id/new'),
-                ),
+                child: _SubmitAction(mission: mission.requireValue),
               ),
             )
           : null,
@@ -429,12 +426,17 @@ class _Overview extends StatelessWidget {
                   '${formatShortDate(m.dueDate!)} à ${formatTime(m.dueDate!)}',
             ),
           if (m.typeName != null) ListRow(title: 'Type', value: m.typeName),
+          if (m.zones.isNotEmpty)
+            ListRow(
+              title: m.zones.length > 1 ? 'Zones' : 'Zone',
+              value: m.zones.map((z) => z.name).join(', '),
+            ),
           if (leader && m.hasOwnPay)
             const ListRow(title: 'Rémunération', value: 'Propre à la mission'),
         ],
       ),
       if (!leader && m.earnings != null && !m.earnings!.isEmpty)
-        _Earnings(earnings: m.earnings!),
+        MissionEarningsCard(earnings: m.earnings!),
       if (m.description != null) ...[
         const SectionHeader('Consignes'),
         SurfaceCard(child: Text(m.description!, style: text.bodyLarge)),
@@ -444,8 +446,8 @@ class _Overview extends StatelessWidget {
 }
 
 /// Agent : ce que rapporte la mission (conditions propres, ou sa grille).
-class _Earnings extends StatelessWidget {
-  const _Earnings({required this.earnings});
+class MissionEarningsCard extends StatelessWidget {
+  const MissionEarningsCard({super.key, required this.earnings});
 
   final MissionEarnings earnings;
 
@@ -1369,3 +1371,44 @@ String _display(MissionField f, Object? v) => switch (f.type) {
   FieldType.date => formatShortDate(DateTime.parse(v as String)),
   _ => '$v',
 };
+
+/// Envoi d'un formulaire : pendant la journée, dans une zone de la mission (si la structure
+/// l'exige). Sinon, ce qu'il manque et le chemin pour y remédier.
+class _SubmitAction extends ConsumerWidget {
+  const _SubmitAction({required this.mission});
+
+  final Mission mission;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(meProvider);
+    final day = ref.watch(dayProvider).value;
+    final working = day?.isWorking ?? false;
+    final dayZone = working ? day!.day!.zoneId : null;
+    final inZone =
+        mission.zones.isEmpty || mission.zones.any((z) => z.id == dayZone);
+    if (!me.submissionRequiresDay || (working && inZone)) {
+      return PillButton(
+        label: 'Nouveau formulaire',
+        icon: Icons.add_rounded,
+        onPressed: () => context.push('/missions/${mission.id}/new'),
+      );
+    }
+    final zones = mission.zones.map((z) => z.name).join(', ');
+    return InfoBanner(
+      icon: working
+          ? Icons.wrong_location_outlined
+          : Icons.play_circle_outline_rounded,
+      tone: Tone.info,
+      message: working
+          ? 'Cette mission se fait à : $zones. Vous travaillez aujourd’hui dans une autre zone.'
+          : 'Démarrez votre journée${zones.isEmpty ? '' : ' à $zones'} pour envoyer un formulaire.',
+      action: working
+          ? null
+          : TextButton(
+              onPressed: () => context.go('/day'),
+              child: const Text('Ma journée'),
+            ),
+    );
+  }
+}

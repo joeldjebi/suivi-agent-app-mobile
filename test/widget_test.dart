@@ -714,6 +714,15 @@ void main() {
     await _settle(tester);
     await tester.tap(find.text('Équipe Nord').last);
     await _settle(tester);
+    // Où : au moins une zone (celles du chef).
+    final plateau = find.widgetWithText(FilterChip, 'Plateau');
+    await tester.scrollUntilVisible(
+      plateau,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(plateau);
+    await _settle(tester);
     final target = find.widgetWithText(FieldRow, 'Formulaires');
     await tester.scrollUntilVisible(
       target,
@@ -738,6 +747,7 @@ void main() {
       containsPair('progressMethod', 'count'),
     );
     expect(repo.createdMissions.single, containsPair('targetValue', 40.0));
+    expect(repo.createdMissions.single['zoneIds'], ['z1']);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
@@ -1131,5 +1141,53 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.textContaining('rattaché à aucun groupe'), findsOneWidget);
+  });
+
+  testWidgets(
+    'agent : missions et rémunération de chaque zone avant de démarrer',
+    (tester) async {
+      _phone(tester);
+      await tester.pumpWidget(testApp(auth: () => SignedInAuth(fakeMe())));
+      await _settle(tester);
+      await _tapText(tester, 'Choisir ma zone');
+      expect(find.text('120 visites cette semaine'), findsOneWidget);
+      expect(find.textContaining('par formulaire'), findsOneWidget);
+      expect(find.text('Aucune mission dans cette zone'), findsWidgets);
+
+      await tester.tap(find.text('120 visites cette semaine'));
+      await _settle(tester);
+      expect(
+        find.text('Présentez la nouvelle offre aux commerces.'),
+        findsOneWidget,
+      );
+      expect(find.text('Votre groupe'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.text('Nom du commerce'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('FORMULAIRE À REMPLIR'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('CE QUE RAPPORTE CETTE MISSION'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Par formulaire accepté'), findsOneWidget);
+    },
+  );
+
+  testWidgets('agent : envoi de formulaire seulement après le démarrage', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(testApp(auth: () => SignedInAuth(fakeMe())));
+    await _settle(tester);
+    await tester.tap(_tab('Missions'));
+    await _settle(tester);
+    await tester.tap(find.text('120 visites cette semaine'));
+    await _settle(tester);
+    expect(find.textContaining('Démarrez votre journée'), findsOneWidget);
+    expect(find.text('Nouveau formulaire'), findsNothing);
+    expect(find.text('Ma journée'), findsOneWidget);
   });
 }
