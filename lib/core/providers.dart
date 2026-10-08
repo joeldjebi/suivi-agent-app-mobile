@@ -1,4 +1,5 @@
 import 'app_version.dart';
+import 'network_status.dart';
 import 'app_lock.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -38,11 +39,40 @@ final apiProvider = Provider<ApiClient>((ref) {
   // Session expirée (jeton révoqué, compte désactivé) : retour à l'écran de connexion.
   api.onSessionExpired = () => ref.read(authProvider.notifier).expire();
   api.onPlanChanged = () => ref.read(authProvider.notifier).refresh();
+  // Mode hors ligne : mémoire des écrans et état du réseau.
+  final db = ref.watch(databaseProvider);
+  api.cache = _DbCache(db);
+  api.onReachable = () => ref.read(networkProvider.notifier).reachable();
+  api.onUnreachable = () => ref.read(networkProvider.notifier).unreachable();
   api.onUpdateRequired = (url, min) => ref
       .read(updateProvider.notifier)
       .requireUpdate(storeUrl: url, version: min);
   return api;
 });
+
+class _DbCache implements ResponseCache {
+  _DbCache(this.db);
+
+  final AppDatabase db;
+
+  @override
+  Future<void> put(String key, String body) => db.cachePut(key, body);
+
+  @override
+  Future<String?> get(String key) async => (await db.cacheGet(key))?.body;
+}
+
+/// Relecture de tous les écrans demandée (notification reçue app ouverte…).
+class RefreshRequest extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void request() => state++;
+}
+
+final refreshRequestProvider = NotifierProvider<RefreshRequest, int>(
+  RefreshRequest.new,
+);
 
 final repositoryProvider = Provider<Repository>(
   (ref) => Repository(ref.watch(apiProvider)),

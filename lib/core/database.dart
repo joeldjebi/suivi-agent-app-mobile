@@ -40,13 +40,24 @@ class PendingSubmissions extends Table {
   Set<Column> get primaryKey => {clientId};
 }
 
-@DriftDatabase(tables: [PendingPositions, PendingSubmissions])
+/// Dernière réponse de chaque écran lu avec du réseau : affichée hors ligne.
+class HttpCache extends Table {
+  /// Adresse et paramètres de la requête.
+  TextColumn get key => text()();
+  TextColumn get body => text()();
+  DateTimeColumn get savedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+@DriftDatabase(tables: [PendingPositions, PendingSubmissions, HttpCache])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'suivi_agent'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -59,6 +70,8 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(pendingPositions, pendingPositions.battery);
       }
+      // v4 : mémoire des écrans pour le mode hors ligne.
+      if (from < 4) await m.createTable(httpCache);
     },
   );
 
@@ -96,5 +109,27 @@ class AppDatabase extends _$AppDatabase {
   Future<void> wipe() async {
     await delete(pendingPositions).go();
     await delete(pendingSubmissions).go();
+    await delete(httpCache).go();
   }
+
+  // Mémoire des écrans (mode hors ligne).
+
+  Future<void> cachePut(String key, String body) =>
+      into(httpCache).insertOnConflictUpdate(
+        HttpCacheCompanion.insert(
+          key: key,
+          body: body,
+          savedAt: DateTime.now(),
+        ),
+      );
+
+  Future<HttpCacheData?> cacheGet(String key) =>
+      (select(httpCache)..where((c) => c.key.equals(key))).getSingleOrNull();
+
+  /// Oublie ce qui n'a pas été relu depuis [age].
+  Future<void> cachePrune(Duration age) =>
+      (delete(httpCache)..where(
+            (c) => c.savedAt.isSmallerThanValue(DateTime.now().subtract(age)),
+          ))
+          .go();
 }

@@ -44,6 +44,13 @@ Future<void> _run() async {
   container.read(onboardingProvider);
   // Verrouillage Face ID / empreinte relu avant le premier écran.
   container.read(appLockProvider);
+  // Mémoire hors ligne : les écrans non relus depuis 7 jours sont oubliés.
+  unawaited(
+    container
+        .read(databaseProvider)
+        .cachePrune(const Duration(days: 7))
+        .catchError((Object _) {}),
+  );
   // Version minimale et dernière version publiées.
   unawaited(container.read(updateProvider.notifier).check());
   // Notifications push : réception et notification qui a lancé l'app.

@@ -1128,6 +1128,269 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
   }
 }
 
+class $HttpCacheTable extends HttpCache
+    with TableInfo<$HttpCacheTable, HttpCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HttpCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> savedAt = GeneratedColumn<DateTime>(
+    'saved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, body, savedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'http_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HttpCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_savedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  HttpCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HttpCacheData(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}saved_at'],
+      )!,
+    );
+  }
+
+  @override
+  $HttpCacheTable createAlias(String alias) {
+    return $HttpCacheTable(attachedDatabase, alias);
+  }
+}
+
+class HttpCacheData extends DataClass implements Insertable<HttpCacheData> {
+  /// Adresse et paramètres de la requête.
+  final String key;
+  final String body;
+  final DateTime savedAt;
+  const HttpCacheData({
+    required this.key,
+    required this.body,
+    required this.savedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['body'] = Variable<String>(body);
+    map['saved_at'] = Variable<DateTime>(savedAt);
+    return map;
+  }
+
+  HttpCacheCompanion toCompanion(bool nullToAbsent) {
+    return HttpCacheCompanion(
+      key: Value(key),
+      body: Value(body),
+      savedAt: Value(savedAt),
+    );
+  }
+
+  factory HttpCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HttpCacheData(
+      key: serializer.fromJson<String>(json['key']),
+      body: serializer.fromJson<String>(json['body']),
+      savedAt: serializer.fromJson<DateTime>(json['savedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'body': serializer.toJson<String>(body),
+      'savedAt': serializer.toJson<DateTime>(savedAt),
+    };
+  }
+
+  HttpCacheData copyWith({String? key, String? body, DateTime? savedAt}) =>
+      HttpCacheData(
+        key: key ?? this.key,
+        body: body ?? this.body,
+        savedAt: savedAt ?? this.savedAt,
+      );
+  HttpCacheData copyWithCompanion(HttpCacheCompanion data) {
+    return HttpCacheData(
+      key: data.key.present ? data.key.value : this.key,
+      body: data.body.present ? data.body.value : this.body,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HttpCacheData(')
+          ..write('key: $key, ')
+          ..write('body: $body, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, body, savedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HttpCacheData &&
+          other.key == this.key &&
+          other.body == this.body &&
+          other.savedAt == this.savedAt);
+}
+
+class HttpCacheCompanion extends UpdateCompanion<HttpCacheData> {
+  final Value<String> key;
+  final Value<String> body;
+  final Value<DateTime> savedAt;
+  final Value<int> rowid;
+  const HttpCacheCompanion({
+    this.key = const Value.absent(),
+    this.body = const Value.absent(),
+    this.savedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HttpCacheCompanion.insert({
+    required String key,
+    required String body,
+    required DateTime savedAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       body = Value(body),
+       savedAt = Value(savedAt);
+  static Insertable<HttpCacheData> custom({
+    Expression<String>? key,
+    Expression<String>? body,
+    Expression<DateTime>? savedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (body != null) 'body': body,
+      if (savedAt != null) 'saved_at': savedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HttpCacheCompanion copyWith({
+    Value<String>? key,
+    Value<String>? body,
+    Value<DateTime>? savedAt,
+    Value<int>? rowid,
+  }) {
+    return HttpCacheCompanion(
+      key: key ?? this.key,
+      body: body ?? this.body,
+      savedAt: savedAt ?? this.savedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<DateTime>(savedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HttpCacheCompanion(')
+          ..write('key: $key, ')
+          ..write('body: $body, ')
+          ..write('savedAt: $savedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1136,6 +1399,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $PendingSubmissionsTable pendingSubmissions =
       $PendingSubmissionsTable(this);
+  late final $HttpCacheTable httpCache = $HttpCacheTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1143,6 +1407,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     pendingPositions,
     pendingSubmissions,
+    httpCache,
   ];
 }
 
@@ -1717,6 +1982,168 @@ typedef $$PendingSubmissionsTableProcessedTableManager =
       PendingSubmission,
       PrefetchHooks Function()
     >;
+typedef $$HttpCacheTableCreateCompanionBuilder =
+    HttpCacheCompanion Function({
+      required String key,
+      required String body,
+      required DateTime savedAt,
+      Value<int> rowid,
+    });
+typedef $$HttpCacheTableUpdateCompanionBuilder =
+    HttpCacheCompanion Function({
+      Value<String> key,
+      Value<String> body,
+      Value<DateTime> savedAt,
+      Value<int> rowid,
+    });
+
+class $$HttpCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $HttpCacheTable> {
+  $$HttpCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HttpCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $HttpCacheTable> {
+  $$HttpCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HttpCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HttpCacheTable> {
+  $$HttpCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+}
+
+class $$HttpCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HttpCacheTable,
+          HttpCacheData,
+          $$HttpCacheTableFilterComposer,
+          $$HttpCacheTableOrderingComposer,
+          $$HttpCacheTableAnnotationComposer,
+          $$HttpCacheTableCreateCompanionBuilder,
+          $$HttpCacheTableUpdateCompanionBuilder,
+          (
+            HttpCacheData,
+            BaseReferences<_$AppDatabase, $HttpCacheTable, HttpCacheData>,
+          ),
+          HttpCacheData,
+          PrefetchHooks Function()
+        > {
+  $$HttpCacheTableTableManager(_$AppDatabase db, $HttpCacheTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HttpCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HttpCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HttpCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<DateTime> savedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HttpCacheCompanion(
+                key: key,
+                body: body,
+                savedAt: savedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String body,
+                required DateTime savedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => HttpCacheCompanion.insert(
+                key: key,
+                body: body,
+                savedAt: savedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HttpCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HttpCacheTable,
+      HttpCacheData,
+      $$HttpCacheTableFilterComposer,
+      $$HttpCacheTableOrderingComposer,
+      $$HttpCacheTableAnnotationComposer,
+      $$HttpCacheTableCreateCompanionBuilder,
+      $$HttpCacheTableUpdateCompanionBuilder,
+      (
+        HttpCacheData,
+        BaseReferences<_$AppDatabase, $HttpCacheTable, HttpCacheData>,
+      ),
+      HttpCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1725,4 +2152,6 @@ class $AppDatabaseManager {
       $$PendingPositionsTableTableManager(_db, _db.pendingPositions);
   $$PendingSubmissionsTableTableManager get pendingSubmissions =>
       $$PendingSubmissionsTableTableManager(_db, _db.pendingSubmissions);
+  $$HttpCacheTableTableManager get httpCache =>
+      $$HttpCacheTableTableManager(_db, _db.httpCache);
 }

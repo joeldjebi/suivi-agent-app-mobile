@@ -153,6 +153,8 @@ class PushService {
   }
 
   void _onForeground(RemoteMessage message) {
+    // Les écrans concernés sont relus, même si la connexion en direct est coupée.
+    _ref.read(refreshRequestProvider.notifier).request();
     final notification = message.notification;
     // Les écrans se mettent à jour par la connexion en direct ; seul l'affichage manque.
     if (Platform.isIOS && notification != null) return;

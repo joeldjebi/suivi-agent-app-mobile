@@ -6,6 +6,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../safety/sos.dart';
 import '../../core/config.dart';
+import '../../core/network_status.dart';
 import '../../core/providers.dart';
 import '../day/day_controller.dart';
 import '../day/week_screen.dart';
@@ -59,6 +60,7 @@ class LiveUpdates {
   io.Socket? _socket;
   Timer? _debounce;
   Timer? _retry;
+  Timer? _fallback;
   final Set<LiveArea> _pending = {};
   bool _wasConnected = false;
   int _failures = 0;
@@ -98,6 +100,13 @@ class LiveUpdates {
       schedule(const [LiveArea.day]);
     });
     socket.connect();
+    // Filet de sécurité : connexion en direct coupée (réseau mobile instable, serveur
+    // redémarré), les écrans essentiels sont relus régulièrement.
+    _fallback = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!(_socket?.connected ?? false)) {
+        schedule(const [LiveArea.day, LiveArea.team, LiveArea.alerts]);
+      }
+    });
   }
 
   /// Retour au premier plan : le téléphone a pu couper la connexion en arrière-plan. On relit
@@ -187,6 +196,7 @@ class LiveUpdates {
   void dispose() {
     _debounce?.cancel();
     _retry?.cancel();
+    _fallback?.cancel();
     _socket?.dispose();
     _socket = null;
   }
@@ -197,6 +207,16 @@ class LiveUpdates {
 final liveUpdatesProvider = Provider.autoDispose<LiveUpdates>((ref) {
   final live = LiveUpdates(ref);
   if (!Platform.environment.containsKey('FLUTTER_TEST')) live.start();
+  // Retour du réseau (téléphone ou serveur de nouveau joignable) : tout est relu en
+  // arrière-plan, les données gardées hors ligne sont remplacées.
+  ref.listen(networkProvider.select((n) => n.online), (was, online) {
+    if (online && was == false) live.resume();
+  });
+  ref.listen(syncProvider.select((s) => s.online), (was, online) {
+    if (online && was == false) live.resume();
+  });
+  // Notification reçue app ouverte : sa source a changé, on relit.
+  ref.listen(refreshRequestProvider, (_, _) => live.schedule(LiveArea.values));
   ref.onDispose(live.dispose);
   return live;
 });

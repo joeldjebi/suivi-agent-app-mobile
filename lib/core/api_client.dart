@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:async';
 import 'app_version.dart';
 import 'package:dio/dio.dart';
 
@@ -24,7 +26,7 @@ class ApiException implements Exception {
       final response = error.response;
       if (response == null) {
         return ApiException(
-          'Pas de connexion. Vérifiez votre réseau et réessayez.',
+          'Vous êtes hors ligne. Réessayez au retour du réseau.',
         );
       }
       final data = response.data;
@@ -43,6 +45,12 @@ class ApiException implements Exception {
     }
     return ApiException('Une erreur inattendue est survenue.');
   }
+}
+
+/// Mémoire des réponses (base locale du téléphone).
+abstract interface class ResponseCache {
+  Future<void> put(String key, String body);
+  Future<String?> get(String key);
 }
 
 /// Client HTTP : ajoute le jeton, le renouvelle une fois si besoin, sinon déconnecte.
@@ -109,6 +117,13 @@ class ApiClient {
   /// Réponse 402 (fonctionnalité hors formule, abonnement suspendu).
   void Function()? onPlanChanged;
 
+  /// Mémoire des écrans : la dernière réponse de chaque lecture, rendue hors ligne.
+  ResponseCache? cache;
+
+  /// Joignabilité du serveur (bandeau « Hors ligne », relecture au retour du réseau).
+  void Function()? onReachable;
+  void Function()? onUnreachable;
+
   /// Réponse 426 : mise à jour de l'app obligatoire (lien de téléchargement, version).
   void Function(String? storeUrl, String? minVersion)? onUpdateRequired;
 
@@ -139,8 +154,38 @@ class ApiClient {
     }
   }
 
-  Future<T> get<T>(String path, {Map<String, dynamic>? query}) =>
-      _wrap(() => dio.get<T>(path, queryParameters: query));
+  /// Lecture : gardée en mémoire ; sans réseau, la dernière version gardée est rendue.
+  Future<T> get<T>(String path, {Map<String, dynamic>? query}) async {
+    final key = cacheKey(path, query);
+    try {
+      final data = (await dio.get<T>(path, queryParameters: query)).data;
+      onReachable?.call();
+      if (data is Map || data is List) {
+        unawaited(
+          cache?.put(key, jsonEncode(data)).catchError((Object _) {}) ??
+              Future<void>.value(),
+        );
+      }
+      return data as T;
+    } catch (e) {
+      final error = ApiException.from(e);
+      if (!error.isNetwork) {
+        onReachable?.call();
+        throw error;
+      }
+      onUnreachable?.call();
+      final saved = await cache?.get(key).catchError((Object _) => null);
+      if (saved != null) return jsonDecode(saved) as T;
+      throw error;
+    }
+  }
+
+  /// Clé de mémoire : adresse et paramètres triés.
+  static String cacheKey(String path, Map<String, dynamic>? query) {
+    if (query == null || query.isEmpty) return path;
+    final keys = query.keys.toList()..sort();
+    return '$path?${keys.map((k) => '$k=${query[k]}').join('&')}';
+  }
 
   Future<T> post<T>(String path, [Object? body]) =>
       _wrap(() => dio.post<T>(path, data: body));
@@ -155,9 +200,13 @@ class ApiClient {
 
   Future<T> _wrap<T>(Future<Response<T>> Function() call) async {
     try {
-      return (await call()).data as T;
+      final data = (await call()).data as T;
+      onReachable?.call();
+      return data;
     } catch (e) {
-      throw ApiException.from(e);
+      final error = ApiException.from(e);
+      error.isNetwork ? onUnreachable?.call() : onReachable?.call();
+      throw error;
     }
   }
 }

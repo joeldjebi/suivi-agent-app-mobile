@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'core/providers.dart';
 import 'core/theme.dart';
 import 'core/app_version.dart';
+import 'features/shell/offline_banner.dart';
 import 'features/shell/update_screen.dart';
 import 'features/safety/sos.dart';
 import 'features/safety/lock_screen.dart';
@@ -312,7 +313,7 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark,
         // Face ID / empreinte : l'app reste masquée tant qu'elle est verrouillée.
-        child: LockGate(child: child!),
+        child: LockGate(child: OfflineFrame(child: child!)),
       ),
     );
   }
