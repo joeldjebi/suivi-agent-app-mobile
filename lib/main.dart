@@ -8,6 +8,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'app.dart';
 import 'core/app_lock.dart';
 import 'core/app_version.dart';
+import 'core/error_report.dart';
 import 'core/providers.dart';
 import 'core/push.dart';
 import 'features/onboarding/onboarding_data.dart';
@@ -38,6 +39,8 @@ Future<void> main() async {
 Future<void> _run() async {
   await initializeDateFormatting('fr_FR');
   final container = ProviderContainer();
+  // Erreurs inattendues : journal de la console éditeur.
+  ErrorReporter(container).install();
   // Reprise de session (et de l'apparence de la structure) avant le premier écran utile.
   container.read(authProvider.notifier).restore();
   // Onboarding vérifié en même temps (affiché au premier lancement ou à une nouvelle version).

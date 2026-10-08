@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/branding.dart';
 import '../design/components.dart';
 import '../design/tokens.dart';
+import 'app_mark.dart';
 
 /// Logo de la structure, ou pictogramme par défaut, sur une tuile arrondie.
 class BrandLogo extends StatelessWidget {
@@ -27,11 +28,7 @@ class BrandLogo extends StatelessWidget {
         branding.logo == null ? size * 0.22 : size * 0.08,
       ),
       child: branding.logo == null
-          ? Icon(
-              Icons.place_rounded,
-              color: branding.primary,
-              size: size * 0.55,
-            )
+          ? AppMark(size: size * 0.56, color: branding.primary)
           : Image.memory(
               branding.logo!,
               fit: BoxFit.contain,
