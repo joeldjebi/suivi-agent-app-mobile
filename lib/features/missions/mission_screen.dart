@@ -314,10 +314,9 @@ class _MissionScreenState extends ConsumerState<MissionScreen> {
         },
       ),
       bottomNavigationBar:
-          !leader &&
-              mission.hasValue &&
-              mission.requireValue.isOpen &&
-              mission.requireValue.progressMethod != 'manual'
+          // Agent : bouton d'envoi, ou la raison pour laquelle il n'est pas disponible.
+          // (Une mission validée par le chef reçoit aussi des formulaires.)
+          !leader && mission.hasValue
           ? SafeArea(
               top: false,
               child: Padding(
@@ -1398,6 +1397,15 @@ class _SubmitAction extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!mission.isOpen) {
+      return InfoBanner(
+        icon: Icons.event_busy_rounded,
+        tone: Tone.info,
+        message: mission.status == MissionStatus.failed
+            ? 'Cette mission est clôturée : elle ne reçoit plus de formulaires.'
+            : 'L’échéance de cette mission est dépassée : elle ne reçoit plus de formulaires.',
+      );
+    }
     final me = ref.watch(meProvider);
     final day = ref.watch(dayProvider).value;
     final working = day?.isWorking ?? false;
