@@ -355,4 +355,48 @@ void main() {
     });
     await _close(tester);
   });
+
+  testWidgets('chef : tableau de bord produits de son équipe', (tester) async {
+    _phone(tester);
+    final repo = InsightsRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(
+            role: 'team_lead',
+            features: {...outletFeatures, 'product_audits'},
+          ),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Tableau de bord produits'));
+
+    expect(find.text('21 %'), findsOneWidget);
+    expect(find.text('4 sur 19 relevés'), findsOneWidget);
+    expect(find.text('Fanta 33 cl'), findsWidgets);
+    expect(find.text('190 bouteilles (15 casiers + 10)'), findsOneWidget);
+    // 30 jours par défaut.
+    final (from, to) = repo.periods.single;
+    expect(DateTime.parse(to).difference(DateTime.parse(from)).inDays, 29);
+
+    // 7 derniers jours : relu pour la nouvelle période.
+    await _tap(tester, find.text('7 derniers jours'));
+    expect(repo.periods, hasLength(2));
+    await tester.scrollUntilVisible(
+      find.text('Nous sommes 17 % plus chers'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Nous sommes 17 % plus chers'), findsOneWidget);
+
+    // Une rupture ouvre la fiche du point de vente.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
+    await _settle(tester);
+    await _tap(tester, find.text('Boutique Awa · Plateau · 10 oct.'));
+    expect(find.text('Changer le statut'), findsOneWidget);
+    await _close(tester);
+  });
 }

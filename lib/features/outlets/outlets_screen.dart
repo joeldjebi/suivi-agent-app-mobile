@@ -166,6 +166,21 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                           96,
                         ),
                         children: [
+                          // Chef : tableau de bord des relevés de son équipe.
+                          if (ref.watch(meProvider).isTeamLead &&
+                              ref.watch(meProvider).hasProductAudits) ...[
+                            SurfaceCard(
+                              padding: EdgeInsets.zero,
+                              child: ListRow(
+                                leading: const Icon(Icons.insights_rounded),
+                                title: 'Tableau de bord produits',
+                                subtitle:
+                                    'Ruptures, ventes et prix relevés par votre équipe',
+                                onTap: () => context.push('/outlets/insights'),
+                              ),
+                            ),
+                            const SizedBox(height: Space.md),
+                          ],
                           if (pending.isNotEmpty) ...[
                             _PendingCard(rows: pending),
                             const SizedBox(height: Space.md),

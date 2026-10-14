@@ -61,6 +61,9 @@ class Me {
   /// Répertoire des points de vente (formule qui l'inclut).
   bool get hasOutlets => features.contains('points_of_sale');
 
+  /// Catalogue et relevés produits (tableau de bord du chef).
+  bool get hasProductAudits => features.contains('product_audits');
+
   /// Rémunération calculée par la plateforme (formule Entreprise).
   bool get hasPayroll => features.contains('payroll');
 

@@ -923,5 +923,29 @@ void main() {
         },
       ),
     );
+
+    testWidgets(
+      'tableau de bord',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(
+            fakeMe(
+              role: 'team_lead',
+              features: {...outletFeatures, 'product_audits'},
+            ),
+          ),
+          repo: InsightsRepo(),
+        ),
+        '43-chef-tableau-de-bord-produits',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Tableau de bord produits'));
+        },
+      ),
+    );
   });
 }

@@ -202,6 +202,17 @@ class Repository {
         query: {'lat': ?lat, 'lng': ?lng},
       );
 
+  /// Tableau de bord des relevés produits (chef : son équipe) : overview, stockouts, sales,
+  /// prices ; période en dates de la structure.
+  Future<Map<String, dynamic>> productInsights(
+    String part, {
+    required String from,
+    required String to,
+  }) => api.get<Map<String, dynamic>>(
+    '/insights/products/$part',
+    query: {'from': from, 'to': to},
+  );
+
   Future<Map<String, dynamic>> outlet(String id) =>
       api.get<Map<String, dynamic>>('/outlets/$id');
 

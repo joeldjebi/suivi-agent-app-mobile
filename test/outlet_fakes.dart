@@ -276,3 +276,111 @@ class ReadingsRepo extends OutletsRepo {
   @override
   Future<Map<String, dynamic>> missionJson(String id) async => _mission;
 }
+
+/// Tableau de bord des relevés (chef).
+class InsightsRepo extends OutletsRepo {
+  final periods = <(String, String)>[];
+
+  @override
+  Future<Map<String, dynamic>> productInsights(
+    String part, {
+    required String from,
+    required String to,
+  }) async {
+    if (part == 'overview') periods.add((from, to));
+    return switch (part) {
+      'overview' => {
+        'visits': 26,
+        'outlets': 11,
+        'products': 3,
+        'ownStockouts': 4,
+        'ownChecked': 19,
+        'stockoutRate': 21,
+        'ownSold': 478,
+        'competitorSold': 288,
+        'ownLosses': 34,
+      },
+      'stockouts' => {
+        'byProduct': [
+          {
+            'productId': 'p-fanta',
+            'name': 'Fanta',
+            'format': '33 cl',
+            'own': true,
+            'checked': 10,
+            'stockouts': 4,
+            'rate': 40,
+          },
+          {
+            'productId': 'p-coca',
+            'name': 'Coca-Cola',
+            'format': '33 cl',
+            'own': true,
+            'checked': 9,
+            'stockouts': 0,
+            'rate': 0,
+          },
+        ],
+        'outlets': [
+          {
+            'productId': 'p-fanta',
+            'productName': 'Fanta',
+            'format': '33 cl',
+            'own': true,
+            'outletId': 'o1',
+            'outletName': 'Boutique Awa',
+            'zone': 'Plateau',
+            'since': '2026-10-10T11:44:00.000Z',
+            'lat': 5.32,
+            'lng': -4.02,
+            'agent': 'Koffi Brou',
+          },
+        ],
+      },
+      'sales' => {
+        'products': [
+          {
+            'productId': 'p-fanta',
+            'name': 'Fanta',
+            'format': '33 cl',
+            'own': true,
+            'unit': 'Bouteille',
+            'packagings': [
+              {'name': 'Casier', 'units': 12},
+            ],
+            'sold': 190,
+            'losses': 26,
+            'ordered': 0,
+            'outlets': 8,
+          },
+          {
+            'productId': 'p-pepsi',
+            'name': 'Pepsi',
+            'format': '33 cl',
+            'own': false,
+            'unit': 'Bouteille',
+            'packagings': [
+              {'name': 'Casier', 'units': 12},
+            ],
+            'sold': 180,
+            'losses': 27,
+            'ordered': 0,
+            'outlets': 9,
+          },
+        ],
+        'lossOutlets': [],
+      },
+      _ => {
+        'products': [],
+        'categories': [
+          {
+            'category': 'Boissons',
+            'own': 305,
+            'competitor': 260,
+            'gapPercent': 17,
+          },
+        ],
+      },
+    };
+  }
+}

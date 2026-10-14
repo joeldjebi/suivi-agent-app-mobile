@@ -28,6 +28,7 @@ import 'features/missions/mission_outlets_screen.dart';
 import 'features/outlets/outlet_editor_screen.dart';
 import 'features/outlets/outlet_screen.dart';
 import 'features/outlets/outlets_screen.dart';
+import 'features/outlets/product_insights_screen.dart';
 import 'features/missions/mission_screen.dart';
 import 'features/missions/missions_screen.dart';
 import 'features/pay/pay_screens.dart';
@@ -86,6 +87,7 @@ final _outletRoutes = GoRoute(
   routes: [
     // Avant « :id » pour ne pas être pris pour un identifiant.
     GoRoute(path: 'new', builder: (_, _) => const OutletEditorScreen()),
+    GoRoute(path: 'insights', builder: (_, _) => const ProductInsightsScreen()),
     GoRoute(
       path: ':id',
       builder: (_, s) => OutletScreen(id: s.pathParameters['id']!),
