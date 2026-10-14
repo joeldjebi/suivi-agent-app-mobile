@@ -880,5 +880,48 @@ void main() {
         },
       ),
     );
+
+    testWidgets(
+      'relevé',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(
+            fakeMe(features: outletFeatures, submissionRequiresDay: false),
+          ),
+          repo: ReadingsRepo(),
+        ),
+        '42-agent-releve-produits',
+        then: () async {
+          Future<void> settle() async {
+            for (var i = 0; i < 8; i++) {
+              await tester.pump(const Duration(milliseconds: 100));
+            }
+          }
+
+          await tester.tap(tab('Missions'));
+          await settle();
+          await tester.tap(find.text('Relevé des boissons'));
+          await settle();
+          await tester.tap(find.text('Nouveau formulaire'));
+          await settle();
+          await tester.tap(find.bySemanticsLabel('Présent').first);
+          await settle();
+          await tester.enterText(
+            find.widgetWithText(TextField, 'casiers').first,
+            '3',
+          );
+          await tester.enterText(
+            find.widgetWithText(TextField, 'bouteilles').first,
+            '5',
+          );
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Prix de vente').first,
+            '300',
+          );
+          FocusManager.instance.primaryFocus?.unfocus();
+        },
+      ),
+    );
   });
 }

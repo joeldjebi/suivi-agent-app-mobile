@@ -13,6 +13,7 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import 'missions_controller.dart';
+import 'product_readings_input.dart' show readingsSummary;
 import 'missions_screen.dart';
 import '../day/day_controller.dart';
 import '../../core/sync.dart';
@@ -1400,6 +1401,7 @@ String _display(MissionField f, Object? v) => switch (f.type) {
   FieldType.number => formatNumber(v as num),
   FieldType.date => formatShortDate(DateTime.parse(v as String)),
   FieldType.photo => 'Photo jointe',
+  FieldType.products => readingsSummary(v),
   _ => '$v',
 };
 

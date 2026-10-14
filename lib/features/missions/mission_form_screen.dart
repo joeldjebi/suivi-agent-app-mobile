@@ -15,6 +15,7 @@ import '../outlets/outlet_models.dart';
 import '../outlets/outlet_widgets.dart';
 import '../outlets/outlets_controller.dart';
 import 'missions_controller.dart';
+import 'product_readings_input.dart';
 import 'package:latlong2/latlong.dart';
 import '../../design/lucide.dart';
 import '../../design/tokens.dart';
@@ -312,6 +313,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                         field: f,
                         value: _values[f.key],
                         onChanged: (v) => _change(f.key, v),
+                        products: m.products[f.key] ?? const [],
                       ),
                       const SizedBox(height: 18),
                     ],
@@ -350,7 +352,11 @@ class FieldInput extends StatelessWidget {
     required this.field,
     required this.value,
     required this.onChanged,
+    this.products = const [],
   });
+
+  /// Relevé par produit : les produits du champ.
+  final List<CatalogProduct> products;
 
   final MissionField field;
   final Object? value;
@@ -481,6 +487,13 @@ class FieldInput extends StatelessWidget {
               if (state.hasError) _ErrorText(state.errorText!),
             ],
           ),
+        );
+      case FieldType.products:
+        return ProductReadingsInput(
+          field: field,
+          products: products,
+          value: value,
+          onChanged: onChanged,
         );
       case FieldType.photo:
         return PhotoInput(

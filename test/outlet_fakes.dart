@@ -215,3 +215,64 @@ class VisitsRepo extends OutletsRepo {
     },
   ];
 }
+
+/// Mission avec un relevé par produit (boissons : nos produits et un concurrent).
+class ReadingsRepo extends OutletsRepo {
+  Map<String, dynamic> get _mission => {
+    'id': 'r1',
+    'title': 'Relevé des boissons',
+    'status': 'in_progress',
+    'progressMethod': 'count',
+    'dueDate': DateTime.now()
+        .add(const Duration(days: 2))
+        .toUtc()
+        .toIso8601String(),
+    'progress': {'current': 3, 'target': 20, 'percent': 15},
+    'type': {
+      'name': 'Relevé',
+      'fields': [
+        {
+          'key': 'releve',
+          'label': 'Relevé des boissons',
+          'type': 'products',
+          'required': true,
+          'products': {
+            'scope': 'all',
+            'measures': ['presence', 'stock', 'price'],
+          },
+        },
+      ],
+    },
+    'products': {
+      'releve': [
+        {
+          'id': 'p-coca',
+          'name': 'Coca-Cola',
+          'format': '33 cl',
+          'own': true,
+          'unit': 'Bouteille',
+          'packagings': [
+            {'name': 'Pack', 'units': 6},
+            {'name': 'Casier', 'units': 12},
+          ],
+        },
+        {
+          'id': 'p-pepsi',
+          'name': 'Pepsi',
+          'format': '33 cl',
+          'own': false,
+          'unit': 'Bouteille',
+          'packagings': [
+            {'name': 'Casier', 'units': 12},
+          ],
+        },
+      ],
+    },
+  };
+
+  @override
+  Future<List<Map<String, dynamic>>> missionsJson() async => [_mission];
+
+  @override
+  Future<Map<String, dynamic>> missionJson(String id) async => _mission;
+}

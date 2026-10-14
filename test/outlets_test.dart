@@ -297,4 +297,62 @@ void main() {
       await _close(tester);
     },
   );
+
+  testWidgets('relevé par produit : présence, casiers + bouteilles, prix', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = ReadingsRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(features: outletFeatures, submissionRequiresDay: false),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Missions'));
+    await _tap(tester, find.text('Relevé des boissons'));
+    await _tap(tester, find.text('Nouveau formulaire'));
+
+    expect(find.text('Coca-Cola 33 cl'), findsOneWidget);
+    expect(find.text('Concurrent'), findsOneWidget);
+    expect(find.text('0/2 relevé'), findsOneWidget);
+
+    // Rien de relevé : refusé.
+    await _tap(tester, find.text('Enregistrer'));
+    expect(find.text('Relevez au moins un produit'), findsOneWidget);
+
+    await _tap(tester, find.bySemanticsLabel('Présent').first);
+    // Plusieurs conditionnements : on compte en casiers.
+    await _tap(tester, find.text('En casiers').first);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'casiers').first,
+      '3',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'bouteilles').first,
+      '5',
+    );
+    await tester.pump();
+    expect(find.text('= 41 bouteilles (3 casiers + 5)'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Prix de vente').first,
+      '300',
+    );
+    // Pepsi en rupture : stock et prix disparaissent.
+    await _tap(tester, find.bySemanticsLabel('Rupture').last);
+    expect(find.widgetWithText(TextField, 'Prix de vente'), findsOneWidget);
+    expect(find.text('2/2 relevés'), findsOneWidget);
+
+    await _tap(tester, find.text('Enregistrer'));
+    expect(repo.submittedForms.single['data'], {
+      'releve': {
+        'p-coca': {'presence': true, 'stock': 41, 'price': 300},
+        'p-pepsi': {'presence': false},
+      },
+    });
+    await _close(tester);
+  });
 }

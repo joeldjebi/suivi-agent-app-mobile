@@ -378,7 +378,60 @@ class DayState {
 
 /// [unsupported] : type ajouté par une version plus récente de la plateforme ; affiché
 /// sans être saisi, l'app reste utilisable en attendant sa mise à jour.
-enum FieldType { text, number, boolean, date, select, photo, unsupported }
+enum FieldType {
+  text,
+  number,
+  boolean,
+  date,
+  select,
+  photo,
+
+  /// Relevé par produit : une ligne par produit du catalogue.
+  products,
+  unsupported,
+}
+
+/// Produit du catalogue de la structure (relevés pendant les visites).
+class CatalogProduct {
+  const CatalogProduct({
+    required this.id,
+    required this.name,
+    required this.own,
+    required this.unit,
+    this.format,
+    this.packagings = const [],
+  });
+
+  final String id;
+  final String name;
+  final String? format;
+
+  /// Produit de la structure ; false : concurrent.
+  final bool own;
+
+  /// Unité de base : bouteille, sachet, kg…
+  final String unit;
+
+  /// Conditionnements, du plus petit au plus grand : « Casier » = 12.
+  final List<({String name, int units})> packagings;
+
+  String get label => format == null ? name : '$name $format';
+
+  factory CatalogProduct.fromJson(Map<String, dynamic> j) => CatalogProduct(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    format: j['format'] as String?,
+    own: j['own'] as bool? ?? true,
+    unit: j['unit'] as String? ?? 'Unité',
+    packagings: [
+      for (final p in j['packagings'] as List? ?? const [])
+        (
+          name: (p as Map)['name'] as String,
+          units: (p['units'] as num).toInt(),
+        ),
+    ],
+  );
+}
 
 class MissionField {
   MissionField({
@@ -387,10 +440,14 @@ class MissionField {
     required this.type,
     required this.required,
     this.options = const [],
+    this.measures = const [],
   });
 
   final String key;
   final String label;
+
+  /// Relevé par produit : ce que l'agent relève (presence, stock, price, sold, losses, ordered).
+  final List<String> measures;
   final FieldType type;
   final bool required;
   final List<String> options;
@@ -401,6 +458,9 @@ class MissionField {
     type: FieldType.values.asNameMap()[json['type']] ?? FieldType.unsupported,
     required: json['required'] as bool,
     options: (json['options'] as List?)?.cast<String>() ?? const [],
+    measures:
+        ((json['products'] as Map?)?['measures'] as List?)?.cast<String>() ??
+        const [],
   );
 
   Map<String, dynamic> toJson() => {
@@ -409,6 +469,7 @@ class MissionField {
     'type': type.name,
     'required': required,
     'options': options,
+    if (type == FieldType.products) 'products': {'measures': measures},
   };
 }
 
@@ -455,7 +516,11 @@ class Mission {
     this.myForms,
     this.zones = const [],
     this.visitMode,
+    this.products = const {},
   });
+
+  /// Relevés par produit : les produits de chaque champ, par clé de champ.
+  final Map<String, List<CatalogProduct>> products;
 
   /// Mission de visites : « list » (liste précise) ou « free » (objectif libre).
   final String? visitMode;
@@ -535,6 +600,13 @@ class Mission {
       hasOwnPay: json['hasOwnPay'] as bool? ?? false,
       myForms: (json['myForms'] as num?)?.toInt(),
       visitMode: json['visitMode'] as String?,
+      products: {
+        for (final e in ((json['products'] as Map?) ?? const {}).entries)
+          e.key as String: [
+            for (final p in e.value as List)
+              CatalogProduct.fromJson(p as Map<String, dynamic>),
+          ],
+      },
       zones: [
         for (final z in json['zones'] as List? ?? const [])
           (id: (z as Map)['id'] as String, name: z['name'] as String),
