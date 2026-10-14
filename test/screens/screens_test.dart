@@ -19,6 +19,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../fakes.dart';
+import '../outlet_fakes.dart';
 
 /// Rendus d'écrans à la taille d'un iPhone (390 × 844), police et icônes réelles.
 /// flutter test --tags screens --run-skipped --update-goldens  → test/screens/goldens/*.png
@@ -723,4 +724,161 @@ void main() {
       },
     ),
   );
+
+  group('points de vente', () {
+    OutletsRepo repo() => OutletsRepo()
+      ..outletList.addAll([
+        outletJson(
+          'o4',
+          'Maquis Le Bonheur',
+          category: 'Maquis / Bar',
+          status: 'active',
+          distance: 520,
+          lat: 5.3248,
+          lng: -4.0161,
+        ),
+        outletJson(
+          'o5',
+          'Kiosque Orange',
+          category: 'Kiosque',
+          status: 'closed',
+          distance: 780,
+          lat: 5.3155,
+          lng: -4.0242,
+        ),
+        outletJson(
+          'o6',
+          'Superette Bon Prix',
+          category: 'Supérette',
+          status: 'inactive',
+          distance: 1250,
+          lat: 5.3262,
+          lng: -4.0263,
+        ),
+      ]);
+    Widget app() => testApp(
+      auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+      repo: repo(),
+    );
+    Finder tab(String label) =>
+        find.descendant(of: find.byType(AppNavBar), matching: find.text(label));
+
+    testWidgets(
+      'liste',
+      (tester) => _capture(
+        tester,
+        app(),
+        '35-agent-points-de-vente',
+        then: () => tester.tap(tab('Points de vente')),
+      ),
+    );
+    testWidgets(
+      'carte',
+      (tester) => _capture(
+        tester,
+        app(),
+        '36-agent-points-de-vente-carte',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Carte'));
+        },
+      ),
+    );
+    testWidgets(
+      'fiche',
+      (tester) => _capture(
+        tester,
+        app(),
+        '37-agent-fiche-point-de-vente',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+        },
+      ),
+    );
+    testWidgets(
+      'ajout',
+      (tester) => _capture(
+        tester,
+        app(),
+        '38-agent-ajout-point-de-vente',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Ajouter'));
+        },
+      ),
+    );
+    testWidgets(
+      'statut',
+      (tester) => _capture(
+        tester,
+        app(),
+        '39-agent-changer-statut',
+        wholeApp: true,
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Changer le statut'));
+        },
+      ),
+    );
+
+    Widget visits() => testApp(
+      auth: () => SignedInAuth(
+        fakeMe(features: outletFeatures, submissionRequiresDay: false),
+      ),
+      repo: VisitsRepo(),
+    );
+    Future<void> openVisits(WidgetTester tester) async {
+      Future<void> settle() async {
+        for (var i = 0; i < 8; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+
+      await tester.tap(tab('Missions'));
+      await settle();
+      await tester.tap(find.text('Tournée du Plateau'));
+      await settle();
+      await tester.tap(find.text('Visiter un point de vente'));
+      await settle();
+    }
+
+    testWidgets(
+      'mission de visites',
+      (tester) => _capture(
+        tester,
+        visits(),
+        '40-agent-mission-visites',
+        then: () => openVisits(tester),
+      ),
+    );
+    testWidgets(
+      'visite',
+      (tester) => _capture(
+        tester,
+        visits(),
+        '41-agent-visite',
+        then: () async {
+          await openVisits(tester);
+          await tester.tap(find.text('Boutique Awa'));
+        },
+      ),
+    );
+  });
 }

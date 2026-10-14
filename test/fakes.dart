@@ -1123,6 +1123,9 @@ class FakeTracker extends LocationTracker {
   );
 
   @override
+  Future<Position?> freshPosition() => lastKnown();
+
+  @override
   Future<void> start(String dayId, {required String structure}) async {
     _tracking = true;
     lastFixAt = DateTime.now().subtract(const Duration(seconds: 12));

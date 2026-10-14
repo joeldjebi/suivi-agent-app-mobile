@@ -11,16 +11,30 @@ import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../design/components.dart';
 import '../../widgets/common.dart';
+import '../outlets/outlet_models.dart';
+import '../outlets/outlet_widgets.dart';
+import '../outlets/outlets_controller.dart';
 import 'missions_controller.dart';
+import 'package:latlong2/latlong.dart';
+import '../../design/lucide.dart';
+import '../../design/tokens.dart';
 import '../../core/providers.dart';
 import '../../core/sync.dart';
 
 /// Formulaire généré à partir des champs définis par la structure (RG-13).
 /// Enregistré sur le téléphone puis envoyé ; fonctionne sans réseau.
 class MissionFormScreen extends ConsumerStatefulWidget {
-  const MissionFormScreen({super.key, required this.id, this.retry});
+  const MissionFormScreen({
+    super.key,
+    required this.id,
+    this.retry,
+    this.outlet,
+  });
 
   final String id;
+
+  /// Mission de visites : le point de vente visité.
+  final String? outlet;
 
   /// Formulaire refusé à corriger : ses valeurs sont reprises, il est remplacé à l'envoi.
   final String? retry;
@@ -37,6 +51,15 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   String? _rejectedReason;
   final _scroll = ScrollController();
 
+  /// Visite : le point de vente, et son statut constaté (avec un commentaire facultatif).
+  late String? _outletId = widget.outlet;
+  OutletStatus? _outletStatus;
+  final _outletComment = TextEditingController();
+
+  /// Brouillon propre à chaque point de vente visité.
+  String get _draftKey =>
+      _outletId == null ? widget.id : '${widget.id}:$_outletId';
+
   /// Brouillon : enregistré pendant la saisie (nouveau formulaire seulement), repris à la
   /// réouverture, retiré à l'envoi.
   Timer? _draftTimer;
@@ -49,9 +72,10 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    _outletComment.dispose();
     if (_draftTimer?.isActive ?? false) {
       _draftTimer!.cancel();
-      if (!_sent) unawaited(FormDrafts.save(widget.id, {..._values}));
+      if (!_sent) unawaited(FormDrafts.save(_draftKey, {..._values}));
     }
     super.dispose();
   }
@@ -67,7 +91,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   }
 
   Future<void> _loadDraft() async {
-    final draft = await FormDrafts.read(widget.id);
+    final draft = await FormDrafts.read(_draftKey);
     if (!mounted) return;
     setState(() {
       _loadingRetry = false;
@@ -83,7 +107,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     if (widget.retry != null) return;
     _draftTimer?.cancel();
     _draftTimer = Timer(const Duration(milliseconds: 600), () {
-      if (!_sent) unawaited(FormDrafts.save(widget.id, {..._values}));
+      if (!_sent) unawaited(FormDrafts.save(_draftKey, {..._values}));
     });
   }
 
@@ -97,7 +121,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     );
     if (!ok || !mounted) return;
     _draftTimer?.cancel();
-    await FormDrafts.delete(widget.id);
+    await FormDrafts.delete(_draftKey);
     if (!mounted) return;
     setState(() {
       _values.clear();
@@ -122,6 +146,14 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
             .cast<String, Object?>(),
       );
       _rejectedReason = row.error;
+      final extra = row.extraJson == null
+          ? null
+          : jsonDecode(row.extraJson!) as Map<String, dynamic>;
+      _outletId = extra?['outletId'] as String? ?? _outletId;
+      if (extra?['outletStatus'] is String) {
+        _outletStatus = OutletStatus.from(extra!['outletStatus'] as String);
+      }
+      _outletComment.text = extra?['outletComment'] as String? ?? '';
     });
   }
 
@@ -148,11 +180,14 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
         mission,
         data,
         replacing: widget.retry,
+        outletId: _outletId,
+        outletStatus: _outletStatus?.code,
+        outletComment: _outletComment.text.trim(),
       );
       _sent = true;
       _draftTimer?.cancel();
       // Le formulaire est parti (ou attend le réseau) avec ses photos.
-      await FormDrafts.delete(widget.id, keepPhotos: true);
+      await FormDrafts.delete(_draftKey, keepPhotos: true);
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(
@@ -200,9 +235,11 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.retry == null
-              ? 'Nouveau formulaire'
-              : 'Corriger le formulaire',
+          widget.retry != null
+              ? 'Corriger le formulaire'
+              : _outletId != null
+              ? 'Visite'
+              : 'Nouveau formulaire',
         ),
       ),
       body: _loadingRetry
@@ -246,6 +283,10 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
+                    if (_outletId != null) ...[
+                      VisitHeader(outletId: _outletId!),
+                      const SizedBox(height: 16),
+                    ],
                     Text(m.title, style: text.titleLarge),
                     const SizedBox(height: 4),
                     Text(
@@ -265,7 +306,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                             'Aucun champ à remplir : enregistrez pour valider votre visite.',
                       ),
                     for (final f in m.fields) ...[
-                      _FieldInput(
+                      FieldInput(
                         // Clé stable : le champ garde sa saisie quand un bandeau s'insère au-dessus.
                         key: ValueKey('field-${f.key}-$_generation'),
                         field: f,
@@ -274,6 +315,13 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                       ),
                       const SizedBox(height: 18),
                     ],
+                    if (_outletId != null)
+                      _OutletStatusField(
+                        outletId: _outletId!,
+                        selected: _outletStatus,
+                        comment: _outletComment,
+                        onChanged: (s) => setState(() => _outletStatus = s),
+                      ),
                   ],
                 ),
               ),
@@ -296,8 +344,8 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   }
 }
 
-class _FieldInput extends StatelessWidget {
-  const _FieldInput({
+class FieldInput extends StatelessWidget {
+  const FieldInput({
     super.key,
     required this.field,
     required this.value,
@@ -435,7 +483,7 @@ class _FieldInput extends StatelessWidget {
           ),
         );
       case FieldType.photo:
-        return _PhotoInput(
+        return PhotoInput(
           label: label,
           value: value,
           required: field.required,
@@ -513,8 +561,9 @@ class _ErrorText extends StatelessWidget {
 
 /// Champ photo : prise avec l'appareil photo (jamais la galerie), position et heure de la
 /// prise conservées ; aperçu, nouvelle prise ou retrait.
-class _PhotoInput extends ConsumerStatefulWidget {
-  const _PhotoInput({
+class PhotoInput extends ConsumerStatefulWidget {
+  const PhotoInput({
+    super.key,
     required this.label,
     required this.value,
     required this.required,
@@ -527,10 +576,10 @@ class _PhotoInput extends ConsumerStatefulWidget {
   final ValueChanged<Object?> onChanged;
 
   @override
-  ConsumerState<_PhotoInput> createState() => _PhotoInputState();
+  ConsumerState<PhotoInput> createState() => PhotoInputState();
 }
 
-class _PhotoInputState extends ConsumerState<_PhotoInput> {
+class PhotoInputState extends ConsumerState<PhotoInput> {
   bool _busy = false;
 
   Future<void> _take(FormFieldState<Object?> state) async {
@@ -645,6 +694,187 @@ class _PhotoInputState extends ConsumerState<_PhotoInput> {
           ],
         );
       },
+    );
+  }
+}
+
+/// En tête d'une visite : le point de vente et la distance à laquelle se trouve l'agent
+/// (contrôlée par le serveur ; indiquée ici pour qu'il se rapproche avant d'enregistrer).
+class VisitHeader extends ConsumerStatefulWidget {
+  const VisitHeader({super.key, required this.outletId});
+
+  final String outletId;
+
+  @override
+  ConsumerState<VisitHeader> createState() => _VisitHeaderState();
+}
+
+class _VisitHeaderState extends ConsumerState<VisitHeader> {
+  LatLng? _here;
+  double? _accuracy;
+  bool _locating = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_locate());
+  }
+
+  Future<void> _locate() async {
+    setState(() => _locating = true);
+    final p = await ref.read(trackerProvider).freshPosition();
+    if (!mounted) return;
+    setState(() {
+      _here = p == null ? null : LatLng(p.latitude, p.longitude);
+      _accuracy = p?.accuracy;
+      _locating = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final detail = ref.watch(outletProvider(widget.outletId)).value;
+    final o = detail?.outlet;
+    final radius = ref.watch(meProvider).visitRadiusMeters;
+    final distance = o?.position != null && _here != null
+        ? const Distance().as(LengthUnit.Meter, _here!, o!.position!).round()
+        : null;
+    final tolerance = (_accuracy ?? 0).clamp(0, 25);
+    final tooFar =
+        radius > 0 && distance != null && distance > radius + tolerance;
+    final (icon, color, message) = _locating
+        ? (
+            Icons.gps_not_fixed_rounded,
+            scheme.onSurfaceVariant,
+            'Mesure de votre position…',
+          )
+        : o == null
+        ? (Icons.storefront_rounded, scheme.onSurfaceVariant, 'Point de vente')
+        : o.position == null
+        ? (
+            Icons.add_location_alt_outlined,
+            scheme.primary,
+            'Sa position sera enregistrée avec votre visite.',
+          )
+        : distance == null
+        ? (
+            Icons.location_off_outlined,
+            scheme.error,
+            'Position introuvable : activez la localisation.',
+          )
+        : tooFar
+        ? (
+            Icons.wrong_location_outlined,
+            scheme.error,
+            'Vous êtes à ${formatDistance(distance)} : rapprochez-vous ($radius m au plus).',
+          )
+        : (
+            Icons.where_to_vote_rounded,
+            toneColor(context, Tone.success),
+            'Vous êtes sur place (à ${formatDistance(distance)}).',
+          );
+    return SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              OutletAvatar(
+                category: o?.category,
+                status: o?.status ?? OutletStatus.newOutlet,
+              ),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(o?.name ?? '…', style: text.titleMedium),
+                    if (o != null)
+                      Text(
+                        [?o.category, ?o.landmark].join(' · '),
+                        style: text.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.md),
+          Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: Text(
+                  message,
+                  style: text.bodyMedium?.copyWith(color: color),
+                ),
+              ),
+              if (!_locating)
+                TextButton(onPressed: _locate, child: const Text('Actualiser')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Statut du point de vente constaté pendant la visite (facultatif).
+class _OutletStatusField extends ConsumerWidget {
+  const _OutletStatusField({
+    required this.outletId,
+    required this.selected,
+    required this.comment,
+    required this.onChanged,
+  });
+
+  final String outletId;
+  final OutletStatus? selected;
+  final TextEditingController comment;
+  final ValueChanged<OutletStatus?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final current = ref.watch(outletProvider(outletId)).value?.outlet.status;
+    final shown = selected ?? current;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Statut du point de vente', style: text.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          'Changez-le si la situation a évolué (ex. première commande : client actif).',
+          style: text.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final s in OutletStatus.values)
+              ChoiceChip(
+                showCheckmark: false,
+                avatar: LucideIcon(s.icon, size: 16, color: s.color),
+                label: Text(s.label),
+                selected: shown == s,
+                onSelected: (_) => onChanged(s == current ? null : s),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: comment,
+          decoration: const InputDecoration(
+            labelText: 'Commentaire sur le point de vente (facultatif)',
+          ),
+        ),
+      ],
     );
   }
 }

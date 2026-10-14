@@ -36,6 +36,9 @@ class PendingSubmissions extends Table {
   /// l'agent peut corriger et renvoyer.
   TextColumn get errorCode => text().nullable()();
 
+  /// Champs envoyés en plus des réponses (point de vente visité, précision du GPS…).
+  TextColumn get extraJson => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {clientId};
 }
@@ -51,13 +54,41 @@ class HttpCache extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [PendingPositions, PendingSubmissions, HttpCache])
+/// Points de vente ajoutés ou mis à jour sans réseau, en attente d'envoi (dans l'ordre).
+class PendingOutlets extends Table {
+  /// Identifiant généré sur le téléphone (création : évite un doublon au renvoi).
+  TextColumn get clientId => text()();
+
+  /// create, update, status
+  TextColumn get kind => text()();
+
+  /// Point de vente concerné (mise à jour, statut) ; null pour une création.
+  TextColumn get outletId => text().nullable()();
+
+  /// Nom affiché dans la liste d'attente.
+  TextColumn get name => text()();
+
+  /// Corps de la requête ; les photos y sont encore des fichiers du téléphone.
+  TextColumn get bodyJson => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// Refus définitif (doublon, hors zone…) : conservé pour que l'agent décide.
+  TextColumn get error => text().nullable()();
+  TextColumn get errorCode => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {clientId};
+}
+
+@DriftDatabase(
+  tables: [PendingPositions, PendingSubmissions, HttpCache, PendingOutlets],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'suivi_agent'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,6 +103,12 @@ class AppDatabase extends _$AppDatabase {
       }
       // v4 : mémoire des écrans pour le mode hors ligne.
       if (from < 4) await m.createTable(httpCache);
+      // v5 : points de vente saisis sans réseau.
+      if (from < 5) await m.createTable(pendingOutlets);
+      // v6 : visites de points de vente (point de vente et statut avec le formulaire).
+      if (from < 6) {
+        await m.addColumn(pendingSubmissions, pendingSubmissions.extraJson);
+      }
     },
   );
 
@@ -110,7 +147,13 @@ class AppDatabase extends _$AppDatabase {
     await delete(pendingPositions).go();
     await delete(pendingSubmissions).go();
     await delete(httpCache).go();
+    await delete(pendingOutlets).go();
   }
+
+  /// Points de vente en attente d'envoi ou refusés, du plus ancien au plus récent.
+  Stream<List<PendingOutlet>> watchPendingOutlets() => (select(
+    pendingOutlets,
+  )..orderBy([(o) => OrderingTerm.asc(o.createdAt)])).watch();
 
   // Mémoire des écrans (mode hors ligne).
 

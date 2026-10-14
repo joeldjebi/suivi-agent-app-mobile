@@ -344,6 +344,8 @@ ListView _tabList(List<Widget> children) => ListView(
 String _methodLabel(Mission m) => switch (m.progressMethod) {
   'count' => 'Chaque formulaire envoyé compte pour 1.',
   'field_sum' => 'Les montants saisis sont additionnés.',
+  'outlets' =>
+    'Chaque point de vente visité compte une fois, sur place uniquement.',
   _ => 'Votre responsable valide l’atteinte de l’objectif.',
 };
 
@@ -408,6 +410,19 @@ class _Overview extends StatelessWidget {
       ),
       if (!leader && m.myContribution != null)
         _MyContribution(mission: m, color: color),
+      if (m.isVisits)
+        SurfaceCard(
+          padding: EdgeInsets.zero,
+          child: ListRow(
+            leading: const Icon(Icons.storefront_rounded),
+            title: m.visitMode == 'list'
+                ? 'Points de vente à visiter'
+                : 'Points de vente de la mission',
+            subtitle:
+                '${formatNumber(m.progress.current)} visité${m.progress.current > 1 ? 's' : ''} sur ${formatNumber(m.progress.target)}',
+            onTap: () => context.push('/missions/${m.id}/outlets'),
+          ),
+        ),
       GroupedList(
         header: 'Détails',
         indent: Space.lg,
@@ -1390,6 +1405,27 @@ String _display(MissionField f, Object? v) => switch (f.type) {
 
 /// Envoi d'un formulaire : pendant la journée, dans une zone de la mission (si la structure
 /// l'exige). Sinon, ce qu'il manque et le chemin pour y remédier.
+/// Ce qui empêche l'agent d'envoyer un formulaire ou une visite maintenant (mission close,
+/// journée non démarrée, autre zone) ; null s'il peut le faire.
+String? visitBlocker(WidgetRef ref, Mission mission) {
+  if (!mission.isOpen) {
+    return mission.status == MissionStatus.failed
+        ? 'Cette mission est clôturée : elle ne reçoit plus de formulaires.'
+        : 'L’échéance de cette mission est dépassée : elle ne reçoit plus de formulaires.';
+  }
+  final me = ref.watch(meProvider);
+  final day = ref.watch(dayProvider).value;
+  final working = day?.isWorking ?? false;
+  final dayZone = working ? day!.day!.zoneId : null;
+  final inZone =
+      mission.zones.isEmpty || mission.zones.any((z) => z.id == dayZone);
+  if (!me.submissionRequiresDay || (working && inZone)) return null;
+  final zones = mission.zones.map((z) => z.name).join(', ');
+  return working
+      ? 'Cette mission se fait à : $zones. Vous travaillez aujourd’hui dans une autre zone.'
+      : 'Démarrez votre journée${zones.isEmpty ? '' : ' à $zones'} pour envoyer un formulaire.';
+}
+
 class _SubmitAction extends ConsumerWidget {
   const _SubmitAction({required this.mission});
 
@@ -1413,6 +1449,14 @@ class _SubmitAction extends ConsumerWidget {
     final inZone =
         mission.zones.isEmpty || mission.zones.any((z) => z.id == dayZone);
     if (!me.submissionRequiresDay || (working && inZone)) {
+      // Mission de visites : on choisit d'abord le point de vente.
+      if (mission.isVisits) {
+        return PillButton(
+          label: 'Visiter un point de vente',
+          icon: Icons.storefront_rounded,
+          onPressed: () => context.push('/missions/${mission.id}/outlets'),
+        );
+      }
       final draft = ref.watch(draftProvider(mission.id)).value;
       final button = PillButton(
         label: draft == null ? 'Nouveau formulaire' : 'Reprendre mon brouillon',

@@ -7,7 +7,14 @@ import '../team/team_controller.dart';
 import 'live_updates.dart';
 import 'push_handler.dart';
 
-/// Agent : Journée, Missions, Profil.
+/// Points de vente (formule qui les inclut).
+const outletsTab = NavItem(
+  label: 'Points de vente',
+  icon: Icons.storefront_outlined,
+  selectedIcon: Icons.storefront_rounded,
+);
+
+/// Agent : Journée, Missions, Points de vente, Profil.
 const agentTabs = [
   NavItem(
     label: 'Journée',
@@ -19,6 +26,7 @@ const agentTabs = [
     icon: Icons.flag_outlined,
     selectedIcon: Icons.flag_rounded,
   ),
+  outletsTab,
   NavItem(
     label: 'Profil',
     icon: Icons.person_outline_rounded,
@@ -26,7 +34,7 @@ const agentTabs = [
   ),
 ];
 
-/// Chef d'équipe : Équipe, Carte, Demandes, Missions, Profil.
+/// Chef d'équipe : Équipe, Carte, Demandes (ou Points de vente), Missions, Profil.
 const leaderTabs = [
   NavItem(
     label: 'Équipe',
@@ -43,6 +51,7 @@ const leaderTabs = [
     icon: Icons.pending_actions_outlined,
     selectedIcon: Icons.pending_actions_rounded,
   ),
+  outletsTab,
   NavItem(
     label: 'Missions',
     icon: Icons.flag_outlined,
@@ -86,7 +95,13 @@ class AppShell extends ConsumerWidget {
                 label: tab.label,
                 icon: tab.icon,
                 selectedIcon: tab.selectedIcon,
-                badge: tab.label == 'Demandes' ? pending : 0,
+                // Sans onglet « Demandes », leur nombre s'affiche sur « Équipe ».
+                badge:
+                    tab.label == 'Demandes' ||
+                        (tab.label == 'Équipe' &&
+                            !tabs.any((t) => t.label == 'Demandes'))
+                    ? pending
+                    : 0,
               ),
           ],
         ),

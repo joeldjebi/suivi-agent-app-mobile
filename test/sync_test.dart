@@ -170,4 +170,38 @@ void main() {
       expect(left.map((r) => r.clientId), ['off']);
     },
   );
+
+  test(
+    'visite envoyée plus tard : le point de vente et le statut suivent',
+    () async {
+      await db
+          .into(db.pendingSubmissions)
+          .insert(
+            PendingSubmissionsCompanion.insert(
+              clientId: 'v-1',
+              missionId: 'v1',
+              missionTitle: 'Tournée du Plateau',
+              dataJson: '{"stock":12}',
+              submittedAt: DateTime.utc(2026, 10, 13, 9),
+              lat: const Value(5.32),
+              lng: const Value(-4.02),
+              extraJson: const Value(
+                '{"outletId":"o1","accuracy":8,"outletStatus":"active"}',
+              ),
+            ),
+          );
+      await sync.flush();
+      expect(repo.submittedForms.single, {
+        'outletId': 'o1',
+        'accuracy': 8,
+        'outletStatus': 'active',
+        'clientId': 'v-1',
+        'data': {'stock': 12},
+        'lat': 5.32,
+        'lng': -4.02,
+        'submittedAt': '2026-10-13T09:00:00.000Z',
+        'missionId': 'v1',
+      });
+    },
+  );
 }

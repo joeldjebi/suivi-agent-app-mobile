@@ -24,6 +24,10 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'features/onboarding/splash_screen.dart';
 import 'features/shell/live_updates.dart';
 import 'features/missions/mission_form_screen.dart';
+import 'features/missions/mission_outlets_screen.dart';
+import 'features/outlets/outlet_editor_screen.dart';
+import 'features/outlets/outlet_screen.dart';
+import 'features/outlets/outlets_screen.dart';
 import 'features/missions/mission_screen.dart';
 import 'features/missions/missions_screen.dart';
 import 'features/pay/pay_screens.dart';
@@ -61,7 +65,34 @@ final _missionRoutes = GoRoute(
           builder: (_, s) => MissionFormScreen(
             id: s.pathParameters['id']!,
             retry: s.uri.queryParameters['retry'],
+            outlet: s.uri.queryParameters['outlet'],
           ),
+        ),
+        // Mission de visites : ses points de vente.
+        GoRoute(
+          path: 'outlets',
+          builder: (_, s) =>
+              MissionOutletsScreen(missionId: s.pathParameters['id']!),
+        ),
+      ],
+    ),
+  ],
+);
+
+/// Points de vente : liste et carte, ajout sur place, fiche, modification.
+final _outletRoutes = GoRoute(
+  path: '/outlets',
+  builder: (_, _) => const OutletsScreen(),
+  routes: [
+    // Avant « :id » pour ne pas être pris pour un identifiant.
+    GoRoute(path: 'new', builder: (_, _) => const OutletEditorScreen()),
+    GoRoute(
+      path: ':id',
+      builder: (_, s) => OutletScreen(id: s.pathParameters['id']!),
+      routes: [
+        GoRoute(
+          path: 'edit',
+          builder: (_, s) => OutletEditLoader(id: s.pathParameters['id']!),
         ),
       ],
     ),
@@ -83,44 +114,54 @@ final _profileRoute = GoRoute(
   ],
 );
 
-/// Écrans de l'agent : sa journée, ses missions (si la formule les inclut), son profil.
-StatefulShellRoute _agentShell({required bool missions}) =>
-    StatefulShellRoute.indexedStack(
-      builder: (_, _, shell) => AppShell(
-        shell: shell,
-        tabs: [
-          for (final tab in agentTabs)
-            if (missions || tab.label != 'Missions') tab,
-        ],
-      ),
-      branches: [
-        StatefulShellBranch(
+/// Écrans de l'agent : sa journée, ses missions et ses points de vente (si la formule les
+/// inclut), son profil.
+StatefulShellRoute _agentShell({
+  required bool missions,
+  required bool outlets,
+}) => StatefulShellRoute.indexedStack(
+  builder: (_, _, shell) => AppShell(
+    shell: shell,
+    tabs: [
+      for (final tab in agentTabs)
+        if ((missions || tab.label != 'Missions') &&
+            (outlets || tab.label != outletsTab.label))
+          tab,
+    ],
+  ),
+  branches: [
+    StatefulShellBranch(
+      routes: [
+        GoRoute(
+          path: '/day',
+          builder: (_, _) => const DayScreen(),
           routes: [
-            GoRoute(
-              path: '/day',
-              builder: (_, _) => const DayScreen(),
-              routes: [
-                GoRoute(path: 'zone', builder: (_, _) => const MyZoneScreen()),
-                GoRoute(path: 'week', builder: (_, _) => const WeekScreen()),
-              ],
-            ),
+            GoRoute(path: 'zone', builder: (_, _) => const MyZoneScreen()),
+            GoRoute(path: 'week', builder: (_, _) => const WeekScreen()),
           ],
         ),
-        if (missions) StatefulShellBranch(routes: [_missionRoutes]),
-        StatefulShellBranch(routes: [_profileRoute]),
       ],
-    );
+    ),
+    if (missions) StatefulShellBranch(routes: [_missionRoutes]),
+    if (outlets) StatefulShellBranch(routes: [_outletRoutes]),
+    StatefulShellBranch(routes: [_profileRoute]),
+  ],
+);
 
 /// Écrans du chef d'équipe : son équipe en direct, la carte, les demandes à valider,
-/// les missions du groupe (si la formule les inclut).
+/// les missions du groupe (si la formule les inclut). Avec les points de vente, leur onglet
+/// remplace « Demandes » (5 onglets au plus) : les demandes s'ouvrent depuis « Équipe ».
 StatefulShellRoute _leaderShell({
   required bool missions,
+  required bool outlets,
 }) => StatefulShellRoute.indexedStack(
   builder: (_, _, shell) => AppShell(
     shell: shell,
     tabs: [
       for (final tab in leaderTabs)
-        if (missions || tab.label != 'Missions') tab,
+        if ((missions || tab.label != 'Missions') &&
+            (outlets ? tab.label != 'Demandes' : tab.label != outletsTab.label))
+          tab,
     ],
     leader: true,
   ),
@@ -137,11 +178,13 @@ StatefulShellRoute _leaderShell({
         ),
       ],
     ),
-    StatefulShellBranch(
-      routes: [
-        GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),
-      ],
-    ),
+    if (!outlets)
+      StatefulShellBranch(
+        routes: [
+          GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),
+        ],
+      ),
+    if (outlets) StatefulShellBranch(routes: [_outletRoutes]),
     if (missions) StatefulShellBranch(routes: [_missionRoutes]),
     StatefulShellBranch(routes: [_profileRoute]),
   ],
@@ -172,6 +215,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   // La formule de la structure décide des onglets ; un abonnement suspendu bloque l'app.
   final missions = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.hasMissions),
+  );
+  final outlets = ref.watch(
+    authProvider.select((a) => a is SignedIn && a.me.hasOutlets),
   );
   final suspended = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.suspended),
@@ -237,8 +283,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/suspended', builder: (_, _) => const SuspendedScreen()),
       if (role != null)
         leader
-            ? _leaderShell(missions: missions)
-            : _agentShell(missions: missions),
+            ? _leaderShell(missions: missions, outlets: outlets)
+            : _agentShell(missions: missions, outlets: outlets),
+      // Chef avec les points de vente : les demandes s'ouvrent hors des onglets.
+      if (leader && outlets)
+        GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),

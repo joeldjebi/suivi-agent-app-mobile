@@ -8,11 +8,14 @@ import 'session.dart';
 
 /// Erreur renvoyée par l'API, avec son code métier (ZONE_FULL, DAY_STARTED…).
 class ApiException implements Exception {
-  ApiException(this.message, {this.code, this.status});
+  ApiException(this.message, {this.code, this.status, this.details});
 
   final String message;
   final String? code;
   final int? status;
+
+  /// Corps de la réponse d'erreur (ex. points de vente semblables d'un doublon).
+  final Map<String, dynamic>? details;
 
   /// Pas de réponse du serveur : réseau absent ou serveur injoignable.
   bool get isNetwork => status == null;
@@ -41,6 +44,7 @@ class ApiException implements Exception {
         message,
         code: body['code'] as String?,
         status: response.statusCode,
+        details: body.cast<String, dynamic>(),
       );
     }
     return ApiException('Une erreur inattendue est survenue.');

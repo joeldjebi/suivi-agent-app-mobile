@@ -30,6 +30,7 @@ class Me {
     required this.allowZoneChangeBeforeStart,
     required this.zoneRequired,
     this.zoneExitToleranceMeters = 30,
+    this.visitRadiusMeters = 50,
     this.zoneExitAlertMinutes = 5,
     this.submissionRequiresDay = true,
     this.workdayMinutes = 480,
@@ -56,6 +57,9 @@ class Me {
 
   bool get suspended => subscriptionStatus == 'suspended';
   bool get hasMissions => features.contains('missions');
+
+  /// Répertoire des points de vente (formule qui l'inclut).
+  bool get hasOutlets => features.contains('points_of_sale');
 
   /// Rémunération calculée par la plateforme (formule Entreprise).
   bool get hasPayroll => features.contains('payroll');
@@ -84,6 +88,9 @@ class Me {
 
   /// Marge autour de la zone avant de compter une sortie, en mètres.
   final int zoneExitToleranceMeters;
+
+  /// Visite d'un point de vente : distance maximale, en mètres (0 = pas de contrôle).
+  final int visitRadiusMeters;
 
   /// Durée hors zone avant de prévenir le responsable, en minutes.
   final int zoneExitAlertMinutes;
@@ -114,6 +121,7 @@ class Me {
           ((json['workday'] as Map<String, dynamic>?)?['minutes'] as num?)
               ?.toInt() ??
           480,
+      visitRadiusMeters: settings['visitRadiusMeters'] as int? ?? 50,
       zoneExitToleranceMeters:
           settings['zoneExitToleranceMeters'] as int? ?? 30,
       zoneExitAlertMinutes: settings['zoneExitAlertMinutes'] as int? ?? 5,
@@ -446,7 +454,14 @@ class Mission {
     this.earnings,
     this.myForms,
     this.zones = const [],
+    this.visitMode,
   });
+
+  /// Mission de visites : « list » (liste précise) ou « free » (objectif libre).
+  final String? visitMode;
+
+  /// Mission de visites de points de vente.
+  bool get isVisits => progressMethod == 'outlets';
 
   /// Zones où la mission se fait.
   final List<({String id, String name})> zones;
@@ -519,6 +534,7 @@ class Mission {
       assigneeGroupId: json['assigneeGroupId'] as String?,
       hasOwnPay: json['hasOwnPay'] as bool? ?? false,
       myForms: (json['myForms'] as num?)?.toInt(),
+      visitMode: json['visitMode'] as String?,
       zones: [
         for (final z in json['zones'] as List? ?? const [])
           (id: (z as Map)['id'] as String, name: z['name'] as String),

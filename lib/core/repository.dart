@@ -154,6 +154,74 @@ class Repository {
   Future<void> submit(String missionId, Map<String, dynamic> body) =>
       api.post<Map<String, dynamic>>('/missions/$missionId/submissions', body);
 
+  // Points de vente (formule qui les inclut).
+
+  /// Champs de la fiche et types de commerce proposés.
+  Future<Map<String, dynamic>> outletForm() =>
+      api.get<Map<String, dynamic>>('/outlets/form');
+
+  /// Points de vente visibles ; autour d'une position, du plus proche au plus loin.
+  Future<Map<String, dynamic>> outlets({
+    String? q,
+    String? status,
+    double? lat,
+    double? lng,
+    double? radius,
+    bool unlocated = false,
+    int limit = 100,
+  }) => api.get<Map<String, dynamic>>(
+    '/outlets',
+    query: {
+      if (q != null && q.isNotEmpty) 'q': q,
+      'status': ?status,
+      'lat': ?lat,
+      'lng': ?lng,
+      'radius': ?radius,
+      if (unlocated) 'unlocated': true,
+      'limit': limit,
+    },
+  );
+
+  /// Photo envoyée (fiche d'un point de vente, formulaire) ; null si introuvable.
+  Future<List<int>?> photoBytes(String id) async {
+    try {
+      return (await api.dio.get<List<int>>(
+        '/photos/$id',
+        options: _bytes,
+      )).data;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw ApiException.from(e);
+    }
+  }
+
+  /// Mission de visites : ses points de vente, à visiter d'abord, les plus proches en tête.
+  Future<List<dynamic>> missionOutlets(String id, {double? lat, double? lng}) =>
+      api.get<List<dynamic>>(
+        '/missions/$id/outlets',
+        query: {'lat': ?lat, 'lng': ?lng},
+      );
+
+  Future<Map<String, dynamic>> outlet(String id) =>
+      api.get<Map<String, dynamic>>('/outlets/$id');
+
+  Future<Map<String, dynamic>> createOutlet(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/outlets', body);
+
+  Future<Map<String, dynamic>> updateOutlet(
+    String id,
+    Map<String, dynamic> body,
+  ) => api.patch<Map<String, dynamic>>('/outlets/$id', body);
+
+  Future<Map<String, dynamic>> changeOutletStatus(
+    String id,
+    String status,
+    String? comment,
+  ) => api.post<Map<String, dynamic>>('/outlets/$id/status', {
+    'status': status,
+    if (comment != null && comment.isNotEmpty) 'comment': comment,
+  });
+
   Future<List<AppNotification>> notifications() async =>
       (await api.get<List<dynamic>>('/notifications'))
           .map((n) => AppNotification.fromJson(n as Map<String, dynamic>))

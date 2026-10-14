@@ -61,6 +61,7 @@ class SyncService extends ChangeNotifier {
     try {
       await _flushPositions();
       await _flushSubmissions();
+      await _flushOutlets();
       lastSyncAt = DateTime.now();
       online = true;
     } on ApiException catch (e) {
@@ -138,7 +139,11 @@ class SyncService extends ChangeNotifier {
       data[entry.key] = await repo.uploadPhoto(photo);
       photos.add(photo);
     }
+    final extra = row.extraJson == null
+        ? const <String, dynamic>{}
+        : jsonDecode(row.extraJson!) as Map<String, dynamic>;
     await repo.submit(row.missionId, {
+      ...extra,
       'clientId': row.clientId,
       'data': data,
       if (row.lat != null) 'lat': row.lat,
@@ -149,6 +154,100 @@ class SyncService extends ChangeNotifier {
       db.pendingSubmissions,
     )..where((s) => s.clientId.equals(row.clientId))).go();
     await PhotoStore.delete(photos);
+  }
+
+  /// Points de vente saisis sans réseau, dans l'ordre. Un refus définitif (doublon,
+  /// hors zone) est gardé avec son motif : l'agent décide sur l'écran des points de vente.
+  Future<void> _flushOutlets() async {
+    final rows =
+        await (db.select(db.pendingOutlets)
+              ..where((o) => o.error.isNull())
+              ..orderBy([(o) => OrderingTerm.asc(o.createdAt)]))
+            .get();
+    for (final row in rows) {
+      try {
+        await _sendOutlet(row);
+      } on ApiException catch (e) {
+        if (_retryable(e)) rethrow;
+        await (db.update(
+          db.pendingOutlets,
+        )..where((o) => o.clientId.equals(row.clientId))).write(
+          PendingOutletsCompanion(
+            error: Value(e.message),
+            errorCode: Value(e.code),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Envoi d'un point de vente (photos d'abord), puis retrait de la file d'attente.
+  Future<Map<String, dynamic>> _sendOutlet(PendingOutlet row) async {
+    final body = (jsonDecode(row.bodyJson) as Map<String, dynamic>);
+    final photos = <FieldPhoto>[];
+    Future<String> upload(FieldPhoto photo) async {
+      if (!photo.file.existsSync()) {
+        throw ApiException(
+          'Une photo n’est plus sur le téléphone : reprenez-la.',
+          code: 'PHOTO_MISSING',
+          status: 400,
+        );
+      }
+      photos.add(photo);
+      return repo.uploadPhoto(photo);
+    }
+
+    final front = FieldPhoto.tryParse(body['photo']);
+    body.remove('photo');
+    if (front != null) body['photoId'] = await upload(front);
+    final data = (body['data'] as Map?)?.cast<String, dynamic>();
+    if (data != null) {
+      for (final entry in data.entries.toList()) {
+        final photo = FieldPhoto.tryParse(entry.value);
+        if (photo != null) data[entry.key] = await upload(photo);
+      }
+      body['data'] = data;
+    }
+    final result = switch (row.kind) {
+      'create' => await repo.createOutlet({...body, 'clientId': row.clientId}),
+      'status' => await repo.changeOutletStatus(
+        row.outletId!,
+        body['status'] as String,
+        body['comment'] as String?,
+      ),
+      _ => await repo.updateOutlet(row.outletId!, body),
+    };
+    await (db.delete(
+      db.pendingOutlets,
+    )..where((o) => o.clientId.equals(row.clientId))).go();
+    await PhotoStore.delete(photos);
+    return result;
+  }
+
+  /// Envoi immédiat d'un point de vente saisi. Sans réseau, il attend dans la file ;
+  /// refusé (doublon, hors zone…), il est retiré et l'erreur remonte à l'écran.
+  Future<(SubmitOutcome, Map<String, dynamic>?)> sendOutletNow(
+    String clientId,
+  ) async {
+    final row = await (db.select(
+      db.pendingOutlets,
+    )..where((o) => o.clientId.equals(clientId))).getSingleOrNull();
+    if (row == null) return (SubmitOutcome.sent, null);
+    try {
+      return (SubmitOutcome.sent, await _sendOutlet(row));
+    } on ApiException catch (e) {
+      if (_retryable(e)) {
+        if (e.isNetwork) {
+          online = false;
+          notifyListeners();
+        }
+        return (SubmitOutcome.queued, null);
+      }
+      await (db.delete(
+        db.pendingOutlets,
+      )..where((o) => o.clientId.equals(clientId))).go();
+      rethrow;
+    }
   }
 
   /// Réseau, serveur indisponible ou session expirée : on réessaiera plus tard.

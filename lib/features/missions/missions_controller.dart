@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
@@ -95,10 +96,24 @@ Future<SubmitOutcome> saveSubmission(
   Mission mission,
   Map<String, dynamic> data, {
   String? replacing,
+  String? outletId,
+  String? outletStatus,
+  String? outletComment,
 }) async {
   final db = ref.read(databaseProvider);
   final sync = ref.read(syncProvider);
-  final position = await ref.read(trackerProvider).lastKnown();
+  // Visite : la position mesurée maintenant (contrôle de distance au point de vente).
+  final tracker = ref.read(trackerProvider);
+  final position = outletId != null
+      ? await tracker.freshPosition()
+      : await tracker.lastKnown();
+  final extra = {
+    'outletId': ?outletId,
+    if (outletId != null && position != null) 'accuracy': position.accuracy,
+    'outletStatus': ?outletStatus,
+    if (outletComment != null && outletComment.isNotEmpty)
+      'outletComment': outletComment,
+  };
   final clientId = const Uuid().v4();
   await db
       .into(db.pendingSubmissions)
@@ -111,6 +126,7 @@ Future<SubmitOutcome> saveSubmission(
           lat: Value(position?.latitude),
           lng: Value(position?.longitude),
           submittedAt: DateTime.now().toUtc(),
+          extraJson: Value(extra.isEmpty ? null : jsonEncode(extra)),
         ),
       );
   final outcome = await sync.submitNow(clientId);
@@ -122,6 +138,7 @@ Future<SubmitOutcome> saveSubmission(
   }
   unawaited(sync.flush());
   ref.invalidate(missionProvider(mission.id));
+  if (outletId != null) ref.invalidate(missionOutletsProvider(mission.id));
   ref.invalidate(submissionsProvider);
   ref.invalidate(missionsProvider);
   return outcome;
@@ -155,3 +172,60 @@ Future<void> discardSubmission(WidgetRef ref, String clientId) async {
 final draftProvider = FutureProvider.autoDispose.family<FormDraft?, String>(
   (ref, missionId) => FormDrafts.read(missionId),
 );
+
+/// Point de vente d'une mission de visites, avec ses visites.
+class MissionOutlet {
+  MissionOutlet({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.visits,
+    this.category,
+    this.position,
+    this.lastVisitAt,
+    this.lastVisitBy,
+    this.distance,
+  });
+
+  final String id;
+  final String name;
+  final String? category;
+  final String status;
+  final LatLng? position;
+  final int visits;
+  final DateTime? lastVisitAt;
+  final String? lastVisitBy;
+  final int? distance;
+
+  bool get visited => visits > 0;
+
+  factory MissionOutlet.fromJson(Map<String, dynamic> j) {
+    final lat = (j['lat'] as num?)?.toDouble();
+    final lng = (j['lng'] as num?)?.toDouble();
+    return MissionOutlet(
+      id: j['id'] as String,
+      name: j['name'] as String,
+      category: j['category'] as String?,
+      status: j['status'] as String,
+      position: lat != null && lng != null ? LatLng(lat, lng) : null,
+      visits: (j['visits'] as num?)?.toInt() ?? 0,
+      lastVisitAt: j['lastVisitAt'] == null
+          ? null
+          : DateTime.parse(j['lastVisitAt'] as String).toLocal(),
+      lastVisitBy: j['lastVisitBy'] as String?,
+      distance: (j['distance'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// Mission de visites : ses points de vente, à visiter d'abord (les plus proches en tête).
+final missionOutletsProvider = FutureProvider.autoDispose
+    .family<List<MissionOutlet>, String>((ref, id) async {
+      final here = await ref.read(trackerProvider).lastKnown();
+      final rows = await ref
+          .read(repositoryProvider)
+          .missionOutlets(id, lat: here?.latitude, lng: here?.longitude);
+      return [
+        for (final r in rows) MissionOutlet.fromJson(r as Map<String, dynamic>),
+      ];
+    });

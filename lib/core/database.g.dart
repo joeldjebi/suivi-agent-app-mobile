@@ -651,6 +651,17 @@ class $PendingSubmissionsTable extends PendingSubmissions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _extraJsonMeta = const VerificationMeta(
+    'extraJson',
+  );
+  @override
+  late final GeneratedColumn<String> extraJson = GeneratedColumn<String>(
+    'extra_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     clientId,
@@ -662,6 +673,7 @@ class $PendingSubmissionsTable extends PendingSubmissions
     submittedAt,
     error,
     errorCode,
+    extraJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -745,6 +757,12 @@ class $PendingSubmissionsTable extends PendingSubmissions
         errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
       );
     }
+    if (data.containsKey('extra_json')) {
+      context.handle(
+        _extraJsonMeta,
+        extraJson.isAcceptableOrUnknown(data['extra_json']!, _extraJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -790,6 +808,10 @@ class $PendingSubmissionsTable extends PendingSubmissions
         DriftSqlType.string,
         data['${effectivePrefix}error_code'],
       ),
+      extraJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_json'],
+      ),
     );
   }
 
@@ -816,6 +838,9 @@ class PendingSubmission extends DataClass
   /// Code du refus (DAY_REQUIRED, WRONG_ZONE, INVALID_FORM, MISSION_CLOSED…) : décide si
   /// l'agent peut corriger et renvoyer.
   final String? errorCode;
+
+  /// Champs envoyés en plus des réponses (point de vente visité, précision du GPS…).
+  final String? extraJson;
   const PendingSubmission({
     required this.clientId,
     required this.missionId,
@@ -826,6 +851,7 @@ class PendingSubmission extends DataClass
     required this.submittedAt,
     this.error,
     this.errorCode,
+    this.extraJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -847,6 +873,9 @@ class PendingSubmission extends DataClass
     if (!nullToAbsent || errorCode != null) {
       map['error_code'] = Variable<String>(errorCode);
     }
+    if (!nullToAbsent || extraJson != null) {
+      map['extra_json'] = Variable<String>(extraJson);
+    }
     return map;
   }
 
@@ -865,6 +894,9 @@ class PendingSubmission extends DataClass
       errorCode: errorCode == null && nullToAbsent
           ? const Value.absent()
           : Value(errorCode),
+      extraJson: extraJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraJson),
     );
   }
 
@@ -883,6 +915,7 @@ class PendingSubmission extends DataClass
       submittedAt: serializer.fromJson<DateTime>(json['submittedAt']),
       error: serializer.fromJson<String?>(json['error']),
       errorCode: serializer.fromJson<String?>(json['errorCode']),
+      extraJson: serializer.fromJson<String?>(json['extraJson']),
     );
   }
   @override
@@ -898,6 +931,7 @@ class PendingSubmission extends DataClass
       'submittedAt': serializer.toJson<DateTime>(submittedAt),
       'error': serializer.toJson<String?>(error),
       'errorCode': serializer.toJson<String?>(errorCode),
+      'extraJson': serializer.toJson<String?>(extraJson),
     };
   }
 
@@ -911,6 +945,7 @@ class PendingSubmission extends DataClass
     DateTime? submittedAt,
     Value<String?> error = const Value.absent(),
     Value<String?> errorCode = const Value.absent(),
+    Value<String?> extraJson = const Value.absent(),
   }) => PendingSubmission(
     clientId: clientId ?? this.clientId,
     missionId: missionId ?? this.missionId,
@@ -921,6 +956,7 @@ class PendingSubmission extends DataClass
     submittedAt: submittedAt ?? this.submittedAt,
     error: error.present ? error.value : this.error,
     errorCode: errorCode.present ? errorCode.value : this.errorCode,
+    extraJson: extraJson.present ? extraJson.value : this.extraJson,
   );
   PendingSubmission copyWithCompanion(PendingSubmissionsCompanion data) {
     return PendingSubmission(
@@ -937,6 +973,7 @@ class PendingSubmission extends DataClass
           : this.submittedAt,
       error: data.error.present ? data.error.value : this.error,
       errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
+      extraJson: data.extraJson.present ? data.extraJson.value : this.extraJson,
     );
   }
 
@@ -951,7 +988,8 @@ class PendingSubmission extends DataClass
           ..write('lng: $lng, ')
           ..write('submittedAt: $submittedAt, ')
           ..write('error: $error, ')
-          ..write('errorCode: $errorCode')
+          ..write('errorCode: $errorCode, ')
+          ..write('extraJson: $extraJson')
           ..write(')'))
         .toString();
   }
@@ -967,6 +1005,7 @@ class PendingSubmission extends DataClass
     submittedAt,
     error,
     errorCode,
+    extraJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -980,7 +1019,8 @@ class PendingSubmission extends DataClass
           other.lng == this.lng &&
           other.submittedAt == this.submittedAt &&
           other.error == this.error &&
-          other.errorCode == this.errorCode);
+          other.errorCode == this.errorCode &&
+          other.extraJson == this.extraJson);
 }
 
 class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
@@ -993,6 +1033,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
   final Value<DateTime> submittedAt;
   final Value<String?> error;
   final Value<String?> errorCode;
+  final Value<String?> extraJson;
   final Value<int> rowid;
   const PendingSubmissionsCompanion({
     this.clientId = const Value.absent(),
@@ -1004,6 +1045,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     this.submittedAt = const Value.absent(),
     this.error = const Value.absent(),
     this.errorCode = const Value.absent(),
+    this.extraJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingSubmissionsCompanion.insert({
@@ -1016,6 +1058,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     required DateTime submittedAt,
     this.error = const Value.absent(),
     this.errorCode = const Value.absent(),
+    this.extraJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : clientId = Value(clientId),
        missionId = Value(missionId),
@@ -1032,6 +1075,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     Expression<DateTime>? submittedAt,
     Expression<String>? error,
     Expression<String>? errorCode,
+    Expression<String>? extraJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1044,6 +1088,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
       if (submittedAt != null) 'submitted_at': submittedAt,
       if (error != null) 'error': error,
       if (errorCode != null) 'error_code': errorCode,
+      if (extraJson != null) 'extra_json': extraJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1058,6 +1103,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     Value<DateTime>? submittedAt,
     Value<String?>? error,
     Value<String?>? errorCode,
+    Value<String?>? extraJson,
     Value<int>? rowid,
   }) {
     return PendingSubmissionsCompanion(
@@ -1070,6 +1116,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
       submittedAt: submittedAt ?? this.submittedAt,
       error: error ?? this.error,
       errorCode: errorCode ?? this.errorCode,
+      extraJson: extraJson ?? this.extraJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1104,6 +1151,9 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
     if (errorCode.present) {
       map['error_code'] = Variable<String>(errorCode.value);
     }
+    if (extraJson.present) {
+      map['extra_json'] = Variable<String>(extraJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1122,6 +1172,7 @@ class PendingSubmissionsCompanion extends UpdateCompanion<PendingSubmission> {
           ..write('submittedAt: $submittedAt, ')
           ..write('error: $error, ')
           ..write('errorCode: $errorCode, ')
+          ..write('extraJson: $extraJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1391,6 +1442,531 @@ class HttpCacheCompanion extends UpdateCompanion<HttpCacheData> {
   }
 }
 
+class $PendingOutletsTable extends PendingOutlets
+    with TableInfo<$PendingOutletsTable, PendingOutlet> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingOutletsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outletIdMeta = const VerificationMeta(
+    'outletId',
+  );
+  @override
+  late final GeneratedColumn<String> outletId = GeneratedColumn<String>(
+    'outlet_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyJsonMeta = const VerificationMeta(
+    'bodyJson',
+  );
+  @override
+  late final GeneratedColumn<String> bodyJson = GeneratedColumn<String>(
+    'body_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+    'error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _errorCodeMeta = const VerificationMeta(
+    'errorCode',
+  );
+  @override
+  late final GeneratedColumn<String> errorCode = GeneratedColumn<String>(
+    'error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    clientId,
+    kind,
+    outletId,
+    name,
+    bodyJson,
+    createdAt,
+    error,
+    errorCode,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_outlets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingOutlet> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_clientIdMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('outlet_id')) {
+      context.handle(
+        _outletIdMeta,
+        outletId.isAcceptableOrUnknown(data['outlet_id']!, _outletIdMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('body_json')) {
+      context.handle(
+        _bodyJsonMeta,
+        bodyJson.isAcceptableOrUnknown(data['body_json']!, _bodyJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+        _errorMeta,
+        error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    if (data.containsKey('error_code')) {
+      context.handle(
+        _errorCodeMeta,
+        errorCode.isAcceptableOrUnknown(data['error_code']!, _errorCodeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {clientId};
+  @override
+  PendingOutlet map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingOutlet(
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      outletId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outlet_id'],
+      ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      bodyJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      error: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error'],
+      ),
+      errorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_code'],
+      ),
+    );
+  }
+
+  @override
+  $PendingOutletsTable createAlias(String alias) {
+    return $PendingOutletsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingOutlet extends DataClass implements Insertable<PendingOutlet> {
+  /// Identifiant généré sur le téléphone (création : évite un doublon au renvoi).
+  final String clientId;
+
+  /// create, update, status
+  final String kind;
+
+  /// Point de vente concerné (mise à jour, statut) ; null pour une création.
+  final String? outletId;
+
+  /// Nom affiché dans la liste d'attente.
+  final String name;
+
+  /// Corps de la requête ; les photos y sont encore des fichiers du téléphone.
+  final String bodyJson;
+  final DateTime createdAt;
+
+  /// Refus définitif (doublon, hors zone…) : conservé pour que l'agent décide.
+  final String? error;
+  final String? errorCode;
+  const PendingOutlet({
+    required this.clientId,
+    required this.kind,
+    this.outletId,
+    required this.name,
+    required this.bodyJson,
+    required this.createdAt,
+    this.error,
+    this.errorCode,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['client_id'] = Variable<String>(clientId);
+    map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || outletId != null) {
+      map['outlet_id'] = Variable<String>(outletId);
+    }
+    map['name'] = Variable<String>(name);
+    map['body_json'] = Variable<String>(bodyJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    if (!nullToAbsent || errorCode != null) {
+      map['error_code'] = Variable<String>(errorCode);
+    }
+    return map;
+  }
+
+  PendingOutletsCompanion toCompanion(bool nullToAbsent) {
+    return PendingOutletsCompanion(
+      clientId: Value(clientId),
+      kind: Value(kind),
+      outletId: outletId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outletId),
+      name: Value(name),
+      bodyJson: Value(bodyJson),
+      createdAt: Value(createdAt),
+      error: error == null && nullToAbsent
+          ? const Value.absent()
+          : Value(error),
+      errorCode: errorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCode),
+    );
+  }
+
+  factory PendingOutlet.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingOutlet(
+      clientId: serializer.fromJson<String>(json['clientId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      outletId: serializer.fromJson<String?>(json['outletId']),
+      name: serializer.fromJson<String>(json['name']),
+      bodyJson: serializer.fromJson<String>(json['bodyJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      error: serializer.fromJson<String?>(json['error']),
+      errorCode: serializer.fromJson<String?>(json['errorCode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'clientId': serializer.toJson<String>(clientId),
+      'kind': serializer.toJson<String>(kind),
+      'outletId': serializer.toJson<String?>(outletId),
+      'name': serializer.toJson<String>(name),
+      'bodyJson': serializer.toJson<String>(bodyJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'error': serializer.toJson<String?>(error),
+      'errorCode': serializer.toJson<String?>(errorCode),
+    };
+  }
+
+  PendingOutlet copyWith({
+    String? clientId,
+    String? kind,
+    Value<String?> outletId = const Value.absent(),
+    String? name,
+    String? bodyJson,
+    DateTime? createdAt,
+    Value<String?> error = const Value.absent(),
+    Value<String?> errorCode = const Value.absent(),
+  }) => PendingOutlet(
+    clientId: clientId ?? this.clientId,
+    kind: kind ?? this.kind,
+    outletId: outletId.present ? outletId.value : this.outletId,
+    name: name ?? this.name,
+    bodyJson: bodyJson ?? this.bodyJson,
+    createdAt: createdAt ?? this.createdAt,
+    error: error.present ? error.value : this.error,
+    errorCode: errorCode.present ? errorCode.value : this.errorCode,
+  );
+  PendingOutlet copyWithCompanion(PendingOutletsCompanion data) {
+    return PendingOutlet(
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      outletId: data.outletId.present ? data.outletId.value : this.outletId,
+      name: data.name.present ? data.name.value : this.name,
+      bodyJson: data.bodyJson.present ? data.bodyJson.value : this.bodyJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      error: data.error.present ? data.error.value : this.error,
+      errorCode: data.errorCode.present ? data.errorCode.value : this.errorCode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingOutlet(')
+          ..write('clientId: $clientId, ')
+          ..write('kind: $kind, ')
+          ..write('outletId: $outletId, ')
+          ..write('name: $name, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('error: $error, ')
+          ..write('errorCode: $errorCode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    clientId,
+    kind,
+    outletId,
+    name,
+    bodyJson,
+    createdAt,
+    error,
+    errorCode,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingOutlet &&
+          other.clientId == this.clientId &&
+          other.kind == this.kind &&
+          other.outletId == this.outletId &&
+          other.name == this.name &&
+          other.bodyJson == this.bodyJson &&
+          other.createdAt == this.createdAt &&
+          other.error == this.error &&
+          other.errorCode == this.errorCode);
+}
+
+class PendingOutletsCompanion extends UpdateCompanion<PendingOutlet> {
+  final Value<String> clientId;
+  final Value<String> kind;
+  final Value<String?> outletId;
+  final Value<String> name;
+  final Value<String> bodyJson;
+  final Value<DateTime> createdAt;
+  final Value<String?> error;
+  final Value<String?> errorCode;
+  final Value<int> rowid;
+  const PendingOutletsCompanion({
+    this.clientId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.outletId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.bodyJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.error = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingOutletsCompanion.insert({
+    required String clientId,
+    required String kind,
+    this.outletId = const Value.absent(),
+    required String name,
+    required String bodyJson,
+    required DateTime createdAt,
+    this.error = const Value.absent(),
+    this.errorCode = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : clientId = Value(clientId),
+       kind = Value(kind),
+       name = Value(name),
+       bodyJson = Value(bodyJson),
+       createdAt = Value(createdAt);
+  static Insertable<PendingOutlet> custom({
+    Expression<String>? clientId,
+    Expression<String>? kind,
+    Expression<String>? outletId,
+    Expression<String>? name,
+    Expression<String>? bodyJson,
+    Expression<DateTime>? createdAt,
+    Expression<String>? error,
+    Expression<String>? errorCode,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (clientId != null) 'client_id': clientId,
+      if (kind != null) 'kind': kind,
+      if (outletId != null) 'outlet_id': outletId,
+      if (name != null) 'name': name,
+      if (bodyJson != null) 'body_json': bodyJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (error != null) 'error': error,
+      if (errorCode != null) 'error_code': errorCode,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingOutletsCompanion copyWith({
+    Value<String>? clientId,
+    Value<String>? kind,
+    Value<String?>? outletId,
+    Value<String>? name,
+    Value<String>? bodyJson,
+    Value<DateTime>? createdAt,
+    Value<String?>? error,
+    Value<String?>? errorCode,
+    Value<int>? rowid,
+  }) {
+    return PendingOutletsCompanion(
+      clientId: clientId ?? this.clientId,
+      kind: kind ?? this.kind,
+      outletId: outletId ?? this.outletId,
+      name: name ?? this.name,
+      bodyJson: bodyJson ?? this.bodyJson,
+      createdAt: createdAt ?? this.createdAt,
+      error: error ?? this.error,
+      errorCode: errorCode ?? this.errorCode,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (outletId.present) {
+      map['outlet_id'] = Variable<String>(outletId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (bodyJson.present) {
+      map['body_json'] = Variable<String>(bodyJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (errorCode.present) {
+      map['error_code'] = Variable<String>(errorCode.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingOutletsCompanion(')
+          ..write('clientId: $clientId, ')
+          ..write('kind: $kind, ')
+          ..write('outletId: $outletId, ')
+          ..write('name: $name, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('error: $error, ')
+          ..write('errorCode: $errorCode, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1400,6 +1976,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PendingSubmissionsTable pendingSubmissions =
       $PendingSubmissionsTable(this);
   late final $HttpCacheTable httpCache = $HttpCacheTable(this);
+  late final $PendingOutletsTable pendingOutlets = $PendingOutletsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1408,6 +1985,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pendingPositions,
     pendingSubmissions,
     httpCache,
+    pendingOutlets,
   ];
 }
 
@@ -1700,6 +2278,7 @@ typedef $$PendingSubmissionsTableCreateCompanionBuilder =
       required DateTime submittedAt,
       Value<String?> error,
       Value<String?> errorCode,
+      Value<String?> extraJson,
       Value<int> rowid,
     });
 typedef $$PendingSubmissionsTableUpdateCompanionBuilder =
@@ -1713,6 +2292,7 @@ typedef $$PendingSubmissionsTableUpdateCompanionBuilder =
       Value<DateTime> submittedAt,
       Value<String?> error,
       Value<String?> errorCode,
+      Value<String?> extraJson,
       Value<int> rowid,
     });
 
@@ -1767,6 +2347,11 @@ class $$PendingSubmissionsTableFilterComposer
 
   ColumnFilters<String> get errorCode => $composableBuilder(
     column: $table.errorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraJson => $composableBuilder(
+    column: $table.extraJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1824,6 +2409,11 @@ class $$PendingSubmissionsTableOrderingComposer
     column: $table.errorCode,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extraJson => $composableBuilder(
+    column: $table.extraJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingSubmissionsTableAnnotationComposer
@@ -1865,6 +2455,9 @@ class $$PendingSubmissionsTableAnnotationComposer
 
   GeneratedColumn<String> get errorCode =>
       $composableBuilder(column: $table.errorCode, builder: (column) => column);
+
+  GeneratedColumn<String> get extraJson =>
+      $composableBuilder(column: $table.extraJson, builder: (column) => column);
 }
 
 class $$PendingSubmissionsTableTableManager
@@ -1916,6 +2509,7 @@ class $$PendingSubmissionsTableTableManager
                 Value<DateTime> submittedAt = const Value.absent(),
                 Value<String?> error = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
+                Value<String?> extraJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingSubmissionsCompanion(
                 clientId: clientId,
@@ -1927,6 +2521,7 @@ class $$PendingSubmissionsTableTableManager
                 submittedAt: submittedAt,
                 error: error,
                 errorCode: errorCode,
+                extraJson: extraJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1940,6 +2535,7 @@ class $$PendingSubmissionsTableTableManager
                 required DateTime submittedAt,
                 Value<String?> error = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
+                Value<String?> extraJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingSubmissionsCompanion.insert(
                 clientId: clientId,
@@ -1951,6 +2547,7 @@ class $$PendingSubmissionsTableTableManager
                 submittedAt: submittedAt,
                 error: error,
                 errorCode: errorCode,
+                extraJson: extraJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -2144,6 +2741,265 @@ typedef $$HttpCacheTableProcessedTableManager =
       HttpCacheData,
       PrefetchHooks Function()
     >;
+typedef $$PendingOutletsTableCreateCompanionBuilder =
+    PendingOutletsCompanion Function({
+      required String clientId,
+      required String kind,
+      Value<String?> outletId,
+      required String name,
+      required String bodyJson,
+      required DateTime createdAt,
+      Value<String?> error,
+      Value<String?> errorCode,
+      Value<int> rowid,
+    });
+typedef $$PendingOutletsTableUpdateCompanionBuilder =
+    PendingOutletsCompanion Function({
+      Value<String> clientId,
+      Value<String> kind,
+      Value<String?> outletId,
+      Value<String> name,
+      Value<String> bodyJson,
+      Value<DateTime> createdAt,
+      Value<String?> error,
+      Value<String?> errorCode,
+      Value<int> rowid,
+    });
+
+class $$PendingOutletsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingOutletsTable> {
+  $$PendingOutletsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingOutletsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingOutletsTable> {
+  $$PendingOutletsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outletId => $composableBuilder(
+    column: $table.outletId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorCode => $composableBuilder(
+    column: $table.errorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingOutletsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingOutletsTable> {
+  $$PendingOutletsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get outletId =>
+      $composableBuilder(column: $table.outletId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get bodyJson =>
+      $composableBuilder(column: $table.bodyJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<String> get errorCode =>
+      $composableBuilder(column: $table.errorCode, builder: (column) => column);
+}
+
+class $$PendingOutletsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingOutletsTable,
+          PendingOutlet,
+          $$PendingOutletsTableFilterComposer,
+          $$PendingOutletsTableOrderingComposer,
+          $$PendingOutletsTableAnnotationComposer,
+          $$PendingOutletsTableCreateCompanionBuilder,
+          $$PendingOutletsTableUpdateCompanionBuilder,
+          (
+            PendingOutlet,
+            BaseReferences<_$AppDatabase, $PendingOutletsTable, PendingOutlet>,
+          ),
+          PendingOutlet,
+          PrefetchHooks Function()
+        > {
+  $$PendingOutletsTableTableManager(
+    _$AppDatabase db,
+    $PendingOutletsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingOutletsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingOutletsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingOutletsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> clientId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
+                Value<String?> outletId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> bodyJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingOutletsCompanion(
+                clientId: clientId,
+                kind: kind,
+                outletId: outletId,
+                name: name,
+                bodyJson: bodyJson,
+                createdAt: createdAt,
+                error: error,
+                errorCode: errorCode,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String clientId,
+                required String kind,
+                Value<String?> outletId = const Value.absent(),
+                required String name,
+                required String bodyJson,
+                required DateTime createdAt,
+                Value<String?> error = const Value.absent(),
+                Value<String?> errorCode = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingOutletsCompanion.insert(
+                clientId: clientId,
+                kind: kind,
+                outletId: outletId,
+                name: name,
+                bodyJson: bodyJson,
+                createdAt: createdAt,
+                error: error,
+                errorCode: errorCode,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingOutletsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingOutletsTable,
+      PendingOutlet,
+      $$PendingOutletsTableFilterComposer,
+      $$PendingOutletsTableOrderingComposer,
+      $$PendingOutletsTableAnnotationComposer,
+      $$PendingOutletsTableCreateCompanionBuilder,
+      $$PendingOutletsTableUpdateCompanionBuilder,
+      (
+        PendingOutlet,
+        BaseReferences<_$AppDatabase, $PendingOutletsTable, PendingOutlet>,
+      ),
+      PendingOutlet,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2154,4 +3010,6 @@ class $AppDatabaseManager {
       $$PendingSubmissionsTableTableManager(_db, _db.pendingSubmissions);
   $$HttpCacheTableTableManager get httpCache =>
       $$HttpCacheTableTableManager(_db, _db.httpCache);
+  $$PendingOutletsTableTableManager get pendingOutlets =>
+      $$PendingOutletsTableTableManager(_db, _db.pendingOutlets);
 }

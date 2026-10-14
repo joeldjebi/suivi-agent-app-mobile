@@ -234,6 +234,20 @@ class LocationTracker extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Position mesurée maintenant (ajout d'un point de vente) ; à défaut, la dernière connue.
+  Future<Position?> freshPosition() async {
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 12),
+        ),
+      );
+    } catch (_) {
+      return lastKnown();
+    }
+  }
+
   /// Dernière position connue (pour géolocaliser un formulaire).
   Future<Position?> lastKnown() async {
     try {
