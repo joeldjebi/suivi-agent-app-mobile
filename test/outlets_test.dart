@@ -651,6 +651,120 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('prise de commande : quantités en casiers, total, suivi', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = OrdersRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Prendre une commande'));
+
+    expect(find.textContaining('Tarif Détaillant'), findsOneWidget);
+    expect(find.textContaining('3 600 FCFA / casier'), findsOneWidget);
+    // Rien de saisi : refusé.
+    await _tap(tester, find.text('Valider la commande'));
+    expect(find.textContaining('au moins un produit'), findsOneWidget);
+
+    // Coca : 2 casiers + 6 bouteilles = 30 bouteilles.
+    await tester.enterText(
+      find.widgetWithText(TextField, 'casiers').first,
+      '2',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'bouteilles').first,
+      '6',
+    );
+    await tester.pump();
+    expect(find.text('Valider · 9 000 FCFA'), findsOneWidget);
+    await _tap(tester, find.text('Valider · 9 000 FCFA'));
+    expect(find.text('Valider la commande ?'), findsOneWidget);
+    await _tap(tester, find.text('Valider').last);
+
+    final body = repo.orderBodies.single;
+    expect(body['outletId'], 'o1');
+    expect(body['lines'], [
+      {'productId': 'p-coca', 'quantity': 30},
+    ]);
+    expect(body['clientId'], isA<String>());
+    // Le serveur fixe les prix : le téléphone ne les envoie pas.
+    expect((body['lines'] as List).single.containsKey('unitPrice'), isFalse);
+
+    // Détail de la commande, puis livrée.
+    expect(find.text('CMD-000001'), findsOneWidget);
+    expect(
+      find.text('30 bouteilles (2 casiers + 6) × 300 FCFA'),
+      findsOneWidget,
+    );
+    await _tap(tester, find.text('Marquer livrée'));
+    expect(repo.orderStatusChanges.single, ('ord-1', 'delivered', null));
+    expect(find.text('Marquer payée'), findsOneWidget);
+    expect(find.text('Annuler la commande'), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('prise de commande sans réseau : gardée puis envoyée', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = OrdersRepo()
+      ..orderError = ApiException('Vous êtes hors ligne.');
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Prendre une commande'));
+    await tester.enterText(
+      find.widgetWithText(TextField, 'casiers').first,
+      '1',
+    );
+    await tester.pump();
+    await _tap(tester, find.textContaining('Valider ·'));
+    await _tap(tester, find.text('Valider').last);
+    expect(find.textContaining('envoyée au retour du réseau'), findsOneWidget);
+    expect(repo.orderBodies, isEmpty);
+
+    repo.orderError = null;
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(Scaffold).first),
+    );
+    await tester.runAsync(() => container.read(syncProvider).flush());
+    await _settle(tester);
+    expect(repo.orderBodies.single['lines'], [
+      {'productId': 'p-coca', 'quantity': 12},
+    ]);
+    await _close(tester);
+  });
+
+  testWidgets('sans la prise de commande : pas de section Commandes', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+        repo: OrdersRepo(),
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    expect(find.text('Prendre une commande'), findsNothing);
+    await _close(tester);
+  });
+
   test('itinéraire Google Maps : départ, étapes, arrivée', () {
     final stops = [
       for (final (i, lat) in [5.33, 5.34, 5.35].indexed)

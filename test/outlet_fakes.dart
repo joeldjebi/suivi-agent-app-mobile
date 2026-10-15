@@ -568,3 +568,46 @@ const auditFeatures = {
   'groups',
   'team_leads',
 };
+
+/// Prise de commande : catalogue au tarif « Détaillant » (Coca en casiers de 12, Fanta).
+class OrdersRepo extends OutletsRepo {
+  OrdersRepo() {
+    orderCatalogJson = {
+      'priceList': {'id': 'pl1', 'name': 'Détaillant'},
+      'currency': 'XOF',
+      'products': [
+        {
+          'id': 'p-coca',
+          'name': 'Coca-Cola',
+          'format': '33 cl',
+          'category': 'Boissons',
+          'unit': 'Bouteille',
+          'packagings': [
+            {'name': 'Casier', 'units': 12},
+          ],
+          'price': 300,
+        },
+        {
+          'id': 'p-fanta',
+          'name': 'Fanta',
+          'format': '33 cl',
+          'category': 'Boissons',
+          'unit': 'Bouteille',
+          'packagings': [
+            {'name': 'Casier', 'units': 12},
+          ],
+          'price': 350,
+        },
+      ],
+    };
+  }
+}
+
+/// Formule avec les points de vente et la prise de commande.
+const orderFeatures = {
+  'missions',
+  'points_of_sale',
+  'orders',
+  'groups',
+  'team_leads',
+};

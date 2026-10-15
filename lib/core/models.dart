@@ -64,6 +64,9 @@ class Me {
   /// Catalogue et relevés produits (tableau de bord du chef).
   bool get hasProductAudits => features.contains('product_audits');
 
+  /// Prise de commande chez les points de vente.
+  bool get hasOrders => features.contains('orders');
+
   /// Rémunération calculée par la plateforme (formule Entreprise).
   bool get hasPayroll => features.contains('payroll');
 

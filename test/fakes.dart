@@ -532,6 +532,104 @@ class FakeRepository extends Repository {
     freeVisits.add({...body, 'path': id});
   }
 
+  // Prise de commande.
+  Map<String, dynamic> orderCatalogJson = const {
+    'priceList': null,
+    'currency': 'XOF',
+    'products': <dynamic>[],
+  };
+
+  @override
+  Future<Map<String, dynamic>> orderCatalog(String outletId) async =>
+      orderCatalogJson;
+
+  /// Commandes reçues ; `orderError` simule un refus ou une coupure.
+  final ordersJson = <Map<String, dynamic>>[];
+  final orderBodies = <Map<String, dynamic>>[];
+  final orderStatusChanges = <(String, String, String?)>[];
+  ApiException? orderError;
+
+  @override
+  Future<Map<String, dynamic>> createOrder(Map<String, dynamic> body) async {
+    if (orderError != null) throw orderError!;
+    orderBodies.add(body);
+    final lines = [
+      for (final l in body['lines'] as List)
+        {
+          'productId': l['productId'],
+          'name': 'Coca-Cola 33 cl',
+          'unit': 'Bouteille',
+          'quantity': l['quantity'],
+          'unitPrice': 300,
+          'amount': (l['quantity'] as num) * 300,
+          'packagings': [
+            {'name': 'Casier', 'units': 12},
+          ],
+        },
+    ];
+    final order = {
+      'id': 'ord-${ordersJson.length + 1}',
+      'reference': 'CMD-00000${ordersJson.length + 1}',
+      'outletId': body['outletId'],
+      'outletName': 'Boutique Awa',
+      'agentId': 'u1',
+      'agentName': 'Koffi Brou',
+      'priceListName': 'Détaillant',
+      'status': 'taken',
+      'total': lines.fold<num>(0, (s, l) => s + (l['amount'] as num)),
+      'currency': 'XOF',
+      'note': body['note'],
+      'takenAt': DateTime.now().toUtc().toIso8601String(),
+      'cancelReason': null,
+      'lines': lines,
+      'events': [
+        {
+          'status': 'taken',
+          'comment': null,
+          'at': DateTime.now().toUtc().toIso8601String(),
+          'user': 'Koffi Brou',
+        },
+      ],
+    };
+    ordersJson.insert(0, order);
+    return order;
+  }
+
+  @override
+  Future<Map<String, dynamic>> orders({
+    String? outletId,
+    int limit = 20,
+  }) async {
+    final items = [
+      for (final o in ordersJson)
+        if (outletId == null || o['outletId'] == outletId)
+          {...o, 'lines': (o['lines'] as List).length},
+    ];
+    return {'items': items.take(limit).toList(), 'total': items.length};
+  }
+
+  @override
+  Future<Map<String, dynamic>> order(String id) async =>
+      ordersJson.firstWhere((o) => o['id'] == id);
+
+  @override
+  Future<Map<String, dynamic>> changeOrderStatus(
+    String id,
+    String status, [
+    String? comment,
+  ]) async {
+    orderStatusChanges.add((id, status, comment));
+    final o = ordersJson.firstWhere((o) => o['id'] == id);
+    o['status'] = status;
+    (o['events'] as List).add({
+      'status': status,
+      'comment': comment,
+      'at': DateTime.now().toUtc().toIso8601String(),
+      'user': 'Koffi Brou',
+    });
+    return o;
+  }
+
   /// Derniers relevés produits d'un point de vente.
   List<dynamic> outletReadingsJson = const [];
 

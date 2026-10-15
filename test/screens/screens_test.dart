@@ -809,6 +809,41 @@ void main() {
       ),
     );
     testWidgets(
+      'prise de commande',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+          repo: OrdersRepo(),
+        ),
+        '47-agent-prise-de-commande',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.ensureVisible(find.text('Prendre une commande'));
+          await tester.pump();
+          await tester.tap(find.text('Prendre une commande'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.enterText(
+            find.widgetWithText(TextField, 'casiers').first,
+            '2',
+          );
+          await tester.enterText(
+            find.widgetWithText(TextField, 'bouteilles').first,
+            '6',
+          );
+        },
+      ),
+    );
+    testWidgets(
       'fiche avec produits et visites',
       (tester) => _capture(
         tester,

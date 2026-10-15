@@ -233,6 +233,38 @@ class Repository {
   Future<List<dynamic>> outletReadings(String id) =>
       api.get<List<dynamic>>('/insights/products/outlets/$id');
 
+  // Prise de commande.
+
+  /// Catalogue d'un point de vente, aux prix de son type de client.
+  Future<Map<String, dynamic>> orderCatalog(String outletId) =>
+      api.get<Map<String, dynamic>>(
+        '/orders/catalog',
+        query: {'outletId': outletId},
+      );
+
+  /// Commande prise (prix calculés par le serveur) ; idempotente sur clientId.
+  Future<Map<String, dynamic>> createOrder(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/orders', body);
+
+  Future<Map<String, dynamic>> orders({String? outletId, int limit = 20}) =>
+      api.get<Map<String, dynamic>>(
+        '/orders',
+        query: {'outletId': ?outletId, 'limit': limit},
+      );
+
+  Future<Map<String, dynamic>> order(String id) =>
+      api.get<Map<String, dynamic>>('/orders/$id');
+
+  /// Livrée, payée ou annulée (motif obligatoire).
+  Future<Map<String, dynamic>> changeOrderStatus(
+    String id,
+    String status, [
+    String? comment,
+  ]) => api.post<Map<String, dynamic>>('/orders/$id/status', {
+    'status': status,
+    if (comment != null && comment.isNotEmpty) 'comment': comment,
+  });
+
   /// Formulaires proposés pour visiter un point de vente sans mission.
   Future<List<dynamic>> visitForms() =>
       api.get<List<dynamic>>('/outlets/visit-forms');

@@ -24,6 +24,8 @@ import 'features/onboarding/onboarding_screen.dart';
 import 'features/onboarding/splash_screen.dart';
 import 'features/shell/live_updates.dart';
 import 'features/missions/mission_form_screen.dart';
+import 'features/orders/order_editor_screen.dart';
+import 'features/orders/order_screen.dart';
 import 'features/missions/mission_outlets_screen.dart';
 import 'features/outlets/outlet_editor_screen.dart';
 import 'features/outlets/outlet_screen.dart';
@@ -106,6 +108,12 @@ final _outletRoutes = GoRoute(
         GoRoute(
           path: 'edit',
           builder: (_, s) => OutletEditLoader(id: s.pathParameters['id']!),
+        ),
+        // Prise de commande chez le point de vente.
+        GoRoute(
+          path: 'order',
+          builder: (_, s) =>
+              OrderEditorScreen(outletId: s.pathParameters['id']!),
         ),
         // Visite libre (sans mission) avec un formulaire de visite.
         GoRoute(
@@ -320,6 +328,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/alerts', builder: (_, _) => const AlertsScreen()),
       GoRoute(path: '/report', builder: (_, _) => const DailyReportScreen()),
       GoRoute(path: '/sos', builder: (_, _) => const SosScreen()),
+      GoRoute(
+        path: '/orders/:id',
+        builder: (_, s) => OrderScreen(id: s.pathParameters['id']!),
+      ),
     ],
   );
   ref.onDispose(router.dispose);

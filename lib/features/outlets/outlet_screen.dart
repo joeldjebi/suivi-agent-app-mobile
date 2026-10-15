@@ -15,6 +15,8 @@ import '../../design/components.dart';
 import '../../design/lucide.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
+import '../orders/order_screen.dart' show OutletOrdersSection;
+import '../orders/orders.dart' show outletOrdersProvider;
 import 'outlet_activity.dart';
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
@@ -72,6 +74,7 @@ class OutletScreen extends ConsumerWidget {
         _ => RefreshIndicator(
           onRefresh: () {
             ref.invalidate(outletReadingsProvider(id));
+            ref.invalidate(outletOrdersProvider(id));
             return ref.refresh(outletProvider(id).future);
           },
           child: ListView(
@@ -214,6 +217,10 @@ class OutletScreen extends ConsumerWidget {
         Text(f.label, style: text.titleSmall),
         const SizedBox(height: Space.xs),
         RemotePhoto(id: o.data[f.key] as String, label: f.label),
+      ],
+      if (ref.watch(meProvider).hasOrders) ...[
+        const SizedBox(height: Space.lg),
+        OutletOrdersSection(outletId: o.id),
       ],
       if (ref.watch(meProvider).hasProductAudits) ...[
         const SizedBox(height: Space.lg),

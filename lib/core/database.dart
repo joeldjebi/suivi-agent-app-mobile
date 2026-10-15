@@ -59,7 +59,7 @@ class PendingOutlets extends Table {
   /// Identifiant généré sur le téléphone (création : évite un doublon au renvoi).
   TextColumn get clientId => text()();
 
-  /// create, update, status
+  /// create, update, status, order (commande prise sans réseau)
   TextColumn get kind => text()();
 
   /// Point de vente concerné (mise à jour, statut) ; null pour une création.
