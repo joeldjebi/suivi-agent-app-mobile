@@ -80,9 +80,9 @@ class BrandHeader extends ConsumerWidget {
                       dimension: 34,
                       child: Badge(
                         isLabelVisible: unread > 0,
-                        smallSize: 8,
-                        label: null,
-                        alignment: const AlignmentDirectional(0.55, -0.6),
+                        label: Text(unread > 99 ? '99+' : '$unread'),
+                        // Pastille à cheval sur le coin haut droit du bouton.
+                        offset: const Offset(6, -6),
                         child: Icon(
                           Icons.notifications_none_rounded,
                           size: 19,

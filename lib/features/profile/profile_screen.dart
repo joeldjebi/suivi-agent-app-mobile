@@ -15,6 +15,7 @@ import '../../core/providers.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
+import '../safety/sos.dart';
 import '../../widgets/user_avatar.dart';
 import '../pay/pay_screens.dart';
 import 'my_team.dart';
@@ -237,6 +238,10 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           if (me.isAgent) const MyTeamSection(),
+          if (me.isAgent) ...[
+            const SectionHeader('Sécurité'),
+            const SosButton(top: 0),
+          ],
           GroupedList(
             header: 'Ma structure',
             children: [

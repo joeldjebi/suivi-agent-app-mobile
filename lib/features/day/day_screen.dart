@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api_client.dart';
 import '../../core/branding.dart';
@@ -205,11 +206,12 @@ class _DayContent extends ConsumerWidget {
             (!state.isWorking && state.approved != null))
           _ZoneGroup(state: state, zoneName: zoneName, me: me),
         if (me.isAgent) const WeekShortcut(),
-        if (me.isAgent) const SosButton(),
+        // Le bouton d'alerte est dans le profil ; une alerte en cours reste visible ici.
+        if (me.isAgent && ref.watch(sosProvider).active) const SosButton(),
         if (!state.isWorking && me.isAgent) const MyTeamCard(),
         if (!state.isWorking && branding.welcomeMessage != null) ...[
           const SizedBox(height: Space.xl),
-          _MessageCard(branding: branding),
+          _MessageCard(message: branding.welcomeMessage!, branding: branding),
         ],
       ],
     );
@@ -596,14 +598,37 @@ class _ZoneGroup extends ConsumerWidget {
   }
 }
 
-/// Message de la structure, présenté comme une notification.
-class _MessageCard extends StatelessWidget {
-  const _MessageCard({required this.branding});
+/// Message de la structure fermé par l'agent (il revient s'il change).
+final dismissedMessageProvider =
+    AsyncNotifierProvider<DismissedMessage, String?>(DismissedMessage.new);
 
+class DismissedMessage extends AsyncNotifier<String?> {
+  static const _key = 'dismissed_welcome_message';
+
+  @override
+  Future<String?> build() async =>
+      (await SharedPreferences.getInstance()).getString(_key);
+
+  Future<void> dismiss(String message) async {
+    state = AsyncData(message);
+    await (await SharedPreferences.getInstance()).setString(_key, message);
+  }
+}
+
+/// Message de la structure, présenté comme une notification ; l'agent peut le fermer.
+class _MessageCard extends ConsumerWidget {
+  const _MessageCard({required this.message, required this.branding});
+
+  final String message;
   final Branding branding;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dismissed = ref.watch(dismissedMessageProvider);
+    // Attendre la lecture : un message fermé ne doit pas réapparaître un instant.
+    if (!dismissed.hasValue || dismissed.value == message) {
+      return const SizedBox.shrink();
+    }
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     return SurfaceCard(
@@ -627,10 +652,25 @@ class _MessageCard extends StatelessWidget {
                 'Message',
                 style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
+              SizedBox.square(
+                dimension: 32,
+                child: IconButton(
+                  tooltip: 'Fermer le message',
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  onPressed: () => ref
+                      .read(dismissedMessageProvider.notifier)
+                      .dismiss(message),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: Space.sm),
-          Text(branding.welcomeMessage!, style: text.bodyLarge),
+          const SizedBox(height: Space.xs),
+          Text(message, style: text.bodyLarge),
         ],
       ),
     );

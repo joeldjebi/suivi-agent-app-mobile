@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
@@ -18,6 +19,12 @@ import 'outlet_models.dart';
 import 'outlet_widgets.dart';
 import 'outlets_controller.dart';
 import 'visit_forms.dart';
+
+/// Le point de vente dans Google Maps (application si installée, sinon le site).
+Uri googleMapsPlace(LatLng p) => Uri.https('www.google.com', '/maps/search/', {
+  'api': '1',
+  'query': '${p.latitude},${p.longitude}',
+});
 
 /// Fiche d'un point de vente : informations, statut (avec commentaire) et historique.
 class OutletScreen extends ConsumerWidget {
@@ -155,6 +162,18 @@ class OutletScreen extends ConsumerWidget {
           icon: Icons.my_location_rounded,
           style: PillStyle.tonal,
           onPressed: () => _locate(context, ref, o),
+        ),
+      ],
+      if (o.position != null) ...[
+        const SizedBox(height: Space.sm),
+        PillButton(
+          label: 'Voir sur Google Maps',
+          icon: Icons.map_outlined,
+          style: PillStyle.outline,
+          onPressed: () => launchUrl(
+            googleMapsPlace(o.position!),
+            mode: LaunchMode.externalApplication,
+          ),
         ),
       ],
       if (o.phone != null) ...[

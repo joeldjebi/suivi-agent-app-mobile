@@ -117,6 +117,15 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('Bonne journée sur le terrain !'), findsOneWidget);
+      // L'agent ferme le message : il ne revient pas (tant qu'il ne change pas).
+      await tester.tap(find.byTooltip('Fermer le message'));
+      await _settle(tester);
+      expect(find.text('Bonne journée sur le terrain !'), findsNothing);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString('dismissed_welcome_message'),
+        'Bonne journée sur le terrain !',
+      );
       expect(find.text('Choisir ma zone'), findsOneWidget);
       for (final tab in ['Journée', 'Missions', 'Profil']) {
         expect(_tab(tab), findsOneWidget);

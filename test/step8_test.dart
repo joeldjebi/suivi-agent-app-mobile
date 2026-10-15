@@ -43,6 +43,21 @@ Future<void> _hold(WidgetTester tester, Duration duration) async {
   await _settle(tester);
 }
 
+/// Le bouton d'alerte est dans le profil (pas sur l'accueil).
+Future<void> _openProfile(WidgetTester tester) async {
+  expect(find.byType(SosButton), findsNothing);
+  await tester.tap(
+    find.descendant(of: find.byType(AppNavBar), matching: find.text('Profil')),
+  );
+  await _settle(tester);
+  await tester.scrollUntilVisible(
+    find.byType(SosButton),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
+  expect(find.text('SÉCURITÉ'), findsOneWidget);
+}
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('fr_FR');
@@ -65,6 +80,7 @@ void main() {
         testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
       );
       await _settle(tester);
+      await _openProfile(tester);
 
       // Un appui bref ne déclenche rien.
       await _hold(tester, const Duration(milliseconds: 600));
@@ -105,6 +121,7 @@ void main() {
         testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
       );
       await _settle(tester);
+      await _openProfile(tester);
       await _hold(tester, const Duration(milliseconds: 2200));
       expect(find.text('Pas de réseau'), findsOneWidget);
       expect(find.text('Appeler Yao (mon chef)'), findsOneWidget);

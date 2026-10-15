@@ -124,6 +124,7 @@ void main() {
 
     await _tap(tester, find.text('Boutique Awa'));
     expect(find.text('Changer le statut'), findsOneWidget);
+    expect(find.text('Voir sur Google Maps'), findsOneWidget);
     expect(find.text('Possède un frigo'), findsOneWidget);
     expect(find.text('Ajouté · Prospect'), findsOneWidget);
 
@@ -183,7 +184,10 @@ void main() {
       'Boutique Awa Bis',
     );
     await _tap(tester, find.bySemanticsLabel('Kiosque'));
-    await _tap(tester, find.text('Prendre la photo'));
+    await _tap(
+      tester,
+      find.bySemanticsLabel('Prendre la photo de la devanture'),
+    );
     expect(photos.taken, 1);
     await _tap(tester, find.text('Enregistrer'));
 

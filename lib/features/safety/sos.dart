@@ -111,7 +111,10 @@ final sosProvider = NotifierProvider<SosController, SosState>(
 /// Bouton d'alerte sécurité de « Ma journée » : maintenu 2 secondes pour éviter un
 /// déclenchement par erreur. Alerte en cours : accès direct à son écran.
 class SosButton extends ConsumerStatefulWidget {
-  const SosButton({super.key});
+  const SosButton({super.key, this.top = Space.lg});
+
+  /// Espace au-dessus du bouton.
+  final double top;
 
   @override
   ConsumerState<SosButton> createState() => _SosButtonState();
@@ -167,7 +170,7 @@ class _SosButtonState extends ConsumerState<SosButton>
 
     if (sos.active) {
       return Padding(
-        padding: const EdgeInsets.only(top: Space.lg),
+        padding: EdgeInsets.only(top: widget.top),
         child: SurfaceCard(
           color: danger,
           onTap: () => context.push('/sos'),
@@ -192,7 +195,7 @@ class _SosButtonState extends ConsumerState<SosButton>
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: Space.lg),
+      padding: EdgeInsets.only(top: widget.top),
       child: Semantics(
         button: true,
         label: 'Alerte sécurité',

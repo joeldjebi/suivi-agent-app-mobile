@@ -12,7 +12,8 @@ import '../../design/components.dart';
 import '../../design/lucide.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
-import '../missions/mission_form_screen.dart' show FieldInput, PhotoInput;
+import '../../core/field_photo.dart';
+import '../missions/mission_form_screen.dart' show FieldInput;
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
 import 'outlets_controller.dart';
@@ -215,6 +216,9 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
     final form = ref.watch(outletFormProvider).value;
     final fields = form?.fields ?? const <MissionField>[];
     final categories = form?.categories ?? const <String>[];
+    // L'essentiel reste visible ; le facultatif est replié dans « Plus de détails ».
+    final required = fields.where((f) => f.required).toList();
+    final optional = fields.where((f) => !f.required).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -228,9 +232,9 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             Space.page,
-            Space.sm,
+            Space.xs,
             Space.page,
-            Space.xxxl,
+            Space.xl,
           ),
           children: [
             if (_error != null) ...[
@@ -242,22 +246,34 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
               const SizedBox(height: Space.md),
             ],
             if (!_editing) ...[
-              _PositionCard(
+              _PositionLine(
                 position: _position,
                 locating: _locating,
                 onRefresh: _locate,
               ),
-              const SizedBox(height: Space.lg),
+              const SizedBox(height: Space.md),
             ],
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Nom du point de vente *',
-                hintText: 'Ex. : Boutique Awa',
-              ),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'Nom obligatoire' : null,
+            Row(
+              children: [
+                _PhotoTile(
+                  value: _photo,
+                  onChanged: (v) =>
+                      setState(() => _photo = v ?? widget.outlet?.photoId),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: TextFormField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom du point de vente *',
+                      hintText: 'Ex. : Boutique Awa',
+                    ),
+                    validator: (v) =>
+                        (v ?? '').trim().isEmpty ? 'Nom obligatoire' : null,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: Space.lg),
             Text('Type de commerce', style: text.titleSmall),
@@ -290,113 +306,289 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
                 onChanged: (_) => setState(() {}),
               ),
             ],
-            const SizedBox(height: Space.lg),
-            TextFormField(
-              controller: _manager,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Nom du gérant'),
-            ),
-            const SizedBox(height: Space.md),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Téléphone du gérant',
-                hintText: '07 07 07 07 07',
-              ),
-            ),
-            const SizedBox(height: Space.md),
-            TextFormField(
-              controller: _landmark,
-              decoration: const InputDecoration(
-                labelText: 'Repère',
-                hintText: 'Ex. : en face de la pharmacie du marché',
-              ),
-            ),
-            const SizedBox(height: Space.lg),
-            PhotoInput(
-              label: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _editing && _photo is String
-                      ? 'Photo de la devanture (déjà envoyée : reprenez-la pour la changer)'
-                      : 'Photo de la devanture',
-                  style: text.titleSmall,
-                ),
-              ),
-              value: _photo is Map ? _photo : null,
-              required: false,
-              onChanged: (v) =>
-                  setState(() => _photo = v ?? widget.outlet?.photoId),
-            ),
-            if (fields.isNotEmpty) ...[
-              const SizedBox(height: Space.xl),
-              Text('Fiche', style: text.titleMedium),
-              const SizedBox(height: Space.sm),
-              for (final f in fields) ...[
-                FieldInput(
-                  key: ValueKey(f.key),
-                  field: f,
-                  value: _data[f.key],
-                  onChanged: (v) => _data[f.key] = v,
-                ),
-                const SizedBox(height: Space.lg),
-              ],
-            ],
-            if (!_editing) ...[
-              const SizedBox(height: Space.md),
-              Text('Statut', style: text.titleSmall),
-              const SizedBox(height: Space.sm),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final s in OutletStatus.values)
-                    ChoiceChip(
-                      showCheckmark: false,
-                      avatar: LucideIcon(s.icon, size: 16, color: s.color),
-                      label: Text(s.label),
-                      selected: _status == s,
-                      onSelected: (_) => setState(() => _status = s),
-                    ),
-                ],
-              ),
-              const SizedBox(height: Space.md),
-              TextFormField(
-                controller: _comment,
-                decoration: const InputDecoration(
-                  labelText: 'Commentaire (facultatif)',
-                ),
+            for (final f in required) ...[
+              const SizedBox(height: Space.lg),
+              FieldInput(
+                key: ValueKey(f.key),
+                field: f,
+                value: _data[f.key],
+                onChanged: (v) => _data[f.key] = v,
               ),
             ],
-            const SizedBox(height: Space.xl),
-            PillButton(
-              label: 'Enregistrer',
-              icon: Icons.check_rounded,
-              loading: _saving,
-              onPressed: _saving || (!_editing && _locating) ? null : _save,
-            ),
-            if (!_editing)
-              Padding(
-                padding: const EdgeInsets.only(top: Space.sm),
-                child: Text(
-                  'Enregistrez devant le commerce : sa position est celle du téléphone.',
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+            const SizedBox(height: Space.lg),
+            _MoreDetails(
+              // En modification, on voit tout de suite ce qui est déjà rempli.
+              initiallyExpanded: _editing,
+              summary: [
+                'Gérant',
+                'téléphone',
+                'repère',
+                if (optional.isNotEmpty) 'fiche',
+                if (!_editing) 'statut',
+              ].join(', '),
+              children: [
+                TextFormField(
+                  controller: _manager,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Nom du gérant'),
+                ),
+                const SizedBox(height: Space.md),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Téléphone du gérant',
+                    hintText: '07 07 07 07 07',
                   ),
                 ),
-              ),
+                const SizedBox(height: Space.md),
+                TextFormField(
+                  controller: _landmark,
+                  decoration: const InputDecoration(
+                    labelText: 'Repère',
+                    hintText: 'Ex. : en face de la pharmacie du marché',
+                  ),
+                ),
+                for (final f in optional) ...[
+                  const SizedBox(height: Space.lg),
+                  FieldInput(
+                    key: ValueKey(f.key),
+                    field: f,
+                    value: _data[f.key],
+                    onChanged: (v) => _data[f.key] = v,
+                  ),
+                ],
+                if (!_editing) ...[
+                  const SizedBox(height: Space.lg),
+                  Text('Statut', style: text.titleSmall),
+                  const SizedBox(height: Space.sm),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final s in OutletStatus.values)
+                        ChoiceChip(
+                          showCheckmark: false,
+                          avatar: LucideIcon(s.icon, size: 16, color: s.color),
+                          label: Text(s.label),
+                          selected: _status == s,
+                          onSelected: (_) => setState(() => _status = s),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: Space.md),
+                  TextFormField(
+                    controller: _comment,
+                    decoration: const InputDecoration(
+                      labelText: 'Commentaire (facultatif)',
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
+        ),
+      ),
+      // Toujours à portée du pouce, quelle que soit la longueur de la fiche.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Space.sm,
+            Space.page,
+            Space.sm,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PillButton(
+                label: 'Enregistrer',
+                icon: Icons.check_rounded,
+                loading: _saving,
+                onPressed: _saving || (!_editing && _locating) ? null : _save,
+              ),
+              if (!_editing)
+                Padding(
+                  padding: const EdgeInsets.only(top: Space.xs),
+                  child: Text(
+                    'Enregistrez devant le commerce : sa position est celle du téléphone.',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Position mesurée sur place, avec sa précision.
-class _PositionCard extends StatelessWidget {
-  const _PositionCard({
+/// Informations facultatives, repliées pour garder l'ajout rapide sur le terrain.
+class _MoreDetails extends StatelessWidget {
+  const _MoreDetails({
+    required this.summary,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  final String summary;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      child: Theme(
+        // Pas de traits au-dessus et au-dessous une fois ouvert.
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          maintainState: true,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          tilePadding: const EdgeInsets.symmetric(horizontal: Space.md),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            Space.md,
+            0,
+            Space.md,
+            Space.md,
+          ),
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          leading: Icon(Icons.tune_rounded, color: scheme.primary),
+          title: const Text('Plus de détails (facultatif)'),
+          subtitle: Text(summary, maxLines: 1, overflow: TextOverflow.ellipsis),
+          children: children,
+        ),
+      ),
+    );
+  }
+}
+
+/// Photo de la devanture en vignette, à côté du nom : touchée, elle ouvre l'appareil photo
+/// (jamais la galerie) ; prise, elle s'affiche et se reprend d'un toucher.
+class _PhotoTile extends ConsumerStatefulWidget {
+  const _PhotoTile({required this.value, required this.onChanged});
+
+  /// Photo prise maintenant (Map), photo déjà envoyée (identifiant) ou rien.
+  final Object? value;
+  final ValueChanged<Object?> onChanged;
+
+  @override
+  ConsumerState<_PhotoTile> createState() => _PhotoTileState();
+}
+
+class _PhotoTileState extends ConsumerState<_PhotoTile> {
+  bool _busy = false;
+
+  Future<void> _take() async {
+    setState(() => _busy = true);
+    try {
+      final photo = await ref.read(photoCaptureProvider).take();
+      if (photo == null || !mounted) return;
+      final previous = FieldPhoto.tryParse(widget.value);
+      if (previous != null) await PhotoStore.delete([previous]);
+      widget.onChanged(photo.toJson());
+    } on PlatformException {
+      if (mounted) {
+        showMessage(
+          context,
+          'Appareil photo indisponible : autorisez-le dans les réglages du téléphone.',
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final taken = FieldPhoto.tryParse(widget.value);
+    final sent = widget.value is String ? widget.value as String : null;
+    const size = 76.0;
+    final Widget content = _busy
+        ? const Center(
+            child: SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        : taken != null && taken.file.existsSync()
+        ? Image.file(taken.file, fit: BoxFit.cover)
+        : sent != null
+        ? RemotePhoto(id: sent, label: 'Devanture', height: size)
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.photo_camera_outlined, color: scheme.primary),
+              const SizedBox(height: 2),
+              Text(
+                'Photo',
+                style: text.labelSmall?.copyWith(color: scheme.primary),
+              ),
+            ],
+          );
+    final has = taken != null || sent != null;
+    return Semantics(
+      container: true,
+      button: true,
+      label: has
+          ? 'Reprendre la photo de la devanture'
+          : 'Prendre la photo de la devanture',
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Material(
+          color: scheme.primary.withValues(alpha: 0.08),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: has ? Colors.transparent : scheme.primary,
+              width: 1.2,
+            ),
+          ),
+          child: InkWell(
+            onTap: _busy ? null : _take,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                content,
+                if (has && !_busy)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: CircleAvatar(
+                      radius: 11,
+                      backgroundColor: scheme.surface,
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 14,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Position mesurée sur place, sur une ligne discrète.
+class _PositionLine extends StatelessWidget {
+  const _PositionLine({
     required this.position,
     required this.locating,
     required this.onRefresh,
@@ -412,7 +604,17 @@ class _PositionCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final accuracy = position?.accuracy.round();
     final good = accuracy != null && accuracy <= 30;
-    return SurfaceCard(
+    final color = position == null
+        ? scheme.error
+        : good
+        ? toneColor(context, Tone.success)
+        : toneColor(context, Tone.warning);
+    return Container(
+      padding: const EdgeInsets.only(left: Space.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
           Icon(
@@ -421,13 +623,10 @@ class _PositionCard extends StatelessWidget {
                 : position == null
                 ? Icons.location_off_outlined
                 : Icons.my_location_rounded,
-            color: position == null
-                ? scheme.error
-                : good
-                ? scheme.primary
-                : toneColor(context, Tone.warning),
+            size: 18,
+            color: locating ? scheme.onSurfaceVariant : color,
           ),
-          const SizedBox(width: Space.md),
+          const SizedBox(width: Space.sm),
           Expanded(
             child: Text(
               locating
@@ -436,8 +635,8 @@ class _PositionCard extends StatelessWidget {
                   ? 'Position introuvable'
                   : good
                   ? 'Position enregistrée (à $accuracy m près)'
-                  : 'Position approximative (à $accuracy m près) : sortez à découvert puis actualisez.',
-              style: text.bodyMedium,
+                  : 'Position approximative (à $accuracy m près) : sortez à découvert',
+              style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
@@ -499,12 +698,12 @@ class _CategoryGrid extends StatelessWidget {
     final custom =
         other || (selected.isNotEmpty && !categories.contains(selected));
     return GridView.count(
-      crossAxisCount: 3,
+      crossAxisCount: 4,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: Space.sm,
       crossAxisSpacing: Space.sm,
-      childAspectRatio: 1.05,
+      childAspectRatio: 0.95,
       children: [
         for (final c in categories)
           _CategoryTile(
@@ -567,20 +766,20 @@ class _CategoryTile extends StatelessWidget {
             onTap();
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 icon == null
-                    ? Icon(Icons.edit_outlined, size: 28, color: color)
-                    : LucideIcon(icon!, size: 28, color: color),
-                const SizedBox(height: 6),
+                    ? Icon(Icons.edit_outlined, size: 22, color: color)
+                    : LucideIcon(icon!, size: 22, color: color),
+                const SizedBox(height: 4),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: text.labelMedium?.copyWith(
+                  style: text.labelSmall?.copyWith(
                     color: selected ? scheme.primary : scheme.onSurface,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
