@@ -41,6 +41,8 @@ String pushRouteFor(Map<String, String> data, {required bool leader}) {
     'pay.adjustment_proposed' =>
       leader ? '/profile/team-earnings' : '/profile/earnings',
     'team.message' || 'report.daily' => leader ? '/report' : '/notifications',
+    // Avis du matin : les points de vente en retard de visite.
+    'outlets.overdue' => '/outlets?overdue=1',
     _ when !leader && type.startsWith('alert.sos') => '/sos',
     _
         when leader &&

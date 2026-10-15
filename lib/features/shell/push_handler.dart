@@ -74,6 +74,9 @@ class _PushHandlerState extends ConsumerState<PushHandler> {
     if (route.startsWith('/missions') && !ref.read(meProvider).hasMissions) {
       route = '/notifications';
     }
+    if (route.startsWith('/outlets') && !ref.read(meProvider).hasOutlets) {
+      route = '/notifications';
+    }
     // Onglets : on y va ; écrans secondaires : ouverts par-dessus l'onglet en cours.
     const pushed = ['/notifications', '/alerts', '/report', '/sos'];
     if (pushed.contains(route)) {

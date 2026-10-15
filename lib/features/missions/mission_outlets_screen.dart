@@ -92,6 +92,16 @@ class _MissionOutletsScreenState extends ConsumerState<MissionOutletsScreen> {
                   ),
                   const SizedBox(height: Space.sm),
                 ],
+                if (!leader && blocker == null && todo.isNotEmpty) ...[
+                  PillButton(
+                    label: 'Ma tournée (${todo.length} à visiter)',
+                    icon: Icons.route_rounded,
+                    style: PillStyle.tonal,
+                    onPressed: () =>
+                        context.push('/missions/${widget.missionId}/route'),
+                  ),
+                  const SizedBox(height: Space.sm),
+                ],
                 AppSegmented<_Tab>(
                   segments: {
                     _Tab.todo:

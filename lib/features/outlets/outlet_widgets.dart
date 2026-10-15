@@ -74,7 +74,14 @@ class OutletPin extends StatelessWidget {
     required this.category,
     required this.status,
     this.selected = false,
+    this.overdue = false,
   });
+
+  /// Couleur du repère « en retard de visite » (comme sur le site).
+  static const overdueColor = Color(0xFFEA580C);
+
+  /// Horloge orange en haut à gauche : en retard de visite.
+  final bool overdue;
 
   static const width = 34.0;
   static const height = 42.0;
@@ -117,6 +124,25 @@ class OutletPin extends StatelessWidget {
                 ),
               ),
             ),
+            if (overdue)
+              Positioned(
+                top: -4,
+                left: -4,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: overdueColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.schedule_rounded,
+                    size: 11,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             if (badge != null)
               Positioned(
                 top: -4,
@@ -221,3 +247,37 @@ class RemotePhoto extends ConsumerWidget {
 String formatDistance(int meters) => meters < 1000
     ? '$meters m'
     : '${(meters / 1000).toStringAsFixed(1).replaceAll('.', ',')} km';
+
+/// « En retard » : pastille orange avec une horloge.
+class OverduePill extends StatelessWidget {
+  const OverduePill({super.key, this.dense = false});
+
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: OutletPin.overdueColor.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.schedule_rounded,
+          size: dense ? 13 : 15,
+          color: OutletPin.overdueColor,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          'En retard',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: OutletPin.overdueColor,
+            fontSize: dense ? 11 : null,
+          ),
+        ),
+      ],
+    ),
+  );
+}

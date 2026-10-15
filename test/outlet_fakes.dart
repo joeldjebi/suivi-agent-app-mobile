@@ -15,6 +15,8 @@ Map<String, dynamic> outletJson(
   int? distance,
   String? photoId,
   Map<String, dynamic> data = const {},
+  bool overdue = false,
+  int? daysSinceVisit,
 }) => {
   'id': id,
   'name': name,
@@ -31,6 +33,20 @@ Map<String, dynamic> outletJson(
   'zone': {'id': 'z1', 'name': 'Plateau'},
   'createdBy': {'id': 'u1', 'name': 'Koffi Brou'},
   'distance': ?distance,
+  'overdue': overdue,
+  'frequencyDays': 30,
+  'visitFrequencyDays': null,
+  'daysSinceVisit': daysSinceVisit,
+  'lastVisitAt': daysSinceVisit == null
+      ? null
+      : DateTime.now()
+            .subtract(Duration(days: daysSinceVisit))
+            .toUtc()
+            .toIso8601String(),
+  'dueAt': DateTime.now()
+      .add(Duration(days: overdue ? -5 : 10))
+      .toUtc()
+      .toIso8601String(),
 };
 
 /// API des points de vente simulée.
@@ -75,10 +91,12 @@ class OutletsRepo extends FakeRepository {
     double? lng,
     double? radius,
     bool unlocated = false,
+    bool overdue = false,
     int limit = 100,
   }) async {
     final source = unlocated ? unlocatedList : outletList;
     final items = source
+        .where((o) => !overdue || o['overdue'] == true)
         .where((o) => status == null || o['status'] == status)
         .where(
           (o) =>
@@ -90,6 +108,7 @@ class OutletsRepo extends FakeRepository {
       'items': items,
       'total': items.length,
       'counts': {'new': 1, 'prospect': 1, 'active': 0},
+      'overdue': source.where((o) => o['overdue'] == true).length,
     };
   }
 
@@ -381,6 +400,63 @@ class InsightsRepo extends OutletsRepo {
           },
         ],
       },
+    };
+  }
+}
+
+/// Points de vente en retard et tournée.
+class RouteRepo extends OutletsRepo {
+  RouteRepo() {
+    outletList
+      ..[1] = outletJson(
+        'o2',
+        'Pharmacie du Port',
+        category: 'Pharmacie',
+        distance: 340,
+        overdue: true,
+        daysSinceVisit: 42,
+      )
+      ..add(
+        outletJson(
+          'o5',
+          'Kiosque Orange',
+          category: 'Kiosque',
+          distance: 900,
+          overdue: true,
+          lat: 5.328,
+        ),
+      );
+  }
+
+  final routes = <(double, double, String?)>[];
+
+  @override
+  Future<Map<String, dynamic>> outletRoute({
+    required double lat,
+    required double lng,
+    String? missionId,
+  }) async {
+    routes.add((lat, lng, missionId));
+    return {
+      'source': missionId == null ? 'overdue' : 'mission',
+      'candidates': 2,
+      'stops': [
+        {
+          ...outletList[1],
+          'order': 1,
+          'legMeters': 340,
+          'cumulativeMeters': 340,
+        },
+        {
+          ...outletList[2],
+          'order': 2,
+          'legMeters': 860,
+          'cumulativeMeters': 1200,
+        },
+      ],
+      'totalMeters': 1200,
+      'travelMinutes': 21,
+      'visitMinutes': 20,
     };
   }
 }

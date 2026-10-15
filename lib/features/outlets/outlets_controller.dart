@@ -19,20 +19,27 @@ final outletFormProvider = FutureProvider<OutletForm>(
 
 /// Recherche et filtre de la liste des points de vente.
 class OutletFilter {
-  const OutletFilter({this.q = '', this.status});
+  const OutletFilter({this.q = '', this.status, this.overdue = false});
 
   final String q;
   final OutletStatus? status;
+
+  /// En retard de visite seulement.
+  final bool overdue;
 }
 
 class OutletFilterController extends Notifier<OutletFilter> {
   @override
   OutletFilter build() => const OutletFilter();
 
-  void search(String q) => state = OutletFilter(q: q, status: state.status);
+  void search(String q) =>
+      state = OutletFilter(q: q, status: state.status, overdue: state.overdue);
 
   void status(OutletStatus? status) =>
-      state = OutletFilter(q: state.q, status: status);
+      state = OutletFilter(q: state.q, status: status, overdue: state.overdue);
+
+  void overdue(bool on) =>
+      state = OutletFilter(q: state.q, status: state.status, overdue: on);
 }
 
 final outletFilterProvider =
@@ -52,7 +59,11 @@ class OutletList {
     required this.total,
     required this.counts,
     required this.here,
+    this.overdueCount = 0,
   });
+
+  /// Points de vente en retard de visite (avec les autres filtres).
+  final int overdueCount;
 
   final List<Outlet> items;
   final int total;
@@ -73,6 +84,7 @@ final outletsProvider = FutureProvider.autoDispose<OutletList>((ref) async {
     status: filter.status?.code,
     lat: here?.latitude,
     lng: here?.longitude,
+    overdue: filter.overdue,
     limit: 200,
   );
   final items = [
@@ -85,6 +97,7 @@ final outletsProvider = FutureProvider.autoDispose<OutletList>((ref) async {
       q: filter.q.trim(),
       status: filter.status?.code,
       unlocated: true,
+      overdue: filter.overdue,
       limit: 50,
     );
     items.addAll([
@@ -101,6 +114,7 @@ final outletsProvider = FutureProvider.autoDispose<OutletList>((ref) async {
         s: (counts[s.code] as num?)?.toInt() ?? 0,
     },
     here: here,
+    overdueCount: (json['overdue'] as num?)?.toInt() ?? 0,
   );
 });
 

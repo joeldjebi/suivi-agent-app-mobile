@@ -128,6 +128,10 @@ class OutletScreen extends ConsumerWidget {
           ),
         ],
       ),
+      if (o.frequencyDays > 0 || o.lastVisitAt != null) ...[
+        const SizedBox(height: Space.md),
+        _VisitCard(outlet: o),
+      ],
       const SizedBox(height: Space.lg),
       PillButton(
         label: 'Changer le statut',
@@ -418,6 +422,89 @@ class _StatusSheetState extends State<_StatusSheet> {
                 ? () => Navigator.pop(context, (_status, _comment.text.trim()))
                 : null,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Suivi des visites : dernière visite, prochaine visite due ou retard. Le chef règle la
+/// fréquence propre au point de vente.
+class _VisitCard extends ConsumerWidget {
+  const _VisitCard({required this.outlet});
+
+  final Outlet outlet;
+
+  Future<void> _frequency(BuildContext context, WidgetRef ref) async {
+    final picked = await pickOption<int>(
+      context,
+      title: 'Visiter ce point de vente',
+      selected: outlet.visitFrequencyDays ?? 0,
+      options: {
+        0: 'Fréquence par défaut de la structure',
+        for (final d in [7, 14, 30, 60, 90]) d: 'Tous les $d jours',
+      },
+    );
+    if (picked == null || !context.mounted) return;
+    try {
+      await sendOutletAction(
+        ref,
+        kind: 'update',
+        outletId: outlet.id,
+        name: outlet.name,
+        body: {'visitFrequencyDays': picked.value == 0 ? null : picked.value},
+      );
+      if (context.mounted) {
+        showMessage(context, 'Fréquence de visite enregistrée.');
+      }
+    } on ApiException catch (e) {
+      if (context.mounted) showMessage(context, e.message, error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final o = outlet;
+    final late = o.overdue && o.dueAt != null
+        ? DateTime.now().difference(o.dueAt!).inDays.clamp(1, 9999)
+        : 0;
+    final leader = ref.watch(meProvider).isTeamLead;
+    return SurfaceCard(
+      child: Row(
+        children: [
+          Icon(
+            o.overdue ? Icons.schedule_rounded : Icons.event_available_rounded,
+            color: o.overdue ? OutletPin.overdueColor : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: Space.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(o.visitLabel, style: text.bodyLarge),
+                if (o.frequencyDays > 0)
+                  Text(
+                    o.overdue
+                        ? 'En retard de $late jour${late > 1 ? 's' : ''} (tous les ${o.frequencyDays} j)'
+                        : 'Prochaine visite avant le ${formatShortDate(o.dueAt!)} (tous les ${o.frequencyDays} j)',
+                    style: text.bodySmall?.copyWith(
+                      color: o.overdue
+                          ? OutletPin.overdueColor
+                          : scheme.onSurfaceVariant,
+                      fontWeight: o.overdue ? FontWeight.w600 : null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (leader)
+            IconButton(
+              tooltip: 'Fréquence de visite',
+              icon: const Icon(Icons.tune_rounded),
+              onPressed: () => _frequency(context, ref),
+            ),
         ],
       ),
     );

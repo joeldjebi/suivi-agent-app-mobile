@@ -71,7 +71,36 @@ class Outlet {
     this.zoneName,
     this.createdBy,
     this.distance,
+    this.lastVisitAt,
+    this.daysSinceVisit,
+    this.dueAt,
+    this.overdue = false,
+    this.frequencyDays = 0,
+    this.visitFrequencyDays,
   });
+
+  /// Dernière visite acceptée (null : jamais visité).
+  final DateTime? lastVisitAt;
+  final int? daysSinceVisit;
+
+  /// Visite attendue au plus tard (null : pas de suivi).
+  final DateTime? dueAt;
+
+  /// En retard de visite (fréquence dépassée).
+  final bool overdue;
+
+  /// Fréquence appliquée en jours (0 : pas de suivi).
+  final int frequencyDays;
+
+  /// Fréquence propre au point de vente ; null : celle de la structure.
+  final int? visitFrequencyDays;
+
+  /// « Visité il y a 12 j », « Visité aujourd'hui », « Jamais visité ».
+  String get visitLabel => lastVisitAt == null || daysSinceVisit == null
+      ? 'Jamais visité'
+      : daysSinceVisit == 0
+      ? 'Visité aujourd’hui'
+      : 'Visité il y a $daysSinceVisit j';
 
   final String id;
   final String name;
@@ -112,6 +141,16 @@ class Outlet {
       zoneName: (j['zone'] as Map?)?['name'] as String?,
       createdBy: (j['createdBy'] as Map?)?['name'] as String?,
       distance: (j['distance'] as num?)?.round(),
+      lastVisitAt: j['lastVisitAt'] == null
+          ? null
+          : DateTime.parse(j['lastVisitAt'] as String).toLocal(),
+      daysSinceVisit: (j['daysSinceVisit'] as num?)?.toInt(),
+      dueAt: j['dueAt'] == null
+          ? null
+          : DateTime.parse(j['dueAt'] as String).toLocal(),
+      overdue: j['overdue'] as bool? ?? false,
+      frequencyDays: (j['frequencyDays'] as num?)?.toInt() ?? 0,
+      visitFrequencyDays: (j['visitFrequencyDays'] as num?)?.toInt(),
     );
   }
 }

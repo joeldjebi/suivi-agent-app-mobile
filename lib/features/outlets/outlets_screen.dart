@@ -26,7 +26,10 @@ enum _View { list, map }
 /// Onglet « Points de vente » : ceux des zones de l'agent (ou de l'équipe du chef), les plus
 /// proches d'abord, en liste ou sur la carte ; ajout sur place.
 class OutletsScreen extends ConsumerStatefulWidget {
-  const OutletsScreen({super.key});
+  const OutletsScreen({super.key, this.overdue = false});
+
+  /// Ouvert depuis l'avis du matin : les points de vente en retard.
+  final bool overdue;
 
   @override
   ConsumerState<OutletsScreen> createState() => _OutletsScreenState();
@@ -36,6 +39,16 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
   _View _view = _View.list;
   final _search = TextEditingController();
   Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.overdue) {
+      Future.microtask(
+        () => ref.read(outletFilterProvider.notifier).overdue(true),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -134,6 +147,16 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: Space.page),
                 children: [
                   _StatusChip(
+                    label: 'En retard',
+                    icon: Icons.schedule_rounded,
+                    color: OutletPin.overdueColor,
+                    count: data?.overdueCount,
+                    selected: filter.overdue,
+                    onTap: () => ref
+                        .read(outletFilterProvider.notifier)
+                        .overdue(!filter.overdue),
+                  ),
+                  _StatusChip(
                     label: 'Tous',
                     selected: filter.status == null,
                     onTap: () =>
@@ -177,6 +200,24 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                                 subtitle:
                                     'Ruptures, ventes et prix relevés par votre équipe',
                                 onTap: () => context.push('/outlets/insights'),
+                              ),
+                            ),
+                            const SizedBox(height: Space.md),
+                          ],
+                          // Agent : sa tournée parmi les points de vente en retard.
+                          if (!ref.watch(meProvider).isTeamLead &&
+                              (data?.overdueCount ?? 0) > 0) ...[
+                            SurfaceCard(
+                              padding: EdgeInsets.zero,
+                              child: ListRow(
+                                leading: const Icon(
+                                  Icons.route_rounded,
+                                  color: OutletPin.overdueColor,
+                                ),
+                                title: 'Ma tournée',
+                                subtitle:
+                                    '${data!.overdueCount} point${data.overdueCount > 1 ? 's' : ''} de vente en retard de visite',
+                                onTap: () => context.push('/outlets/route'),
                               ),
                             ),
                             const SizedBox(height: Space.md),
@@ -241,6 +282,7 @@ class _StatusChip extends StatelessWidget {
     required this.onTap,
     this.color,
     this.count,
+    this.icon,
   });
 
   final String label;
@@ -248,6 +290,7 @@ class _StatusChip extends StatelessWidget {
   final VoidCallback onTap;
   final Color? color;
   final int? count;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -256,7 +299,9 @@ class _StatusChip extends StatelessWidget {
       selected: selected,
       showCheckmark: false,
       onSelected: (_) => onTap(),
-      avatar: color == null
+      avatar: icon != null
+          ? Icon(icon, size: 16, color: color)
+          : color == null
           ? null
           : Container(
               width: 10,
@@ -285,6 +330,7 @@ class _OutletRow extends StatelessWidget {
       else if (!outlet.located)
         'À localiser',
       ?outlet.zoneName,
+      if (outlet.frequencyDays > 0) outlet.visitLabel,
     ];
     return InkWell(
       onTap: () => context.push('/outlets/${outlet.id}'),
@@ -319,7 +365,9 @@ class _OutletRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: Space.sm),
-            OutletStatusPill(outlet.status, dense: true),
+            outlet.overdue
+                ? const OverduePill(dense: true)
+                : OutletStatusPill(outlet.status, dense: true),
           ],
         ),
       ),
@@ -512,7 +560,11 @@ class _OutletsMap extends ConsumerWidget {
                   excludeSemantics: true,
                   child: GestureDetector(
                     onTap: () => context.push('/outlets/${o.id}'),
-                    child: OutletPin(category: o.category, status: o.status),
+                    child: OutletPin(
+                      category: o.category,
+                      status: o.status,
+                      overdue: o.overdue,
+                    ),
                   ),
                 ),
               ),

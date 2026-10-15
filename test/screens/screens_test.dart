@@ -947,5 +947,36 @@ void main() {
         },
       ),
     );
+
+    testWidgets(
+      'tournée',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+          repo: RouteRepo(),
+        ),
+        '44-agent-ma-tournee',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Ma tournée'));
+        },
+      ),
+    );
+    testWidgets(
+      'retards',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+          repo: RouteRepo(),
+        ),
+        '45-agent-points-de-vente-retards',
+        then: () => tester.tap(tab('Points de vente')),
+      ),
+    );
   });
 }

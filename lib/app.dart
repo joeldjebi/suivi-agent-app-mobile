@@ -29,6 +29,7 @@ import 'features/outlets/outlet_editor_screen.dart';
 import 'features/outlets/outlet_screen.dart';
 import 'features/outlets/outlets_screen.dart';
 import 'features/outlets/product_insights_screen.dart';
+import 'features/outlets/route_screen.dart';
 import 'features/missions/mission_screen.dart';
 import 'features/missions/missions_screen.dart';
 import 'features/pay/pay_screens.dart';
@@ -69,6 +70,11 @@ final _missionRoutes = GoRoute(
             outlet: s.uri.queryParameters['outlet'],
           ),
         ),
+        // Mission de visites : la tournée parmi ce qui reste à visiter.
+        GoRoute(
+          path: 'route',
+          builder: (_, s) => RouteScreen(missionId: s.pathParameters['id']),
+        ),
         // Mission de visites : ses points de vente.
         GoRoute(
           path: 'outlets',
@@ -83,11 +89,13 @@ final _missionRoutes = GoRoute(
 /// Points de vente : liste et carte, ajout sur place, fiche, modification.
 final _outletRoutes = GoRoute(
   path: '/outlets',
-  builder: (_, _) => const OutletsScreen(),
+  builder: (_, s) =>
+      OutletsScreen(overdue: s.uri.queryParameters['overdue'] == '1'),
   routes: [
     // Avant « :id » pour ne pas être pris pour un identifiant.
     GoRoute(path: 'new', builder: (_, _) => const OutletEditorScreen()),
     GoRoute(path: 'insights', builder: (_, _) => const ProductInsightsScreen()),
+    GoRoute(path: 'route', builder: (_, _) => const RouteScreen()),
     GoRoute(
       path: ':id',
       builder: (_, s) => OutletScreen(id: s.pathParameters['id']!),

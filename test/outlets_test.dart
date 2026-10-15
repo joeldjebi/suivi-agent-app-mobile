@@ -9,6 +9,10 @@ import 'package:suivi_agent/core/providers.dart';
 import 'package:suivi_agent/design/components.dart';
 import 'package:suivi_agent/features/outlets/outlet_widgets.dart';
 import 'package:suivi_agent/features/outlets/outlets_screen.dart';
+import 'package:suivi_agent/features/outlets/outlet_models.dart';
+import 'package:suivi_agent/features/outlets/route_screen.dart';
+import 'package:suivi_agent/core/push.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'fakes.dart';
 import 'outlet_fakes.dart';
@@ -398,5 +402,65 @@ void main() {
     await _tap(tester, find.text('Boutique Awa · Plateau · 10 oct.'));
     expect(find.text('Changer le statut'), findsOneWidget);
     await _close(tester);
+  });
+
+  testWidgets('retards de visite et ma tournée', (tester) async {
+    _phone(tester);
+    final repo = RouteRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    expect(find.text('En retard 2'), findsOneWidget);
+    expect(find.textContaining('Visité il y a 42 j'), findsOneWidget);
+    expect(find.byType(OverduePill), findsNWidgets(2));
+    expect(find.text('2 points de vente en retard de visite'), findsOneWidget);
+
+    await _tap(tester, find.text('En retard 2'));
+    expect(find.text('Boutique Awa'), findsNothing);
+    expect(find.text('Kiosque Orange'), findsOneWidget);
+
+    await _tap(tester, find.text('Ma tournée'));
+    expect(repo.routes.single, (5.32, -4.02, null));
+    expect(find.text('2 étapes · 1,2 km'), findsOneWidget);
+    expect(
+      find.text('Environ 21 min de trajet à pied et 20 min de visites'),
+      findsOneWidget,
+    );
+    expect(find.text('Ouvrir l’itinéraire dans Google Maps'), findsOneWidget);
+    // Étapes numérotées dans l'ordre.
+    expect(
+      tester.getTopLeft(find.text('Pharmacie du Port')).dy,
+      lessThan(tester.getTopLeft(find.text('Kiosque Orange')).dy),
+    );
+    await _close(tester);
+  });
+
+  test('itinéraire Google Maps : départ, étapes, arrivée', () {
+    final stops = [
+      for (final (i, lat) in [5.33, 5.34, 5.35].indexed)
+        RouteStop(
+          Outlet.fromJson(outletJson('o$i', 'P$i', lat: lat)),
+          i + 1,
+          100,
+        ),
+    ];
+    final uri = googleMapsRoute(const LatLng(5.32, -4.02), stops);
+    expect(uri.host, 'www.google.com');
+    expect(uri.queryParameters['origin'], '5.32,-4.02');
+    expect(uri.queryParameters['destination'], '5.35,-4.02');
+    expect(uri.queryParameters['waypoints'], '5.33,-4.02|5.34,-4.02');
+    expect(uri.queryParameters['travelmode'], 'walking');
+  });
+
+  test('avis du matin : ouvre les points de vente en retard', () {
+    expect(
+      pushRouteFor({'type': 'outlets.overdue'}, leader: true),
+      '/outlets?overdue=1',
+    );
   });
 }

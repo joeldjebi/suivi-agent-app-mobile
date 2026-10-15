@@ -168,10 +168,12 @@ class Repository {
     double? lng,
     double? radius,
     bool unlocated = false,
+    bool overdue = false,
     int limit = 100,
   }) => api.get<Map<String, dynamic>>(
     '/outlets',
     query: {
+      if (overdue) 'overdue': true,
       if (q != null && q.isNotEmpty) 'q': q,
       'status': ?status,
       'lat': ?lat,
@@ -211,6 +213,17 @@ class Repository {
   }) => api.get<Map<String, dynamic>>(
     '/insights/products/$part',
     query: {'from': from, 'to': to},
+  );
+
+  /// Tournée optimisée depuis la position : points de vente en retard, ou ceux qui restent
+  /// à visiter dans une mission de visites.
+  Future<Map<String, dynamic>> outletRoute({
+    required double lat,
+    required double lng,
+    String? missionId,
+  }) => api.get<Map<String, dynamic>>(
+    '/outlets/route',
+    query: {'lat': lat, 'lng': lng, 'missionId': ?missionId},
   );
 
   Future<Map<String, dynamic>> outlet(String id) =>
