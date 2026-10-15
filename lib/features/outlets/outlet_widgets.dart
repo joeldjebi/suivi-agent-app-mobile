@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/lucide.dart';
@@ -280,4 +281,16 @@ class OverduePill extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Ouvre la fiche d'un point de vente. Depuis l'onglet Points de vente, par-dessus l'écran ;
+/// depuis un écran ouvert hors des onglets (statistiques, commande, visite), en basculant sur
+/// l'onglet : y empiler la fiche dupliquerait les onglets.
+void openOutlet(BuildContext context, String id) {
+  final here = GoRouterState.of(context).uri.path;
+  if (here.startsWith('/outlets')) {
+    context.push('/outlets/$id');
+  } else {
+    context.go('/outlets/$id');
+  }
 }

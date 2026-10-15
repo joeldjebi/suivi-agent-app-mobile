@@ -705,3 +705,71 @@ const orderFeatures = {
   'groups',
   'team_leads',
 };
+
+/// Statistiques d'un formulaire de prospection : nombre, Oui/Non, liste de choix, photo.
+class FormStatsRepo extends OutletsRepo {
+  FormStatsRepo() {
+    formStatsJson = {
+      'forms': [
+        {'id': 't1', 'name': 'Prospection', 'submissions': 3, 'outlets': 2},
+        {'id': 't2', 'name': 'Audit', 'submissions': 1, 'outlets': 1},
+      ],
+    };
+    Map<String, dynamic> field(
+      String key,
+      String label,
+      String type,
+      Map<String, dynamic> stats,
+    ) => {'key': key, 'label': label, 'type': type, 'stats': stats};
+    formFieldStatsJson = {
+      't1': {
+        'submissions': 3,
+        'outlets': 2,
+        'fields': [
+          field('montant', 'Montant encaissé', 'number', {
+            'kind': 'number',
+            'answered': 2,
+            'sum': 40000,
+            'avg': 20000,
+            'min': 10000,
+            'max': 30000,
+          }),
+          field('conforme', 'Présentation conforme', 'boolean', {
+            'kind': 'boolean',
+            'answered': 3,
+            'yes': 2,
+            'no': 1,
+            'yesRate': 67,
+          }),
+          field('interet', 'Client intéressé', 'select', {
+            'kind': 'select',
+            'answered': 3,
+            'options': [
+              {'value': 'Oui', 'count': 2},
+              {'value': 'À relancer', 'count': 1},
+              {'value': 'Non', 'count': 0},
+            ],
+          }),
+          field('vitrine', 'Vitrine', 'photo', {
+            'kind': 'photo',
+            'answered': 2,
+          }),
+          field('nom', 'Commerce', 'text', {'kind': 'text', 'answered': 3}),
+        ],
+      },
+      't2': {
+        'submissions': 1,
+        'outlets': 1,
+        'fields': [
+          field('ok', 'Rayon rangé', 'boolean', {
+            'kind': 'boolean',
+            'answered': 1,
+            'yes': 0,
+            'no': 1,
+            'yesRate': 0,
+          }),
+        ],
+      },
+    };
+  }
+}

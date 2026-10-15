@@ -256,6 +256,25 @@ class Repository {
         query: {'outletId': outletId},
       );
 
+  /// Formulaires remplis sur la période (statistiques), les plus utilisés d'abord.
+  Future<Map<String, dynamic>> formStats({
+    required String from,
+    required String to,
+  }) => api.get<Map<String, dynamic>>(
+    '/form-stats',
+    query: {'from': from, 'to': to},
+  );
+
+  /// Statistiques d'un formulaire : chaque champ résumé selon son type.
+  Future<Map<String, dynamic>> formFieldStats(
+    String typeId, {
+    required String from,
+    required String to,
+  }) => api.get<Map<String, dynamic>>(
+    '/form-stats/$typeId',
+    query: {'from': from, 'to': to},
+  );
+
   /// Commandes de la période : nombre et montant par statut.
   Future<Map<String, dynamic>> ordersSummary({
     required String from,

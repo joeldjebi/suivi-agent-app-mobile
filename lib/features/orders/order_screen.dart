@@ -10,6 +10,7 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
+import '../outlets/outlet_widgets.dart' show openOutlet;
 import 'orders.dart';
 
 /// Pastille du statut d'une commande : icône et libellé.
@@ -117,7 +118,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
               ),
               const SizedBox(height: Space.md),
               InkWell(
-                onTap: () => context.push('/outlets/${d.order.outletId}'),
+                onTap: () => openOutlet(context, d.order.outletId),
                 child: Text(d.order.outletName, style: text.titleLarge),
               ),
               Text(

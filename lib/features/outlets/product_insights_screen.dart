@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/format.dart';
@@ -10,6 +9,8 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
+import 'form_stats_section.dart';
+import 'outlet_widgets.dart' show openOutlet;
 
 /// Nos produits / la concurrence : mêmes couleurs que le site.
 const _own = Color(0xFF2563EB);
@@ -136,10 +137,14 @@ class ProductInsightsScreen extends ConsumerWidget {
     final own = ref.watch(_ownProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(leader ? 'Tableau de bord produits' : 'Mes produits'),
+        title: Text(leader ? 'Statistiques de l’équipe' : 'Mes statistiques'),
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(productInsightsProvider.future),
+        onRefresh: () {
+          ref.invalidate(formUsageProvider);
+          ref.invalidate(formStatsProvider);
+          return ref.refresh(productInsightsProvider.future);
+        },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
             Space.page,
@@ -182,8 +187,11 @@ class ProductInsightsScreen extends ConsumerWidget {
     required bool own,
   }) => [
     if (d.orders != null) ..._orders(context, d.orders!),
+    // Les formulaires créés par la structure, champ par champ.
+    if (ref.watch(meProvider).hasMissions || ref.watch(meProvider).hasOutlets)
+      FormStatsSection(days: ref.watch(_periodProvider)),
     if (d.readings != null) ...[
-      if (d.orders != null) const SectionHeader('Relevés en visite'),
+      const SectionHeader('Produits : tous formulaires'),
       ..._readings(context, ref, d.readings!, own: own),
     ],
   ];
@@ -354,7 +362,7 @@ class ProductInsightsScreen extends ConsumerWidget {
                     ].join(' · '),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/outlets/${r['outletId']}'),
+                  onTap: () => openOutlet(context, r['outletId'] as String),
                 ),
               ],
             ],

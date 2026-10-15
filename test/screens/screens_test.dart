@@ -824,7 +824,7 @@ void main() {
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.tap(find.text('Mes produits'));
+          await tester.tap(find.text('Mes statistiques'));
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
@@ -863,10 +863,28 @@ void main() {
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.tap(find.text('Mes produits'));
+          await tester.tap(find.text('Mes statistiques'));
         },
       );
     });
+    testWidgets(
+      'statistiques des formulaires',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+          repo: FormStatsRepo(),
+        ),
+        '52-agent-statistiques-formulaires',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Mes statistiques'));
+        },
+      ),
+    );
     testWidgets(
       'detail d une visite',
       (tester) => _capture(
@@ -1113,7 +1131,7 @@ void main() {
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.tap(find.text('Tableau de bord produits'));
+          await tester.tap(find.text('Statistiques de l’équipe'));
         },
       ),
     );

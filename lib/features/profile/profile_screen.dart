@@ -183,6 +183,16 @@ class ProfileScreen extends ConsumerWidget {
                     subtitle: 'Heures, objectif et formulaires',
                     onTap: () => context.push('/day/week'),
                   ),
+                if (me.isAgent && (me.hasMissions || me.hasOutlets))
+                  ListRow(
+                    leading: icon(
+                      Icons.insights_rounded,
+                      const Color(0xFF0EA5E9),
+                    ),
+                    title: 'Mes statistiques',
+                    subtitle: 'Formulaires, ventes et produits',
+                    onTap: () => context.push('/stats'),
+                  ),
                 if (me.isAgent) const _MyTeamRow(),
                 if (me.hasPayroll)
                   ListRow(

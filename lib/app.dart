@@ -335,6 +335,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/alerts', builder: (_, _) => const AlertsScreen()),
       GoRoute(path: '/report', builder: (_, _) => const DailyReportScreen()),
       GoRoute(path: '/sos', builder: (_, _) => const SosScreen()),
+      // Statistiques : formulaires, ventes, produits (agent : les siennes ; chef : son équipe).
+      GoRoute(path: '/stats', builder: (_, _) => const ProductInsightsScreen()),
       GoRoute(
         path: '/visits/:id',
         builder: (_, s) => VisitDetailScreen(id: s.pathParameters['id']!),

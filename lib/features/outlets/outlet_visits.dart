@@ -341,7 +341,7 @@ class VisitDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: Space.sm),
             InkWell(
-              onTap: () => context.push('/outlets/${d.outletId}'),
+              onTap: () => openOutlet(context, d.outletId),
               child: Row(
                 children: [
                   Icon(

@@ -395,10 +395,15 @@ void main() {
     );
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
-    await _tap(tester, find.text('Tableau de bord produits'));
+    await _tap(tester, find.text('Statistiques de l’équipe'));
 
     expect(find.text('21 %'), findsOneWidget);
     expect(find.text('4 sur 19 relevés'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('190 bouteilles (15 casiers + 10)'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Fanta 33 cl'), findsWidgets);
     expect(find.text('190 bouteilles (15 casiers + 10)'), findsOneWidget);
     // 30 jours par défaut.
@@ -406,6 +411,11 @@ void main() {
     expect(DateTime.parse(to).difference(DateTime.parse(from)).inDays, 29);
 
     // 7 derniers jours : relu pour la nouvelle période.
+    await tester.scrollUntilVisible(
+      find.text('7 derniers jours'),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await _tap(tester, find.text('7 derniers jours'));
     expect(repo.periods, hasLength(2));
     await tester.scrollUntilVisible(
@@ -842,8 +852,8 @@ void main() {
     );
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
-    await _tap(tester, find.text('Mes produits'));
-    expect(find.text('Mes produits'), findsOneWidget);
+    await _tap(tester, find.text('Mes statistiques'));
+    expect(find.text('Mes statistiques'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Les plus vendus'),
       200,
@@ -884,7 +894,7 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     // Sans les relevés produits, la page existe grâce aux commandes.
-    await _tap(tester, find.text('Mes produits'));
+    await _tap(tester, find.text('Mes statistiques'));
     expect(find.text('Ventes (commandes)'), findsOneWidget);
     // Payée : 30 × 300 ; la commande seulement prise est « à livrer ».
     expect(find.text('9\u202f000\u00a0FCFA'), findsNWidgets(2));
@@ -896,6 +906,61 @@ void main() {
     );
     expect(find.text('30 bouteilles (2 casiers + 6)'), findsOneWidget);
     expect(find.text('RELEVÉS EN VISITE'), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('statistiques : chaque champ du formulaire selon son type', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+        repo: FormStatsRepo(),
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Mes statistiques'));
+
+    // Le formulaire le plus utilisé d'abord.
+    expect(find.text('Prospection (3)'), findsOneWidget);
+    expect(find.text('3 formulaires · 2 points de vente'), findsOneWidget);
+    expect(find.text('40\u202f000'), findsOneWidget);
+    expect(
+      find.text(
+        'moyenne 20\u202f000 · de 10\u202f000 à 30\u202f000 · 2 réponses sur 3',
+      ),
+      findsOneWidget,
+    );
+    final list = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('67 % de Oui'),
+      200,
+      scrollable: list,
+    );
+    expect(find.text('Oui 2 · Non 1'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('2 · 67 %'),
+      200,
+      scrollable: list,
+    );
+    expect(find.text('À relancer'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('2 photos'),
+      200,
+      scrollable: list,
+    );
+
+    // Un autre formulaire.
+    await tester.scrollUntilVisible(
+      find.text('Audit (1)'),
+      -200,
+      scrollable: list,
+    );
+    await _tap(tester, find.text('Audit (1)'));
+    expect(find.text('Rayon rangé'), findsOneWidget);
+    expect(find.text('0 % de Oui'), findsOneWidget);
     await _close(tester);
   });
 

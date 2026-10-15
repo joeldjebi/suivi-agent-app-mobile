@@ -715,6 +715,23 @@ class FakeRepository extends Repository {
         status: 404,
       ));
 
+  /// Statistiques des formulaires : formulaires remplis, puis chiffres de chacun.
+  Map<String, dynamic> formStatsJson = const {'forms': <dynamic>[]};
+  Map<String, Map<String, dynamic>> formFieldStatsJson = const {};
+
+  @override
+  Future<Map<String, dynamic>> formStats({
+    required String from,
+    required String to,
+  }) async => formStatsJson;
+
+  @override
+  Future<Map<String, dynamic>> formFieldStats(
+    String typeId, {
+    required String from,
+    required String to,
+  }) async => formFieldStatsJson[typeId]!;
+
   /// Derniers relevés produits d'un point de vente.
   List<dynamic> outletReadingsJson = const [];
 
