@@ -14,6 +14,7 @@ import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import 'missions_controller.dart';
 import 'field_display.dart';
+import 'submission_answers.dart';
 import 'missions_screen.dart';
 import '../day/day_controller.dart';
 import '../../core/sync.dart';
@@ -1219,18 +1220,10 @@ Future<void> _showSubmission(
               tone: Tone.danger,
             ),
           ],
-          GroupedList(
-            header: 'Réponses',
-            indent: Space.lg,
-            children: [
-              for (final f in mission.fields)
-                ListRow(
-                  title: f.label,
-                  value: s.data[f.key] == null || s.data[f.key] == ''
-                      ? '—'
-                      : fieldDisplay(f, s.data[f.key]),
-                ),
-            ],
+          SubmissionAnswers(
+            fields: mission.fields,
+            data: s.data,
+            products: mission.products,
           ),
           if (onReject != null) ...[
             const SizedBox(height: Space.xl),

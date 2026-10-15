@@ -9,8 +9,7 @@ import '../../core/providers.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
-import '../missions/field_display.dart';
-import '../missions/product_readings_input.dart' show formatQuantity;
+import '../missions/submission_answers.dart';
 import 'outlet_widgets.dart';
 
 /// Visite d'un point de vente dans l'historique (mission ou visite libre).
@@ -366,110 +365,19 @@ class VisitDetailScreen extends ConsumerWidget {
                 message: 'Visite rejetée : ${d.visit.rejectedReason ?? ''}',
               ),
             ],
-            if (d.readings.isNotEmpty) ...[
-              const SectionHeader('Produits relevés'),
-              SurfaceCard(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (final (i, r) in d.readings.indexed) ...[
-                      if (i > 0) const Divider(height: 1, indent: 52),
-                      _ReadingTile(reading: r),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-            if (d.fields.any((f) => f.type != FieldType.products)) ...[
-              const SectionHeader('Réponses'),
-              GroupedList(
-                indent: Space.lg,
-                children: [
-                  for (final f in d.fields)
-                    if (f.type != FieldType.products &&
-                        f.type != FieldType.photo)
-                      ListRow(
-                        title: f.label,
-                        value: d.data[f.key] == null || d.data[f.key] == ''
-                            ? '—'
-                            : fieldDisplay(f, d.data[f.key]),
-                      ),
-                ],
-              ),
-              for (final f in d.fields)
-                if (f.type == FieldType.photo && d.data[f.key] is String) ...[
-                  const SizedBox(height: Space.md),
-                  Text(f.label, style: text.titleSmall),
-                  const SizedBox(height: Space.xs),
-                  RemotePhoto(id: d.data[f.key] as String, label: f.label),
-                ],
-            ],
+            SubmissionAnswers(
+              fields: d.fields,
+              data: d.data,
+              // Noms et unités des produits relevés, fournis avec la visite.
+              products: {
+                for (final f in d.fields)
+                  if (f.type == FieldType.products)
+                    f.key: [for (final r in d.readings) r.product],
+              },
+            ),
           ],
         ),
       },
-    );
-  }
-}
-
-class _ReadingTile extends StatelessWidget {
-  const _ReadingTile({required this.reading});
-
-  final VisitReading reading;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    final r = reading;
-    final out = r.presence == false;
-    final danger = toneColor(context, Tone.danger);
-    final details = [
-      if (out) 'Rupture',
-      if (!out && r.stock != null)
-        'Stock ${formatQuantity(r.stock!, r.product)}',
-      if (r.price != null) formatMoney(r.price!),
-      if (r.sold != null) 'Vendu ${formatQuantity(r.sold!, r.product)}',
-      if (r.losses != null && r.losses! > 0)
-        'Pertes ${formatQuantity(r.losses!, r.product)}',
-    ];
-    return ListTile(
-      leading: Icon(
-        out
-            ? Icons.cancel_rounded
-            : r.presence == true
-            ? Icons.check_circle_rounded
-            : Icons.inventory_2_outlined,
-        color: out
-            ? danger
-            : r.presence == true
-            ? toneColor(context, Tone.success)
-            : scheme.onSurfaceVariant,
-        semanticLabel: out ? 'En rupture' : null,
-      ),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(
-              r.product.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (!r.product.own) ...[
-            const SizedBox(width: Space.xs),
-            Text(
-              'concurrent',
-              style: text.labelSmall?.copyWith(
-                color: toneColor(context, Tone.warning),
-              ),
-            ),
-          ],
-        ],
-      ),
-      subtitle: Text(
-        details.isEmpty ? '—' : details.join(' · '),
-        style: out ? TextStyle(color: danger) : null,
-      ),
     );
   }
 }

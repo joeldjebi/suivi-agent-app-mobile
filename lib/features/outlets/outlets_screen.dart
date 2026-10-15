@@ -191,7 +191,8 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                         children: [
                           // Tableau de bord des relevés : l'équipe du chef, ou les
                           // relevés de l'agent (« Mes produits »).
-                          if (ref.watch(meProvider).hasProductAudits) ...[
+                          if (ref.watch(meProvider).hasProductAudits ||
+                              ref.watch(meProvider).hasOrders) ...[
                             SurfaceCard(
                               padding: EdgeInsets.zero,
                               child: ListRow(
@@ -201,7 +202,7 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                                     : 'Mes produits',
                                 subtitle: ref.watch(meProvider).isTeamLead
                                     ? 'Ruptures, ventes et prix relevés par votre équipe'
-                                    : 'Ruptures, plus et moins vendus, prix de vos relevés',
+                                    : 'Mes ventes, ruptures et prix relevés',
                                 onTap: () => context.push('/outlets/insights'),
                               ),
                             ),

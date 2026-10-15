@@ -59,13 +59,29 @@ final _ownProvider = NotifierProvider<_OwnController, bool>(_OwnController.new);
   return (best: best, worst: worst);
 }
 
-class ProductInsights {
-  ProductInsights(this.overview, this.stockouts, this.sales, this.prices);
+/// Relevés faits en visite (formule avec les relevés produits).
+class ReadingsInsights {
+  ReadingsInsights(this.overview, this.stockouts, this.sales, this.prices);
 
   final Map<String, dynamic> overview;
   final Map<String, dynamic> stockouts;
   final Map<String, dynamic> sales;
   final Map<String, dynamic> prices;
+}
+
+/// Ventes de la structure aux points de vente : commandes (formule avec la prise de commande).
+class OrderInsights {
+  OrderInsights(this.summary, this.products);
+
+  final Map<String, dynamic> summary;
+  final List<Map<String, dynamic>> products;
+}
+
+class ProductInsights {
+  ProductInsights({this.readings, this.orders});
+
+  final ReadingsInsights? readings;
+  final OrderInsights? orders;
 }
 
 /// Tableau de bord des relevés, sur la période choisie : ceux de l'équipe du chef, ou ceux de
@@ -74,15 +90,36 @@ final productInsightsProvider = FutureProvider.autoDispose<ProductInsights>((
   ref,
 ) async {
   final days = ref.watch(_periodProvider);
+  final me = ref.read(meProvider);
   final repo = ref.read(repositoryProvider);
   final now = DateTime.now();
   final to = _date(now);
   final from = _date(now.subtract(Duration(days: days - 1)));
-  final parts = await Future.wait([
-    for (final p in ['overview', 'stockouts', 'sales', 'prices'])
-      repo.productInsights(p, from: from, to: to),
-  ]);
-  return ProductInsights(parts[0], parts[1], parts[2], parts[3]);
+  Future<ReadingsInsights> readings() async {
+    final parts = await Future.wait([
+      for (final p in ['overview', 'stockouts', 'sales', 'prices'])
+        repo.productInsights(p, from: from, to: to),
+    ]);
+    return ReadingsInsights(parts[0], parts[1], parts[2], parts[3]);
+  }
+
+  Future<OrderInsights> orders() async {
+    final (summary, sold) = await (
+      repo.ordersSummary(from: from, to: to),
+      repo.soldProducts(from: from, to: to),
+    ).wait;
+    return OrderInsights(
+      summary,
+      (sold['products'] as List).cast<Map<String, dynamic>>(),
+    );
+  }
+
+  // Chaque partie selon la formule : relevés en visite, commandes.
+  final (r, o) = await (
+    me.hasProductAudits ? readings() : Future.value(null),
+    me.hasOrders ? orders() : Future.value(null),
+  ).wait;
+  return ProductInsights(readings: r, orders: o);
 });
 
 /// Ruptures en cours, produits les plus et les moins vendus (les nôtres et ceux de la
@@ -142,6 +179,96 @@ class ProductInsightsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ProductInsights d, {
+    required bool own,
+  }) => [
+    if (d.orders != null) ..._orders(context, d.orders!),
+    if (d.readings != null) ...[
+      if (d.orders != null) const SectionHeader('Relevés en visite'),
+      ..._readings(context, ref, d.readings!, own: own),
+    ],
+  ];
+
+  /// Ce que la structure a vendu : commandes livrées ou payées de la période.
+  List<Widget> _orders(BuildContext context, OrderInsights o) {
+    final s = o.summary;
+    final by = (s['byStatus'] as Map).cast<String, dynamic>();
+    num amountOf(String st) => ((by[st] as Map)['amount'] as num);
+    int countOf(String st) => ((by[st] as Map)['count'] as num).toInt();
+    final currency = s['currency'] as String? ?? 'XOF';
+    final sold = countOf('delivered') + countOf('paid');
+    final ranked = rankSales([
+      for (final p in o.products) {...p, 'own': true, 'sold': p['quantity']},
+    ], own: true);
+    return [
+      GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: Space.sm,
+        crossAxisSpacing: Space.sm,
+        childAspectRatio: 1.45,
+        children: [
+          _Kpi(
+            label: 'Ventes (commandes)',
+            value: formatMoney(
+              amountOf('delivered') + amountOf('paid'),
+              currency,
+            ),
+            hint:
+                '$sold livrée${sold > 1 ? 's' : ''} ou payée${sold > 1 ? 's' : ''}',
+          ),
+          _Kpi(
+            label: 'Encaissé',
+            value: formatMoney(amountOf('paid'), currency),
+            hint:
+                'À encaisser : ${formatMoney(s['toCollect'] as num, currency)}',
+          ),
+          _Kpi(
+            label: 'À livrer',
+            value: formatNumber(countOf('taken')),
+            hint: formatMoney(amountOf('taken'), currency),
+          ),
+          _Kpi(
+            label: 'Annulées',
+            value: formatNumber(countOf('cancelled')),
+            hint: formatMoney(amountOf('cancelled'), currency),
+          ),
+        ],
+      ),
+      const SectionHeader('Nos produits vendus'),
+      if (ranked.best.isEmpty && ranked.worst.isEmpty)
+        const InfoBanner(
+          icon: Icons.info_outline_rounded,
+          tone: Tone.info,
+          message:
+              'Aucune commande livrée ou payée sur la période. Une commande compte comme vente une fois livrée.',
+        )
+      else ...[
+        if (ranked.best.isNotEmpty)
+          _SalesCard(
+            title: 'Les plus commandés',
+            icon: Icons.trending_up_rounded,
+            products: ranked.best,
+            own: true,
+          ),
+        if (ranked.worst.isNotEmpty) ...[
+          const SizedBox(height: Space.sm),
+          _SalesCard(
+            title: 'Les moins commandés',
+            icon: Icons.trending_down_rounded,
+            products: ranked.worst,
+            own: true,
+          ),
+        ],
+      ],
+    ];
+  }
+
+  /// Relevés faits en visite : ruptures, ventes constatées, prix face à la concurrence.
+  List<Widget> _readings(
+    BuildContext context,
+    WidgetRef ref,
+    ReadingsInsights d, {
     required bool own,
   }) {
     final text = Theme.of(context).textTheme;

@@ -835,6 +835,38 @@ void main() {
         },
       ),
     );
+    testWidgets('agent mes ventes par commandes', (tester) async {
+      final repo = OrdersRepo();
+      await repo.createOrder({
+        'outletId': 'o1',
+        'lines': [
+          {'productId': 'p-coca', 'quantity': 30},
+        ],
+      });
+      await repo.changeOrderStatus('ord-1', 'paid');
+      await repo.createOrder({
+        'outletId': 'o1',
+        'lines': [
+          {'productId': 'p-coca', 'quantity': 12},
+        ],
+      });
+      await repo.changeOrderStatus('ord-2', 'delivered');
+      await _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+          repo: repo,
+        ),
+        '51-agent-mes-ventes',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Mes produits'));
+        },
+      );
+    });
     testWidgets(
       'detail d une visite',
       (tester) => _capture(

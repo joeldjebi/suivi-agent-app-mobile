@@ -609,6 +609,63 @@ class FakeRepository extends Repository {
   }
 
   @override
+  Future<Map<String, dynamic>> ordersSummary({
+    required String from,
+    required String to,
+  }) async {
+    Map<String, num> of(String st) {
+      final list = ordersJson.where((o) => o['status'] == st);
+      return {
+        'count': list.length,
+        'amount': list.fold<num>(0, (s, o) => s + (o['total'] as num)),
+      };
+    }
+
+    final by = {
+      for (final st in ['taken', 'delivered', 'paid', 'cancelled']) st: of(st),
+    };
+    return {
+      'currency': 'XOF',
+      'count': ordersJson.where((o) => o['status'] != 'cancelled').length,
+      'amount':
+          by['taken']!['amount']! +
+          by['delivered']!['amount']! +
+          by['paid']!['amount']!,
+      'toCollect': by['delivered']!['amount'],
+      'byStatus': by,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> soldProducts({
+    required String from,
+    required String to,
+  }) async {
+    final totals = <String, Map<String, dynamic>>{};
+    for (final o in ordersJson) {
+      if (o['status'] != 'delivered' && o['status'] != 'paid') continue;
+      for (final l in o['lines'] as List) {
+        final t = totals.putIfAbsent(
+          l['productId'] as String,
+          () => {
+            'productId': l['productId'],
+            'name': 'Coca-Cola',
+            'format': '33 cl',
+            'unit': 'Bouteille',
+            'packagings': l['packagings'],
+            'quantity': 0,
+            'amount': 0,
+            'outlets': 1,
+          },
+        );
+        t['quantity'] = (t['quantity'] as num) + (l['quantity'] as num);
+        t['amount'] = (t['amount'] as num) + (l['amount'] as num);
+      }
+    }
+    return {'currency': 'XOF', 'products': totals.values.toList()};
+  }
+
+  @override
   Future<Map<String, dynamic>> order(String id) async =>
       ordersJson.firstWhere((o) => o['id'] == id);
 

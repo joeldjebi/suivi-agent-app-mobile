@@ -256,6 +256,24 @@ class Repository {
         query: {'outletId': outletId},
       );
 
+  /// Commandes de la période : nombre et montant par statut.
+  Future<Map<String, dynamic>> ordersSummary({
+    required String from,
+    required String to,
+  }) => api.get<Map<String, dynamic>>(
+    '/orders/summary',
+    query: {'from': from, 'to': to},
+  );
+
+  /// Produits vendus (commandes livrées ou payées) de la période, les plus commandés d'abord.
+  Future<Map<String, dynamic>> soldProducts({
+    required String from,
+    required String to,
+  }) => api.get<Map<String, dynamic>>(
+    '/orders/products',
+    query: {'from': from, 'to': to},
+  );
+
   /// Commande prise (prix calculés par le serveur) ; idempotente sur clientId.
   Future<Map<String, dynamic>> createOrder(Map<String, dynamic> body) =>
       api.post<Map<String, dynamic>>('/orders', body);

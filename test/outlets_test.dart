@@ -818,6 +818,14 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Rayon bien rempli'), findsOneWidget);
+    // La photo s'affiche en image, pas seulement « Photo jointe ».
+    await tester.scrollUntilVisible(
+      find.text('PHOTO DU RAYON'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byType(RemotePhoto), findsOneWidget);
+    expect(find.text('Photo jointe'), findsNothing);
     await _close(tester);
   });
 
@@ -846,6 +854,48 @@ void main() {
     await _tap(tester, find.text('Concurrents'));
     expect(find.text('Pepsi 33 cl'), findsOneWidget);
     expect(find.text('190 bouteilles (15 casiers + 10)'), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('« Mes produits » : les ventes viennent des commandes livrées', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = OrdersRepo();
+    await repo.createOrder({
+      'outletId': 'o1',
+      'lines': [
+        {'productId': 'p-coca', 'quantity': 30},
+      ],
+    });
+    await repo.createOrder({
+      'outletId': 'o1',
+      'lines': [
+        {'productId': 'p-coca', 'quantity': 12},
+      ],
+    });
+    await repo.changeOrderStatus('ord-1', 'paid');
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    // Sans les relevés produits, la page existe grâce aux commandes.
+    await _tap(tester, find.text('Mes produits'));
+    expect(find.text('Ventes (commandes)'), findsOneWidget);
+    // Payée : 30 × 300 ; la commande seulement prise est « à livrer ».
+    expect(find.text('9\u202f000\u00a0FCFA'), findsNWidgets(2));
+    expect(find.text('À livrer'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Les plus commandés'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('30 bouteilles (2 casiers + 6)'), findsOneWidget);
+    expect(find.text('RELEVÉS EN VISITE'), findsNothing);
     await _close(tester);
   });
 

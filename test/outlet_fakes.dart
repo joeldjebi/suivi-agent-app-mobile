@@ -603,8 +603,21 @@ class HistoryRepo extends ActivityRepo {
             'type': 'products',
             'required': false,
           },
+          {
+            'key': 'rayon',
+            'label': 'Photo du rayon',
+            'type': 'photo',
+            'required': false,
+          },
         ],
-        'data': {'remarque': 'Rayon bien rempli'},
+        'data': {
+          'remarque': 'Rayon bien rempli',
+          'releve': {
+            'p-coca': {'presence': true, 'stock': 44, 'price': 300, 'sold': 24},
+            'p-pepsi': {'presence': false},
+          },
+          'rayon': 'ph-1',
+        },
         'photos': <String, dynamic>{},
         'readings': [
           {
