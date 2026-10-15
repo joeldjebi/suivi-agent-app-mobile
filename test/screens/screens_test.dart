@@ -809,6 +809,24 @@ void main() {
       ),
     );
     testWidgets(
+      'fiche avec visite et commande',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+          repo: OrdersRepo(),
+        ),
+        '48-agent-fiche-actions',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+        },
+      ),
+    );
+    testWidgets(
       'prise de commande',
       (tester) => _capture(
         tester,
@@ -826,9 +844,9 @@ void main() {
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.ensureVisible(find.text('Prendre une commande'));
+          await tester.ensureVisible(find.text('Commander'));
           await tester.pump();
-          await tester.tap(find.text('Prendre une commande'));
+          await tester.tap(find.text('Commander'));
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
@@ -899,7 +917,7 @@ void main() {
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.tap(find.text('Changer le statut'));
+          await tester.tap(find.text('Statut'));
         },
       ),
     );

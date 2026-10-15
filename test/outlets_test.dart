@@ -123,8 +123,8 @@ void main() {
     expect(find.byType(OutletAvatar), findsNWidgets(3));
 
     await _tap(tester, find.text('Boutique Awa'));
-    expect(find.text('Changer le statut'), findsOneWidget);
-    expect(find.text('Voir sur Google Maps'), findsOneWidget);
+    expect(find.text('Statut'), findsOneWidget);
+    expect(find.text('Itinéraire'), findsOneWidget);
     expect(find.text('Possède un frigo'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Ajouté · Prospect'),
@@ -133,12 +133,12 @@ void main() {
     );
     expect(find.text('Ajouté · Prospect'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('Changer le statut'),
+      find.text('Statut'),
       -200,
       scrollable: find.byType(Scrollable).first,
     );
 
-    await _tap(tester, find.text('Changer le statut'));
+    await _tap(tester, find.text('Statut'));
     await _tap(tester, find.text('Client actif'));
     await tester.enterText(
       find.widgetWithText(TextField, 'Commentaire (facultatif)'),
@@ -217,7 +217,7 @@ void main() {
     expect(body['lat'], 5.32);
     expect(body['clientId'], isA<String>());
     // Fiche ouverte après l'ajout.
-    expect(find.text('Changer le statut'), findsOneWidget);
+    expect(find.text('Statut'), findsOneWidget);
     await _close(tester);
   });
 
@@ -414,7 +414,7 @@ void main() {
     await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
     await _settle(tester);
     await _tap(tester, find.text('Boutique Awa · Plateau · 10 oct.'));
-    expect(find.text('Changer le statut'), findsOneWidget);
+    expect(find.text('Statut'), findsOneWidget);
     await _close(tester);
   });
 
@@ -665,7 +665,7 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Boutique Awa'));
-    await _tap(tester, find.text('Prendre une commande'));
+    await _tap(tester, find.text('Commander'));
 
     expect(find.textContaining('Tarif Détaillant'), findsOneWidget);
     expect(find.textContaining('3 600 FCFA / casier'), findsOneWidget);
@@ -725,7 +725,7 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Boutique Awa'));
-    await _tap(tester, find.text('Prendre une commande'));
+    await _tap(tester, find.text('Commander'));
     await tester.enterText(
       find.widgetWithText(TextField, 'casiers').first,
       '1',
@@ -761,7 +761,7 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Boutique Awa'));
-    expect(find.text('Prendre une commande'), findsNothing);
+    expect(find.text('Commander'), findsNothing);
     await _close(tester);
   });
 

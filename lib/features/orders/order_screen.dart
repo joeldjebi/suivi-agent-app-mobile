@@ -308,7 +308,7 @@ class _ReasonSheetState extends State<_ReasonSheet> {
   );
 }
 
-/// Fiche d'un point de vente : prendre une commande, et les dernières commandes.
+/// Fiche d'un point de vente : ses dernières commandes (« Commander » est en tête de fiche).
 class OutletOrdersSection extends ConsumerWidget {
   const OutletOrdersSection({super.key, required this.outletId});
 
@@ -329,18 +329,11 @@ class OutletOrdersSection extends ConsumerWidget {
               ? Text('${orders.total} au total', style: text.bodySmall)
               : null,
         ),
-        if (!me.isTeamLead) ...[
-          PillButton(
-            label: 'Prendre une commande',
-            icon: Icons.add_shopping_cart_rounded,
-            style: PillStyle.tonal,
-            onPressed: () => context.push('/outlets/$outletId/order'),
-          ),
-          const SizedBox(height: Space.sm),
-        ],
         if (orders != null && orders.items.isEmpty)
           Text(
-            'Pas encore de commande.',
+            me.isTeamLead
+                ? 'Pas encore de commande.'
+                : 'Pas encore de commande : touchez « Commander » en haut de la fiche.',
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           )
         else if (orders != null)

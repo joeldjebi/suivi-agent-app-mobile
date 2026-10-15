@@ -104,6 +104,8 @@ class OutletScreen extends ConsumerWidget {
   ) {
     final o = detail.outlet;
     final fields = form?.fields ?? const <MissionField>[];
+    final me = ref.watch(meProvider);
+    final canOrder = me.hasOrders && !me.isTeamLead;
     return [
       if (o.photoId != null) ...[
         RemotePhoto(id: o.photoId!, label: 'Devanture de ${o.name}'),
@@ -152,48 +154,74 @@ class OutletScreen extends ConsumerWidget {
         _VisitCard(outlet: o),
       ],
       const SizedBox(height: Space.lg),
-      if (canVisitFreely(ref)) ...[
-        PillButton(
-          label: 'Visiter',
-          icon: Icons.login_rounded,
-          onPressed: () => startVisit(context, ref, o.id),
+      // Ce que l'agent vient faire : visiter, commander.
+      if (canVisitFreely(ref) || canOrder) ...[
+        Row(
+          children: [
+            if (canVisitFreely(ref))
+              Expanded(
+                child: PillButton(
+                  label: 'Visiter',
+                  icon: Icons.login_rounded,
+                  onPressed: () => startVisit(context, ref, o.id),
+                ),
+              ),
+            if (canVisitFreely(ref) && canOrder)
+              const SizedBox(width: Space.sm),
+            if (canOrder)
+              Expanded(
+                child: PillButton(
+                  label: 'Commander',
+                  icon: Icons.add_shopping_cart_rounded,
+                  style: canVisitFreely(ref)
+                      ? PillStyle.tonal
+                      : PillStyle.primary,
+                  onPressed: () => context.push('/outlets/${o.id}/order'),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: Space.sm),
+        const SizedBox(height: Space.md),
       ],
-      PillButton(
-        label: 'Changer le statut',
-        icon: Icons.swap_horiz_rounded,
-        style: canVisitFreely(ref) ? PillStyle.tonal : PillStyle.primary,
-        onPressed: () => _changeStatus(context, ref, o),
+      // Raccourcis, comme sur une fiche contact.
+      SurfaceCard(
+        padding: const EdgeInsets.symmetric(vertical: Space.sm),
+        child: Row(
+          children: [
+            _QuickAction(
+              icon: Icons.swap_horiz_rounded,
+              label: 'Statut',
+              onTap: () => _changeStatus(context, ref, o),
+            ),
+            if (o.phone != null)
+              _QuickAction(
+                icon: Icons.call_rounded,
+                label: 'Appeler',
+                onTap: () => launchUrl(Uri.parse('tel:${o.phone}')),
+              ),
+            if (o.position != null)
+              _QuickAction(
+                icon: Icons.directions_rounded,
+                label: 'Itinéraire',
+                onTap: () => launchUrl(
+                  googleMapsPlace(o.position!),
+                  mode: LaunchMode.externalApplication,
+                ),
+              )
+            else
+              _QuickAction(
+                icon: Icons.my_location_rounded,
+                label: 'Localiser',
+                onTap: () => _locate(context, ref, o),
+              ),
+          ],
+        ),
       ),
       if (!o.located) ...[
         const SizedBox(height: Space.sm),
-        PillButton(
-          label: 'Je suis devant : enregistrer la position',
-          icon: Icons.my_location_rounded,
-          style: PillStyle.tonal,
-          onPressed: () => _locate(context, ref, o),
-        ),
-      ],
-      if (o.position != null) ...[
-        const SizedBox(height: Space.sm),
-        PillButton(
-          label: 'Voir sur Google Maps',
-          icon: Icons.map_outlined,
-          style: PillStyle.outline,
-          onPressed: () => launchUrl(
-            googleMapsPlace(o.position!),
-            mode: LaunchMode.externalApplication,
-          ),
-        ),
-      ],
-      if (o.phone != null) ...[
-        const SizedBox(height: Space.sm),
-        PillButton(
-          label: 'Appeler ${o.managerName ?? 'le gérant'}',
-          icon: Icons.call_rounded,
-          style: PillStyle.outline,
-          onPressed: () => launchUrl(Uri.parse('tel:${o.phone}')),
+        Text(
+          'À localiser : devant le commerce, touchez « Localiser » pour enregistrer sa position.',
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
       const SizedBox(height: Space.lg),
@@ -556,6 +584,49 @@ class _VisitCard extends ConsumerWidget {
               onPressed: () => _frequency(context, ref),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Raccourci de la fiche : icône dans un rond, libellé dessous.
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Radii.card),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.sm),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: scheme.primary.withValues(alpha: 0.1),
+                  child: Icon(icon, color: scheme.primary),
+                ),
+                const SizedBox(height: 6),
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
