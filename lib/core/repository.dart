@@ -229,6 +229,20 @@ class Repository {
   Future<Map<String, dynamic>> outlet(String id) =>
       api.get<Map<String, dynamic>>('/outlets/$id');
 
+  /// Visites d'un point de vente, les plus récentes d'abord ; `mine` : celles de l'agent.
+  Future<Map<String, dynamic>> outletVisits(
+    String id, {
+    bool mine = false,
+    int limit = 30,
+  }) => api.get<Map<String, dynamic>>(
+    '/outlets/$id/visits',
+    query: {if (mine) 'mine': true, 'limit': limit},
+  );
+
+  /// Détail d'une visite : réponses, photos et relevé par produit.
+  Future<Map<String, dynamic>> visitDetail(String submissionId) =>
+      api.get<Map<String, dynamic>>('/outlets/visits/$submissionId');
+
   /// Dernier relevé de chaque produit d'un point de vente et évolution du stock.
   Future<List<dynamic>> outletReadings(String id) =>
       api.get<List<dynamic>>('/insights/products/outlets/$id');

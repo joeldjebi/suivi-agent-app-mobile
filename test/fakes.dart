@@ -630,6 +630,34 @@ class FakeRepository extends Repository {
     return o;
   }
 
+  /// Historique des visites des points de vente (toute l'équipe) et leurs détails.
+  List<Map<String, dynamic>> outletVisitsJson = const [];
+  Map<String, Map<String, dynamic>> visitDetailsJson = const {};
+  final visitQueries = <(String, bool, int)>[];
+
+  @override
+  Future<Map<String, dynamic>> outletVisits(
+    String id, {
+    bool mine = false,
+    int limit = 30,
+  }) async {
+    visitQueries.add((id, mine, limit));
+    final items = [
+      for (final v in outletVisitsJson)
+        if (!mine || v['agentId'] == 'u1') v,
+    ];
+    return {'items': items.take(limit).toList(), 'total': items.length};
+  }
+
+  @override
+  Future<Map<String, dynamic>> visitDetail(String submissionId) async =>
+      visitDetailsJson[submissionId] ??
+      (throw ApiException(
+        'Visite introuvable',
+        code: 'NOT_FOUND',
+        status: 404,
+      ));
+
   /// Derniers relevés produits d'un point de vente.
   List<dynamic> outletReadingsJson = const [];
 

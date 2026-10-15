@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
 import '../../core/models.dart';
@@ -240,10 +241,16 @@ class _ReadingRow extends StatelessWidget {
   }
 }
 
-/// Fiche : les dernières visites (missions et visites libres), rejetées signalées.
+/// Fiche : les dernières visites (missions et visites libres), rejetées signalées ; chacune
+/// s'ouvre, et « Tout voir » mène à l'historique complet.
 class OutletVisitsSection extends StatelessWidget {
-  const OutletVisitsSection({super.key, required this.visits});
+  const OutletVisitsSection({
+    super.key,
+    required this.outletId,
+    required this.visits,
+  });
 
+  final String outletId;
   final List<OutletVisitEntry> visits;
 
   /// Visites montrées sur la fiche.
@@ -256,7 +263,15 @@ class OutletVisitsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader('Dernières visites'),
+        SectionHeader(
+          'Dernières visites',
+          trailing: visits.isEmpty
+              ? null
+              : TextButton(
+                  onPressed: () => context.push('/outlets/$outletId/visits'),
+                  child: const Text('Tout voir'),
+                ),
+        ),
         if (visits.isEmpty)
           SurfaceCard(
             child: Text(
@@ -297,6 +312,8 @@ class OutletVisitsSection extends StatelessWidget {
                           ? TextStyle(color: toneColor(context, Tone.danger))
                           : null,
                     ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.push('/visits/${v.id}'),
                   ),
                 ],
               ],

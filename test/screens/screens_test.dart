@@ -809,6 +809,64 @@ void main() {
       ),
     );
     testWidgets(
+      'agent mes produits',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(
+            fakeMe(features: {...outletFeatures, 'product_audits'}),
+          ),
+          repo: InsightsRepo(),
+        ),
+        '49-agent-mes-produits',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Mes produits'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -700),
+          );
+        },
+      ),
+    );
+    testWidgets(
+      'detail d une visite',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+          repo: HistoryRepo(),
+        ),
+        '50-agent-detail-visite',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.scrollUntilVisible(
+            find.text('Tout voir'),
+            200,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.tap(find.text('Tout voir'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.textContaining('2 produits relevés'));
+        },
+      ),
+    );
+    testWidgets(
       'fiche avec visite et commande',
       (tester) => _capture(
         tester,

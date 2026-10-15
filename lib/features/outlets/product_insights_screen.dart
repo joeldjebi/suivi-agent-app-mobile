@@ -30,6 +30,35 @@ final _periodProvider = NotifierProvider<_PeriodController, int>(
   _PeriodController.new,
 );
 
+/// Ventes : nos produits ou ceux de la concurrence.
+class _OwnController extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void set(bool own) => state = own;
+}
+
+final _ownProvider = NotifierProvider<_OwnController, bool>(_OwnController.new);
+
+/// Produits classés par ventes relevées : les plus vendus, puis les moins vendus (sans
+/// répéter un produit déjà parmi les plus vendus).
+({List<Map<String, dynamic>> best, List<Map<String, dynamic>> worst}) rankSales(
+  List<Map<String, dynamic>> products, {
+  required bool own,
+  int size = 5,
+}) {
+  final side = [
+    for (final p in products)
+      if (p['own'] == own) p,
+  ]..sort((a, b) => (b['sold'] as num).compareTo(a['sold'] as num));
+  final best = side.where((p) => (p['sold'] as num) > 0).take(size).toList();
+  final worst = side.reversed
+      .where((p) => !best.contains(p))
+      .take(size)
+      .toList();
+  return (best: best, worst: worst);
+}
+
 class ProductInsights {
   ProductInsights(this.overview, this.stockouts, this.sales, this.prices);
 
@@ -39,7 +68,8 @@ class ProductInsights {
   final Map<String, dynamic> prices;
 }
 
-/// Tableau de bord des relevés de l'équipe du chef, sur la période choisie.
+/// Tableau de bord des relevés, sur la période choisie : ceux de l'équipe du chef, ou ceux de
+/// l'agent (le serveur limite les chiffres à son périmètre).
 final productInsightsProvider = FutureProvider.autoDispose<ProductInsights>((
   ref,
 ) async {
@@ -55,8 +85,9 @@ final productInsightsProvider = FutureProvider.autoDispose<ProductInsights>((
   return ProductInsights(parts[0], parts[1], parts[2], parts[3]);
 });
 
-/// Chef : ruptures en cours, meilleures ventes et prix face à la concurrence relevés par son
-/// équipe ; un point de vente en rupture s'ouvre pour l'appeler ou le faire visiter.
+/// Ruptures en cours, produits les plus et les moins vendus (les nôtres et ceux de la
+/// concurrence), prix face à la concurrence. Chef : relevés de son équipe ; agent (« Mes
+/// produits ») : ses propres relevés. Un point de vente en rupture s'ouvre au toucher.
 class ProductInsightsScreen extends ConsumerWidget {
   const ProductInsightsScreen({super.key});
 
@@ -64,8 +95,12 @@ class ProductInsightsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final days = ref.watch(_periodProvider);
     final data = ref.watch(productInsightsProvider);
+    final leader = ref.watch(meProvider).isTeamLead;
+    final own = ref.watch(_ownProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Tableau de bord produits')),
+      appBar: AppBar(
+        title: Text(leader ? 'Tableau de bord produits' : 'Mes produits'),
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(productInsightsProvider.future),
         child: ListView(
@@ -95,7 +130,7 @@ class ProductInsightsScreen extends ConsumerWidget {
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ],
-              _ => _content(context, data.value!),
+              _ => _content(context, ref, data.value!, own: own),
             },
           ],
         ),
@@ -103,7 +138,12 @@ class ProductInsightsScreen extends ConsumerWidget {
     );
   }
 
-  List<Widget> _content(BuildContext context, ProductInsights d) {
+  List<Widget> _content(
+    BuildContext context,
+    WidgetRef ref,
+    ProductInsights d, {
+    required bool own,
+  }) {
     final text = Theme.of(context).textTheme;
     final o = d.overview;
     final rate = o['stockoutRate'] as num?;
@@ -111,16 +151,12 @@ class ProductInsightsScreen extends ConsumerWidget {
         .cast<Map<String, dynamic>>();
     final ruptures = (d.stockouts['outlets'] as List)
         .cast<Map<String, dynamic>>();
-    final sales = (d.sales['products'] as List)
-        .cast<Map<String, dynamic>>()
-        .where((p) => (p['sold'] as num) > 0)
-        .take(8)
-        .toList();
+    final ranked = rankSales(
+      (d.sales['products'] as List).cast<Map<String, dynamic>>(),
+      own: own,
+    );
     final categories = (d.prices['categories'] as List)
         .cast<Map<String, dynamic>>();
-    final maxSold = sales.isEmpty
-        ? 1
-        : sales.map((p) => p['sold'] as num).reduce((a, b) => a > b ? a : b);
     final danger = toneColor(context, Tone.danger);
 
     return [
@@ -235,52 +271,39 @@ class ProductInsightsScreen extends ConsumerWidget {
           ),
         ),
       ],
-      const SectionHeader('Meilleures ventes', trailing: _Legend()),
-      if (sales.isEmpty)
-        const InfoBanner(
+      const SectionHeader('Ventes'),
+      AppSegmented<bool>(
+        segments: const {true: 'Nos produits', false: 'Concurrents'},
+        selected: own,
+        onChanged: (v) => ref.read(_ownProvider.notifier).set(v),
+      ),
+      const SizedBox(height: Space.sm),
+      if (ranked.best.isEmpty && ranked.worst.isEmpty)
+        InfoBanner(
           icon: Icons.info_outline_rounded,
           tone: Tone.info,
-          message: 'Aucune vente relevée sur la période.',
+          message: own
+              ? 'Aucune vente de nos produits relevée sur la période.'
+              : 'Aucune vente de la concurrence relevée sur la période.',
         )
-      else
-        SurfaceCard(
-          child: Column(
-            children: [
-              for (final p in sales) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    [p['name'], ?p['format']].join(' '),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ThinProgress(
-                  value: (p['sold'] as num) / maxSold,
-                  color: (p['own'] as bool) ? _own : _competitor,
-                ),
-                const SizedBox(height: 2),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    formatQuantity(
-                      p['sold'] as num,
-                      CatalogProduct.fromJson({
-                        'id': p['productId'],
-                        'name': p['name'],
-                        'own': p['own'],
-                        'unit': p['unit'],
-                        'packagings': p['packagings'],
-                      }),
-                    ),
-                    style: text.bodySmall,
-                  ),
-                ),
-                const SizedBox(height: Space.sm),
-              ],
-            ],
+      else ...[
+        if (ranked.best.isNotEmpty)
+          _SalesCard(
+            title: 'Les plus vendus',
+            icon: Icons.trending_up_rounded,
+            products: ranked.best,
+            own: own,
           ),
-        ),
+        if (ranked.worst.isNotEmpty) ...[
+          const SizedBox(height: Space.sm),
+          _SalesCard(
+            title: 'Les moins vendus',
+            icon: Icons.trending_down_rounded,
+            products: ranked.worst,
+            own: own,
+          ),
+        ],
+      ],
       if (categories.isNotEmpty) ...[
         const SectionHeader('Prix face à la concurrence'),
         for (final c in categories)
@@ -398,23 +421,67 @@ class _Dot extends StatelessWidget {
   );
 }
 
-class _Legend extends StatelessWidget {
-  const _Legend();
+/// Produits classés par ventes relevées, avec une barre proportionnelle.
+class _SalesCard extends StatelessWidget {
+  const _SalesCard({
+    required this.title,
+    required this.icon,
+    required this.products,
+    required this.own,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Map<String, dynamic>> products;
+  final bool own;
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelSmall;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const _Dot(own: true),
-        const SizedBox(width: 4),
-        Text('Nous', style: style),
-        const SizedBox(width: 10),
-        const _Dot(own: false),
-        const SizedBox(width: 4),
-        Text('Concurrents', style: style),
-      ],
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final max = products
+        .map((p) => p['sold'] as num)
+        .fold<num>(1, (a, b) => b > a ? b : a);
+    return SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+              const SizedBox(width: Space.xs),
+              Text(title, style: text.titleSmall),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          for (final p in products) ...[
+            Text(
+              [p['name'], ?p['format']].join(' '),
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            ThinProgress(
+              value: (p['sold'] as num) / max,
+              color: own ? _own : _competitor,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              formatQuantity(
+                p['sold'] as num,
+                CatalogProduct.fromJson({
+                  'id': p['productId'],
+                  'name': p['name'],
+                  'own': p['own'],
+                  'unit': p['unit'],
+                  'packagings': p['packagings'],
+                }),
+              ),
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: Space.sm),
+          ],
+        ],
+      ),
     );
   }
 }

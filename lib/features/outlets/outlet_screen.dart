@@ -255,7 +255,7 @@ class OutletScreen extends ConsumerWidget {
         OutletProductsSection(outletId: o.id),
       ],
       const SizedBox(height: Space.lg),
-      OutletVisitsSection(visits: detail.visits),
+      OutletVisitsSection(outletId: o.id, visits: detail.visits),
       const SizedBox(height: Space.xl),
       Text('Historique du statut', style: text.titleMedium),
       const SizedBox(height: Space.sm),

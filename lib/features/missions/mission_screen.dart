@@ -13,7 +13,7 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import 'missions_controller.dart';
-import 'product_readings_input.dart' show readingsSummary;
+import 'field_display.dart';
 import 'missions_screen.dart';
 import '../day/day_controller.dart';
 import '../../core/sync.dart';
@@ -738,12 +738,12 @@ class _FormsTabState extends ConsumerState<_FormsTab> {
         .toList();
     String summary(Map<String, dynamic> data) {
       final f = filled(data).firstOrNull;
-      return f == null ? '' : _display(f, data[f.key]);
+      return f == null ? '' : fieldDisplay(f, data[f.key]);
     }
 
     String? detail(Map<String, dynamic> data) {
       final f = filled(data).skip(1).firstOrNull;
-      return f == null ? null : '${f.label} : ${_display(f, data[f.key])}';
+      return f == null ? null : '${f.label} : ${fieldDisplay(f, data[f.key])}';
     }
 
     final sent = remote.value ?? const <Submission>[];
@@ -1228,7 +1228,7 @@ Future<void> _showSubmission(
                   title: f.label,
                   value: s.data[f.key] == null || s.data[f.key] == ''
                       ? '—'
-                      : _display(f, s.data[f.key]),
+                      : fieldDisplay(f, s.data[f.key]),
                 ),
             ],
           ),
@@ -1395,15 +1395,6 @@ class _SubmissionRow extends StatelessWidget {
     );
   }
 }
-
-String _display(MissionField f, Object? v) => switch (f.type) {
-  FieldType.boolean => v == true ? 'Oui' : 'Non',
-  FieldType.number => formatNumber(v as num),
-  FieldType.date => formatShortDate(DateTime.parse(v as String)),
-  FieldType.photo => 'Photo jointe',
-  FieldType.products => readingsSummary(v),
-  _ => '$v',
-};
 
 /// Envoi d'un formulaire : pendant la journée, dans une zone de la mission (si la structure
 /// l'exige). Sinon, ce qu'il manque et le chemin pour y remédier.

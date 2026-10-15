@@ -560,6 +560,87 @@ class ActivityRepo extends FreeVisitRepo {
   }
 }
 
+/// Historique d'un point de vente : une visite de l'agent (avec relevé), une d'un collègue.
+class HistoryRepo extends ActivityRepo {
+  HistoryRepo() {
+    Map<String, dynamic> visit(
+      String id,
+      String agentId,
+      String agent,
+      String at,
+    ) => {
+      'id': id,
+      'missionId': null,
+      'title': 'Audit point de vente',
+      'formName': 'Audit point de vente',
+      'agentId': agentId,
+      'agent': agent,
+      'submittedAt': at,
+      'status': 'accepted',
+      'rejectedReason': null,
+      'distance': 12,
+      'readings': id == 's1' ? 2 : 0,
+    };
+    outletVisitsJson = [
+      visit('s1', 'u1', 'Koffi Brou', '2026-10-12T10:00:00.000Z'),
+      visit('s3', 'u7', 'Awa Koné', '2026-10-08T10:00:00.000Z'),
+    ];
+    visitDetailsJson = {
+      's1': {
+        ...outletVisitsJson.first,
+        'outletId': 'o1',
+        'outletName': 'Boutique Awa',
+        'fields': [
+          {
+            'key': 'remarque',
+            'label': 'Remarque',
+            'type': 'text',
+            'required': false,
+          },
+          {
+            'key': 'releve',
+            'label': 'Relevé',
+            'type': 'products',
+            'required': false,
+          },
+        ],
+        'data': {'remarque': 'Rayon bien rempli'},
+        'photos': <String, dynamic>{},
+        'readings': [
+          {
+            'productId': 'p-coca',
+            'name': 'Coca-Cola',
+            'format': '33 cl',
+            'own': true,
+            'unit': 'Bouteille',
+            'packagings': [
+              {'name': 'Casier', 'units': 12},
+            ],
+            'presence': true,
+            'stock': 44,
+            'price': 300,
+            'sold': 24,
+            'losses': 0,
+          },
+          {
+            'productId': 'p-pepsi',
+            'name': 'Pepsi',
+            'format': '33 cl',
+            'own': false,
+            'unit': 'Bouteille',
+            'packagings': <dynamic>[],
+            'presence': false,
+            'stock': null,
+            'price': null,
+            'sold': null,
+            'losses': null,
+          },
+        ],
+      },
+    };
+  }
+}
+
 /// Formule avec les points de vente et les relevés produits.
 const auditFeatures = {
   'missions',

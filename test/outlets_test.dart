@@ -11,6 +11,8 @@ import 'package:suivi_agent/features/outlets/outlet_widgets.dart';
 import 'package:suivi_agent/features/outlets/outlets_screen.dart';
 import 'package:suivi_agent/features/outlets/outlet_models.dart';
 import 'package:suivi_agent/features/outlets/route_screen.dart';
+import 'package:suivi_agent/features/outlets/product_insights_screen.dart'
+    show rankSales;
 import 'package:suivi_agent/core/push.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -763,6 +765,102 @@ void main() {
     await _tap(tester, find.text('Boutique Awa'));
     expect(find.text('Commander'), findsNothing);
     await _close(tester);
+  });
+
+  testWidgets('historique des visites : les miennes, l’équipe, le détail', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = HistoryRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Tout voir'));
+
+    // Mes visites d'abord.
+    expect(find.text('Historique des visites'), findsOneWidget);
+    expect(repo.visitQueries.last, ('o1', true, 30));
+    expect(find.text('1 visite'), findsOneWidget);
+    expect(find.textContaining('2 produits relevés'), findsOneWidget);
+    await _tap(tester, find.text('Toute l’équipe'));
+    expect(repo.visitQueries.last, ('o1', false, 30));
+    expect(find.text('2 visites'), findsOneWidget);
+    expect(find.textContaining('Awa Koné'), findsOneWidget);
+
+    // Détail : relevé produit par produit, puis les réponses.
+    await _tap(tester, find.textContaining('Koffi Brou'));
+    expect(find.text('Visite'), findsOneWidget);
+    expect(
+      find.textContaining('Stock 44 bouteilles (3 casiers + 8)'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Vendu 24 bouteilles (2 casiers)'),
+      findsOneWidget,
+    );
+    expect(find.text('Rupture'), findsOneWidget);
+    expect(find.text('concurrent'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Rayon bien rempli'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Rayon bien rempli'), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('agent : « Mes produits », plus et moins vendus', (tester) async {
+    _phone(tester);
+    final repo = InsightsRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(features: {...outletFeatures, 'product_audits'}),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Mes produits'));
+    expect(find.text('Mes produits'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Les plus vendus'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('190 bouteilles (15 casiers + 10)'), findsOneWidget);
+    // La concurrence : ses ventes à elle.
+    await _tap(tester, find.text('Concurrents'));
+    expect(find.text('Pepsi 33 cl'), findsOneWidget);
+    expect(find.text('190 bouteilles (15 casiers + 10)'), findsNothing);
+    await _close(tester);
+  });
+
+  test('ventes : les plus vendus, puis les moins vendus sans doublon', () {
+    Map<String, dynamic> p(String name, num sold, {bool own = true}) => {
+      'name': name,
+      'sold': sold,
+      'own': own,
+    };
+    final products = [
+      p('A', 50),
+      p('B', 10),
+      p('C', 0),
+      p('X', 99, own: false),
+    ];
+    final own = rankSales(products, own: true, size: 2);
+    expect(own.best.map((e) => e['name']), ['A', 'B']);
+    expect(own.worst.map((e) => e['name']), ['C']);
+    final competitor = rankSales(products, own: false);
+    expect(competitor.best.map((e) => e['name']), ['X']);
+    expect(competitor.worst, isEmpty);
   });
 
   test('itinéraire Google Maps : départ, étapes, arrivée', () {
