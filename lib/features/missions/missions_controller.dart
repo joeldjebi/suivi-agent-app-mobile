@@ -13,6 +13,8 @@ import '../../core/form_drafts.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/sync.dart';
+import '../outlets/outlets_controller.dart';
+import '../outlets/route_screen.dart' show outletRouteProvider;
 
 /// Missions de l'agent. Mises en cache : consultables et remplissables hors connexion.
 final missionsProvider = FutureProvider.autoDispose<List<Mission>>((ref) async {
@@ -100,6 +102,57 @@ Future<SubmitOutcome> saveSubmission(
   String? outletStatus,
   String? outletComment,
 }) async {
+  final outcome = await _queueAndSend(
+    ref,
+    missionId: mission.id,
+    title: mission.title,
+    data: data,
+    replacing: replacing,
+    outletId: outletId,
+    outletStatus: outletStatus,
+    outletComment: outletComment,
+  );
+  ref.invalidate(missionProvider(mission.id));
+  if (outletId != null) ref.invalidate(missionOutletsProvider(mission.id));
+  ref.invalidate(submissionsProvider);
+  ref.invalidate(missionsProvider);
+  return outcome;
+}
+
+/// Visite libre d'un point de vente (sans mission) avec un formulaire de visite : même file
+/// d'attente, mêmes règles d'envoi que les formulaires de mission.
+Future<SubmitOutcome> saveFreeVisit(
+  WidgetRef ref, {
+  required String typeId,
+  required String title,
+  required String outletId,
+  required Map<String, dynamic> data,
+  String? replacing,
+  String? outletStatus,
+  String? outletComment,
+}) => _queueAndSend(
+  ref,
+  missionId: '',
+  typeId: typeId,
+  title: title,
+  data: data,
+  replacing: replacing,
+  outletId: outletId,
+  outletStatus: outletStatus,
+  outletComment: outletComment,
+);
+
+Future<SubmitOutcome> _queueAndSend(
+  WidgetRef ref, {
+  required String missionId,
+  required String title,
+  required Map<String, dynamic> data,
+  String? typeId,
+  String? replacing,
+  String? outletId,
+  String? outletStatus,
+  String? outletComment,
+}) async {
   final db = ref.read(databaseProvider);
   final sync = ref.read(syncProvider);
   // Visite : la position mesurée maintenant (contrôle de distance au point de vente).
@@ -108,6 +161,7 @@ Future<SubmitOutcome> saveSubmission(
       ? await tracker.freshPosition()
       : await tracker.lastKnown();
   final extra = {
+    'typeId': ?typeId,
     'outletId': ?outletId,
     if (outletId != null && position != null) 'accuracy': position.accuracy,
     'outletStatus': ?outletStatus,
@@ -120,8 +174,8 @@ Future<SubmitOutcome> saveSubmission(
       .insert(
         PendingSubmissionsCompanion.insert(
           clientId: clientId,
-          missionId: mission.id,
-          missionTitle: mission.title,
+          missionId: missionId,
+          missionTitle: title,
           dataJson: jsonEncode(data),
           lat: Value(position?.latitude),
           lng: Value(position?.longitude),
@@ -137,10 +191,11 @@ Future<SubmitOutcome> saveSubmission(
     )..where((s) => s.clientId.equals(replacing))).go();
   }
   unawaited(sync.flush());
-  ref.invalidate(missionProvider(mission.id));
-  if (outletId != null) ref.invalidate(missionOutletsProvider(mission.id));
-  ref.invalidate(submissionsProvider);
-  ref.invalidate(missionsProvider);
+  if (outletId != null) {
+    ref.invalidate(outletProvider(outletId));
+    ref.invalidate(outletsProvider);
+    ref.invalidate(outletRouteProvider);
+  }
   return outcome;
 }
 

@@ -440,6 +440,110 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('points de vente seuls : visite libre depuis la fiche', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FreeVisitRepo();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(features: outletOnlyFeatures, submissionRequiresDay: false),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    expect(_tab('Missions'), findsNothing);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+
+    // Deux formulaires proposés : l'agent choisit.
+    await _tap(tester, find.text('Visiter'));
+    expect(find.text('Quel formulaire remplir ?'), findsOneWidget);
+    await _tap(tester, find.text('Audit point de vente'));
+    expect(find.text('Visite'), findsOneWidget);
+    expect(find.textContaining('Vous êtes sur place'), findsOneWidget);
+
+    // Champ obligatoire vide : rien ne part.
+    await _tap(tester, find.text('Enregistrer'));
+    expect(repo.freeVisits, isEmpty);
+    // Le message d'erreur s'efface avant le second envoi.
+    await tester.pump(const Duration(seconds: 6));
+    await _settle(tester);
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Rayon boissons bien rempli',
+    );
+    await _tap(tester, find.widgetWithText(ChoiceChip, 'Client actif'));
+    await _tap(tester, find.text('Enregistrer'));
+
+    final sent = repo.freeVisits.single;
+    expect(sent['path'], 'o1');
+    expect(sent, containsPair('typeId', 'f1'));
+    expect(sent.containsKey('outletId'), isFalse);
+    expect(sent['data'], {'remarque': 'Rayon boissons bien rempli'});
+    expect(sent, containsPair('outletStatus', 'active'));
+    expect(sent, containsPair('accuracy', 8.0));
+    expect(repo.submittedForms, isEmpty);
+    expect(find.text('Formulaire envoyé.'), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('visite libre : un seul formulaire, ouvert directement', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FreeVisitRepo(forms: 1);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(features: outletFeatures, submissionRequiresDay: false),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Visiter'));
+    expect(find.text('Quel formulaire remplir ?'), findsNothing);
+    expect(find.text('Audit point de vente'), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets(
+    'sans formulaire de visite ou pour le chef : pas de « Visiter »',
+    (tester) async {
+      _phone(tester);
+      await tester.pumpWidget(
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+          repo: OutletsRepo(),
+        ),
+      );
+      await _settle(tester);
+      await _tap(tester, _tab('Points de vente'));
+      await _tap(tester, find.text('Boutique Awa'));
+      expect(find.text('Changer le statut'), findsOneWidget);
+      expect(find.text('Visiter'), findsNothing);
+      await _close(tester);
+
+      await tester.pumpWidget(
+        testApp(
+          auth: () =>
+              SignedInAuth(fakeMe(role: 'team_lead', features: outletFeatures)),
+          repo: FreeVisitRepo(),
+        ),
+      );
+      await _settle(tester);
+      await _tap(tester, _tab('Points de vente'));
+      await _tap(tester, find.text('Boutique Awa'));
+      expect(find.text('Visiter'), findsNothing);
+      await _close(tester);
+    },
+  );
+
   test('itinéraire Google Maps : départ, étapes, arrivée', () {
     final stops = [
       for (final (i, lat) in [5.33, 5.34, 5.35].indexed)
@@ -461,6 +565,10 @@ void main() {
     expect(
       pushRouteFor({'type': 'outlets.overdue'}, leader: true),
       '/outlets?overdue=1',
+    );
+    expect(
+      pushRouteFor({'type': 'visit.rejected', 'outletId': 'o1'}, leader: false),
+      '/outlets/o1',
     );
   });
 }

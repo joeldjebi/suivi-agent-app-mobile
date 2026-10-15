@@ -14,6 +14,7 @@ import '../team/map_options.dart';
 import '../team/team_map_screen.dart' show mapTilesProvider;
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
+import 'visit_forms.dart';
 
 /// Étape de la tournée.
 class RouteStop {
@@ -167,6 +168,8 @@ class _Route extends ConsumerWidget {
         ),
       );
     }
+    // Tournée des retards : l'agent visite sans mission, avec un formulaire de visite.
+    final visit = canVisitFreely(ref);
     final km = (route.totalMeters / 1000)
         .toStringAsFixed(1)
         .replaceAll('.', ',');
@@ -254,7 +257,17 @@ class _Route extends ConsumerWidget {
                         s.outlet.visitLabel,
                       ].join(' · '),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
+                    trailing: missionId == null && visit
+                        ? IconButton(
+                            tooltip: 'Visiter',
+                            icon: Icon(
+                              Icons.login_rounded,
+                              color: scheme.primary,
+                            ),
+                            onPressed: () =>
+                                startVisit(context, ref, s.outlet.id),
+                          )
+                        : const Icon(Icons.chevron_right_rounded),
                     onTap: () => context.push(
                       missionId == null
                           ? '/outlets/${s.outlet.id}'

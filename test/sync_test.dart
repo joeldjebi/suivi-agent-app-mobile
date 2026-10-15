@@ -128,6 +128,48 @@ void main() {
     },
   );
 
+  test('visite libre : envoyée au point de vente, sans mission', () async {
+    await db
+        .into(db.pendingSubmissions)
+        .insert(
+          PendingSubmissionsCompanion.insert(
+            clientId: 'v1',
+            missionId: '',
+            missionTitle: 'Audit · Boutique Awa',
+            dataJson: '{"remarque":"RAS"}',
+            lat: const Value(5.32),
+            lng: const Value(-4.02),
+            submittedAt: DateTime.utc(2026, 10, 2, 9),
+            extraJson: const Value(
+              '{"typeId":"f1","outletId":"o1","accuracy":8}',
+            ),
+          ),
+        );
+    final row = (await db.select(db.pendingSubmissions).get()).single;
+    expect(freeVisitOf(row), (outletId: 'o1', typeId: 'f1'));
+
+    // Sans réseau : elle attend.
+    repo.submitError = ApiException('Pas de connexion');
+    await sync.flush();
+    expect(await db.watchPendingCount().first, 1);
+
+    repo.submitError = null;
+    await sync.flush();
+    expect(repo.submittedForms, isEmpty);
+    expect(repo.freeVisits.single, {
+      'typeId': 'f1',
+      'accuracy': 8,
+      'clientId': 'v1',
+      'data': {'remarque': 'RAS'},
+      'lat': 5.32,
+      'lng': -4.02,
+      'submittedAt': '2026-10-02T09:00:00.000Z',
+      'path': 'o1',
+    });
+    expect(await db.watchPendingCount().first, 0);
+    expect(canRetrySubmission('VISIT_FORM_NOT_ALLOWED'), isFalse);
+  });
+
   test(
     'sans réseau ou serveur en panne : le formulaire attend, sans refus',
     () async {

@@ -14,6 +14,7 @@ import '../../widgets/common.dart';
 import '../outlets/outlet_models.dart';
 import '../outlets/outlet_widgets.dart';
 import '../outlets/outlets_controller.dart';
+import '../outlets/visit_forms.dart';
 import 'missions_controller.dart';
 import 'product_readings_input.dart';
 import 'package:latlong2/latlong.dart';
@@ -30,9 +31,21 @@ class MissionFormScreen extends ConsumerStatefulWidget {
     required this.id,
     this.retry,
     this.outlet,
-  });
+  }) : form = null;
 
+  /// Visite libre d'un point de vente (sans mission), avec un formulaire de visite.
+  const MissionFormScreen.visit({
+    super.key,
+    required String this.outlet,
+    required String this.form,
+    this.retry,
+  }) : id = '';
+
+  /// Mission ('' pour une visite libre).
   final String id;
+
+  /// Visite libre : le formulaire de visite choisi.
+  final String? form;
 
   /// Mission de visites : le point de vente visité.
   final String? outlet;
@@ -58,8 +71,11 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   final _outletComment = TextEditingController();
 
   /// Brouillon propre à chaque point de vente visité.
-  String get _draftKey =>
-      _outletId == null ? widget.id : '${widget.id}:$_outletId';
+  String get _draftKey => widget.form != null
+      ? 'visit:${widget.form}:$_outletId'
+      : _outletId == null
+      ? widget.id
+      : '${widget.id}:$_outletId';
 
   /// Brouillon : enregistré pendant la saisie (nouveau formulaire seulement), repris à la
   /// réouverture, retiré à l'envoi.
@@ -158,7 +174,7 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     });
   }
 
-  Future<void> _save(Mission mission) async {
+  Future<void> _save(_Source source) async {
     final form = _form.currentState;
     if (form == null) return;
     setState(() => _submitted = true);
@@ -170,21 +186,33 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
     setState(() => _saving = true);
     try {
       final data = {
-        for (final f in mission.fields)
+        for (final f in source.fields)
           if (f.type != FieldType.unsupported &&
               _values[f.key] != null &&
               _values[f.key] != '')
             f.key: _values[f.key],
       };
-      final outcome = await saveSubmission(
-        ref,
-        mission,
-        data,
-        replacing: widget.retry,
-        outletId: _outletId,
-        outletStatus: _outletStatus?.code,
-        outletComment: _outletComment.text.trim(),
-      );
+      final outlet = ref.read(outletProvider(_outletId ?? '')).value?.outlet;
+      final outcome = widget.form != null
+          ? await saveFreeVisit(
+              ref,
+              typeId: widget.form!,
+              title: [source.title, ?outlet?.name].join(' · '),
+              outletId: _outletId!,
+              data: data,
+              replacing: widget.retry,
+              outletStatus: _outletStatus?.code,
+              outletComment: _outletComment.text.trim(),
+            )
+          : await saveSubmission(
+              ref,
+              _mission!,
+              data,
+              replacing: widget.retry,
+              outletId: _outletId,
+              outletStatus: _outletStatus?.code,
+              outletComment: _outletComment.text.trim(),
+            );
       _sent = true;
       _draftTimer?.cancel();
       // Le formulaire est parti (ou attend le réseau) avec ses photos.
@@ -222,15 +250,28 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   /// direct, mission close entre-temps) ne doit ni effacer la saisie ni bloquer l'écran ;
   /// c'est l'envoi qui dira si la mission accepte encore des formulaires.
   Mission? _mission;
+  VisitForm? _visitForm;
 
-  @override
-  Widget build(BuildContext context) {
+  /// Ce qu'il faut remplir : le formulaire de la mission ou le formulaire de visite.
+  AsyncValue<_Source> _source() {
+    final form = widget.form;
+    if (form != null) {
+      final async = ref.watch(visitFormProvider(form));
+      _visitForm ??= async.value;
+      final f = _visitForm;
+      if (f == null) return async.whenData(_Source.ofForm);
+      return AsyncData(_Source.ofForm(f));
+    }
     final async = ref.watch(missionProvider(widget.id));
     _mission ??= async.value;
     final loaded = _mission;
-    final AsyncValue<Mission> mission = loaded != null
-        ? AsyncData(loaded)
-        : async;
+    if (loaded == null) return async.whenData(_Source.ofMission);
+    return AsyncData(_Source.ofMission(loaded));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mission = _source();
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -344,6 +385,19 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
           : null,
     );
   }
+}
+
+/// Champs à remplir et produits de leurs relevés, d'une mission ou d'un formulaire de visite.
+class _Source {
+  _Source(this.title, this.fields, this.products);
+
+  _Source.ofMission(Mission m) : this(m.title, m.fields, m.products);
+
+  _Source.ofForm(VisitForm f) : this(f.name, f.fields, f.products);
+
+  final String title;
+  final List<MissionField> fields;
+  final Map<String, List<CatalogProduct>> products;
 }
 
 class FieldInput extends StatelessWidget {

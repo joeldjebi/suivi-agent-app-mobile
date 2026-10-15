@@ -460,3 +460,35 @@ class RouteRepo extends OutletsRepo {
     };
   }
 }
+
+/// Module Points de vente seul : visites libres avec les formulaires de visite.
+class FreeVisitRepo extends OutletsRepo {
+  FreeVisitRepo({int forms = 2}) {
+    visitFormsJson = [
+      {
+        'id': 'f1',
+        'name': 'Audit point de vente',
+        'description': null,
+        'fields': [
+          {
+            'key': 'remarque',
+            'label': 'Remarque',
+            'type': 'text',
+            'required': true,
+          },
+        ],
+        'products': <String, dynamic>{},
+      },
+      {
+        'id': 'f2',
+        'name': 'Prospection',
+        'description': null,
+        'fields': <dynamic>[],
+        'products': <String, dynamic>{},
+      },
+    ].take(forms).toList();
+  }
+}
+
+/// Formule avec le seul module Points de vente (sans missions).
+const outletOnlyFeatures = {'points_of_sale', 'groups', 'team_leads'};

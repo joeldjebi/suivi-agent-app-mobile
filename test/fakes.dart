@@ -523,6 +523,21 @@ class FakeRepository extends Repository {
     submittedForms.add({...body, 'missionId': missionId});
   }
 
+  /// Visites libres de points de vente envoyées (sans mission) ; mêmes erreurs simulées.
+  final freeVisits = <Map<String, dynamic>>[];
+
+  @override
+  Future<void> visitOutlet(String id, Map<String, dynamic> body) async {
+    if (submitError != null) throw submitError!;
+    freeVisits.add({...body, 'path': id});
+  }
+
+  /// Formulaires proposés pour les visites libres.
+  List<dynamic> visitFormsJson = const [];
+
+  @override
+  Future<List<dynamic>> visitForms() async => visitFormsJson;
+
   /// Équipe de l'agent (/me/team).
   AgentTeam agentTeam = const AgentTeam(
     usesGroups: true,

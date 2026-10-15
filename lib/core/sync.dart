@@ -142,14 +142,20 @@ class SyncService extends ChangeNotifier {
     final extra = row.extraJson == null
         ? const <String, dynamic>{}
         : jsonDecode(row.extraJson!) as Map<String, dynamic>;
-    await repo.submit(row.missionId, {
+    final body = {
       ...extra,
       'clientId': row.clientId,
       'data': data,
       if (row.lat != null) 'lat': row.lat,
       if (row.lng != null) 'lng': row.lng,
       'submittedAt': row.submittedAt.toUtc().toIso8601String(),
-    });
+    };
+    if (isFreeVisit(row)) {
+      // Visite libre : le point de vente est dans l'adresse, pas dans le corps.
+      await repo.visitOutlet(body.remove('outletId') as String, body);
+    } else {
+      await repo.submit(row.missionId, body);
+    }
     await (db.delete(
       db.pendingSubmissions,
     )..where((s) => s.clientId.equals(row.clientId))).go();
@@ -308,4 +314,22 @@ enum SubmitOutcome {
 /// Peut-on corriger et renvoyer ce formulaire refusé ? Non si la mission est close ou
 /// n'existe plus pour l'agent.
 bool canRetrySubmission(String? errorCode) =>
-    errorCode != 'MISSION_CLOSED' && errorCode != 'NOT_FOUND';
+    errorCode != 'MISSION_CLOSED' &&
+    errorCode != 'NOT_FOUND' &&
+    errorCode != 'VISIT_FORM_NOT_ALLOWED';
+
+/// Visite libre d'un point de vente (sans mission) : gardée dans la même file d'attente que
+/// les formulaires de mission, sans mission ; le formulaire et le point de vente sont dans
+/// ses champs en plus.
+bool isFreeVisit(PendingSubmission row) => row.missionId.isEmpty;
+
+/// Visite libre : point de vente et formulaire.
+({String outletId, String typeId})? freeVisitOf(PendingSubmission row) {
+  if (!isFreeVisit(row) || row.extraJson == null) return null;
+  final extra = jsonDecode(row.extraJson!) as Map<String, dynamic>;
+  final outletId = extra['outletId'] as String?;
+  final typeId = extra['typeId'] as String?;
+  return outletId == null || typeId == null
+      ? null
+      : (outletId: outletId, typeId: typeId);
+}

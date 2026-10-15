@@ -22,6 +22,10 @@ String rejectionHint(String? code) => switch (code) {
   'MISSION_CLOSED' =>
     'La mission est close : il ne peut plus être envoyé. Supprimez-le.',
   'NOT_FOUND' => 'La mission n’est plus disponible pour vous. Supprimez-le.',
+  'VISIT_FORM_NOT_ALLOWED' =>
+    'Ce formulaire n’est plus proposé pour les visites. Supprimez-le.',
+  'VISIT_TOO_FAR' || 'POSITION_REQUIRED' =>
+    'Retournez devant le point de vente, puis renvoyez-le.',
   _ => 'Corrigez-le puis renvoyez-le, ou supprimez-le.',
 };
 
@@ -106,7 +110,9 @@ class _RejectedTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final retry = canRetrySubmission(row.errorCode);
+    final retry =
+        canRetrySubmission(row.errorCode) &&
+        (!isFreeVisit(row) || freeVisitOf(row) != null);
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.md),
       child: SurfaceCard(
@@ -146,8 +152,11 @@ class _RejectedTile extends ConsumerWidget {
                   FilledButton.icon(
                     onPressed: () {
                       Navigator.of(context).pop();
+                      final visit = freeVisitOf(row);
                       context.push(
-                        '/missions/${row.missionId}/new?retry=${row.clientId}',
+                        visit != null
+                            ? '/outlets/${visit.outletId}/visit?form=${visit.typeId}&retry=${row.clientId}'
+                            : '/missions/${row.missionId}/new?retry=${row.clientId}',
                       );
                     },
                     icon: const Icon(Icons.edit_note_rounded),

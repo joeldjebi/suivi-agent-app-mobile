@@ -104,6 +104,15 @@ final _outletRoutes = GoRoute(
           path: 'edit',
           builder: (_, s) => OutletEditLoader(id: s.pathParameters['id']!),
         ),
+        // Visite libre (sans mission) avec un formulaire de visite.
+        GoRoute(
+          path: 'visit',
+          builder: (_, s) => MissionFormScreen.visit(
+            outlet: s.pathParameters['id']!,
+            form: s.uri.queryParameters['form'] ?? '',
+            retry: s.uri.queryParameters['retry'],
+          ),
+        ),
       ],
     ),
   ],

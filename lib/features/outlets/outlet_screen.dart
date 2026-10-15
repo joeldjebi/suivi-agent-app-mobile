@@ -17,6 +17,7 @@ import '../../widgets/common.dart';
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
 import 'outlets_controller.dart';
+import 'visit_forms.dart';
 
 /// Fiche d'un point de vente : informations, statut (avec commentaire) et historique.
 class OutletScreen extends ConsumerWidget {
@@ -133,9 +134,18 @@ class OutletScreen extends ConsumerWidget {
         _VisitCard(outlet: o),
       ],
       const SizedBox(height: Space.lg),
+      if (canVisitFreely(ref)) ...[
+        PillButton(
+          label: 'Visiter',
+          icon: Icons.login_rounded,
+          onPressed: () => startVisit(context, ref, o.id),
+        ),
+        const SizedBox(height: Space.sm),
+      ],
       PillButton(
         label: 'Changer le statut',
         icon: Icons.swap_horiz_rounded,
+        style: canVisitFreely(ref) ? PillStyle.tonal : PillStyle.primary,
         onPressed: () => _changeStatus(context, ref, o),
       ),
       if (!o.located) ...[
