@@ -68,12 +68,11 @@ final visitFormProvider = FutureProvider.autoDispose.family<VisitForm, String>((
   );
 });
 
-/// Agent : peut-il visiter un point de vente sans mission ?
+/// Agent du module Points de vente : il peut visiter un point de vente sans mission. Le bouton
+/// reste visible même sans formulaire de visite choisi : il explique alors quoi demander.
 bool canVisitFreely(WidgetRef ref) {
   final me = ref.watch(meProvider);
-  return !me.isTeamLead &&
-      me.hasOutlets &&
-      (ref.watch(visitFormsProvider).value?.isNotEmpty ?? false);
+  return !me.isTeamLead && me.hasOutlets;
 }
 
 /// Ouvre la visite d'un point de vente : le seul formulaire proposé, ou celui que l'agent choisit.
@@ -82,8 +81,22 @@ Future<void> startVisit(
   WidgetRef ref,
   String outletId,
 ) async {
-  final forms = await ref.read(visitFormsProvider.future);
-  if (!context.mounted || forms.isEmpty) return;
+  final List<VisitForm> forms;
+  try {
+    forms = await ref.refresh(visitFormsProvider.future);
+  } on ApiException catch (e) {
+    if (context.mounted) showMessage(context, e.message, error: true);
+    return;
+  }
+  if (!context.mounted) return;
+  if (forms.isEmpty) {
+    showMessage(
+      context,
+      'Aucun formulaire de visite n’est encore proposé. Demandez à votre administrateur de les choisir (site web : Points de vente → ⋯ → Formulaires de visite).',
+      error: true,
+    );
+    return;
+  }
   var form = forms.first;
   if (forms.length > 1) {
     final picked = await pickOption<VisitForm?>(

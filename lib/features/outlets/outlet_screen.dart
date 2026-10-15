@@ -15,6 +15,7 @@ import '../../design/components.dart';
 import '../../design/lucide.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
+import 'outlet_activity.dart';
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
 import 'outlets_controller.dart';
@@ -28,9 +29,12 @@ Uri googleMapsPlace(LatLng p) => Uri.https('www.google.com', '/maps/search/', {
 
 /// Fiche d'un point de vente : informations, statut (avec commentaire) et historique.
 class OutletScreen extends ConsumerWidget {
-  const OutletScreen({super.key, required this.id});
+  const OutletScreen({super.key, required this.id, this.justAdded = false});
 
   final String id;
+
+  /// Vient d'être ajouté : proposer la première visite.
+  final bool justAdded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +70,10 @@ class OutletScreen extends ConsumerWidget {
           child: CircularProgressIndicator(),
         ),
         _ => RefreshIndicator(
-          onRefresh: () => ref.refresh(outletProvider(id).future),
+          onRefresh: () {
+            ref.invalidate(outletReadingsProvider(id));
+            return ref.refresh(outletProvider(id).future);
+          },
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
               Space.page,
@@ -75,6 +82,7 @@ class OutletScreen extends ConsumerWidget {
               Space.xxxl,
             ),
             children: [
+              if (justAdded) AskFirstVisit(outletId: id),
               ..._content(context, ref, detail.value!, form, text, scheme),
             ],
           ),
@@ -207,8 +215,14 @@ class OutletScreen extends ConsumerWidget {
         const SizedBox(height: Space.xs),
         RemotePhoto(id: o.data[f.key] as String, label: f.label),
       ],
+      if (ref.watch(meProvider).hasProductAudits) ...[
+        const SizedBox(height: Space.lg),
+        OutletProductsSection(outletId: o.id),
+      ],
+      const SizedBox(height: Space.lg),
+      OutletVisitsSection(visits: detail.visits),
       const SizedBox(height: Space.xl),
-      Text('Historique', style: text.titleMedium),
+      Text('Historique du statut', style: text.titleMedium),
       const SizedBox(height: Space.sm),
       for (final h in detail.history)
         Padding(

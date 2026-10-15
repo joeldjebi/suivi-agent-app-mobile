@@ -130,8 +130,12 @@ class OutletsRepo extends FakeRepository {
           'user': {'id': 'u1', 'name': 'Koffi Brou'},
         },
       ],
+      'visits': visitsJson,
     };
   }
+
+  /// Dernières visites renvoyées avec la fiche.
+  List<Map<String, dynamic>> visitsJson = const [];
 
   @override
   Future<Map<String, dynamic>> createOutlet(Map<String, dynamic> body) async {
@@ -492,3 +496,75 @@ class FreeVisitRepo extends OutletsRepo {
 
 /// Formule avec le seul module Points de vente (sans missions).
 const outletOnlyFeatures = {'points_of_sale', 'groups', 'team_leads'};
+
+/// Fiche complète : relevés produits (dont un concurrent) et visites, dont une rejetée.
+class ActivityRepo extends FreeVisitRepo {
+  ActivityRepo() : super(forms: 1) {
+    visitsJson = [
+      {
+        'id': 's1',
+        'missionId': null,
+        'missionTitle': 'Audit point de vente',
+        'formName': 'Audit point de vente',
+        'agent': 'Koffi Brou',
+        'submittedAt': '2026-10-12T10:00:00.000Z',
+        'status': 'accepted',
+      },
+      {
+        'id': 's2',
+        'missionId': 'v1',
+        'missionTitle': 'Tournée du Plateau',
+        'formName': 'Audit',
+        'agent': 'Awa Koné',
+        'submittedAt': '2026-10-05T10:00:00.000Z',
+        'status': 'rejected',
+      },
+    ];
+    outletReadingsJson = [
+      {
+        'productId': 'p-coca',
+        'name': 'Coca-Cola',
+        'format': '33 cl',
+        'own': true,
+        'unit': 'Bouteille',
+        'packagings': [
+          {'name': 'Casier', 'units': 12},
+        ],
+        'last': {
+          'at': '2026-10-12T10:00:00.000Z',
+          'presence': true,
+          'stock': 44,
+          'price': 300,
+        },
+        'stockHistory': [
+          {'at': '2026-10-05T10:00:00.000Z', 'stock': 30},
+          {'at': '2026-10-12T10:00:00.000Z', 'stock': 44},
+        ],
+      },
+      {
+        'productId': 'p-pepsi',
+        'name': 'Pepsi',
+        'format': '33 cl',
+        'own': false,
+        'unit': 'Bouteille',
+        'packagings': <dynamic>[],
+        'last': {
+          'at': '2026-10-12T10:00:00.000Z',
+          'presence': false,
+          'stock': null,
+          'price': null,
+        },
+        'stockHistory': <dynamic>[],
+      },
+    ];
+  }
+}
+
+/// Formule avec les points de vente et les relevés produits.
+const auditFeatures = {
+  'missions',
+  'points_of_sale',
+  'product_audits',
+  'groups',
+  'team_leads',
+};

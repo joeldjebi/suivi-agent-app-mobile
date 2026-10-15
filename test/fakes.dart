@@ -532,6 +532,12 @@ class FakeRepository extends Repository {
     freeVisits.add({...body, 'path': id});
   }
 
+  /// Derniers relevés produits d'un point de vente.
+  List<dynamic> outletReadingsJson = const [];
+
+  @override
+  Future<List<dynamic>> outletReadings(String id) async => outletReadingsJson;
+
   /// Formulaires proposés pour les visites libres.
   List<dynamic> visitFormsJson = const [];
 

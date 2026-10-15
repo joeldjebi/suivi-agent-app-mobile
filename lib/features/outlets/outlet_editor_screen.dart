@@ -136,7 +136,7 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
         context.pop();
         showMessage(context, 'Point de vente enregistré.');
       } else {
-        context.pushReplacement('/outlets/${saved.outlet!.id}');
+        context.pushReplacement('/outlets/${saved.outlet!.id}?added=1');
         showMessage(context, 'Point de vente ajouté.');
       }
     } on ApiException catch (e) {

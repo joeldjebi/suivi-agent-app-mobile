@@ -803,6 +803,31 @@ void main() {
       ),
     );
     testWidgets(
+      'fiche avec produits et visites',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+          repo: ActivityRepo(),
+        ),
+        '46-agent-fiche-produits-visites',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -620),
+          );
+        },
+      ),
+    );
+    testWidgets(
       'ajout',
       (tester) => _capture(
         tester,

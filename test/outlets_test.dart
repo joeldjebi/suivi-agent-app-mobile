@@ -126,7 +126,17 @@ void main() {
     expect(find.text('Changer le statut'), findsOneWidget);
     expect(find.text('Voir sur Google Maps'), findsOneWidget);
     expect(find.text('Possède un frigo'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Ajouté · Prospect'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Ajouté · Prospect'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Changer le statut'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     await _tap(tester, find.text('Changer le statut'));
     await _tap(tester, find.text('Client actif'));
@@ -517,7 +527,7 @@ void main() {
   });
 
   testWidgets(
-    'sans formulaire de visite ou pour le chef : pas de « Visiter »',
+    'sans formulaire de visite : explication ; chef : pas de « Visiter »',
     (tester) async {
       _phone(tester);
       await tester.pumpWidget(
@@ -529,8 +539,13 @@ void main() {
       await _settle(tester);
       await _tap(tester, _tab('Points de vente'));
       await _tap(tester, find.text('Boutique Awa'));
-      expect(find.text('Changer le statut'), findsOneWidget);
-      expect(find.text('Visiter'), findsNothing);
+      // Aucun formulaire choisi : le bouton explique quoi demander.
+      await _tap(tester, find.text('Visiter'));
+      expect(
+        find.textContaining('Aucun formulaire de visite n’est encore proposé'),
+        findsOneWidget,
+      );
+      expect(find.text('Quel formulaire remplir ?'), findsNothing);
       await _close(tester);
 
       await tester.pumpWidget(
@@ -547,6 +562,94 @@ void main() {
       await _close(tester);
     },
   );
+
+  testWidgets('fiche : derniers relevés produits et dernières visites', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+        repo: ActivityRepo(),
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    final list = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('PRODUITS RELEVÉS'),
+      200,
+      scrollable: list,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Pepsi 33 cl'),
+      200,
+      scrollable: list,
+    );
+    expect(
+      find.textContaining('Stock 44 bouteilles (3 casiers + 8)'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
+    expect(find.text('concurrent'), findsOneWidget);
+    expect(find.textContaining('Rupture'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Tournée du Plateau'),
+      200,
+      scrollable: list,
+    );
+    expect(find.text('Visite libre · Audit point de vente'), findsOneWidget);
+    expect(find.textContaining('rejetée'), findsOneWidget);
+    await _close(tester);
+
+    // Sans les relevés produits dans la formule : pas de section produits.
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: outletFeatures)),
+        repo: ActivityRepo(),
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await tester.scrollUntilVisible(
+      find.text('DERNIÈRES VISITES'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('PRODUITS RELEVÉS'), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('après l’ajout : la première visite est proposée', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = FreeVisitRepo(forms: 1);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(features: outletFeatures, submissionRequiresDay: false),
+        ),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Ajouter'));
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nom du point de vente *'),
+      'Kiosque Moov',
+    );
+    await _tap(tester, find.text('Enregistrer'));
+    expect(repo.created.single['name'], 'Kiosque Moov');
+    expect(find.text('Faire la première visite maintenant ?'), findsOneWidget);
+    await _tap(tester, find.text('Visiter').last);
+    expect(find.text('Visite'), findsOneWidget);
+    expect(find.text('Audit point de vente'), findsOneWidget);
+    await _close(tester);
+  });
 
   test('itinéraire Google Maps : départ, étapes, arrivée', () {
     final stops = [

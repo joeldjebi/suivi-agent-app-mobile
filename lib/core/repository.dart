@@ -229,6 +229,10 @@ class Repository {
   Future<Map<String, dynamic>> outlet(String id) =>
       api.get<Map<String, dynamic>>('/outlets/$id');
 
+  /// Dernier relevé de chaque produit d'un point de vente et évolution du stock.
+  Future<List<dynamic>> outletReadings(String id) =>
+      api.get<List<dynamic>>('/insights/products/outlets/$id');
+
   /// Formulaires proposés pour visiter un point de vente sans mission.
   Future<List<dynamic>> visitForms() =>
       api.get<List<dynamic>>('/outlets/visit-forms');

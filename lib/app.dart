@@ -98,7 +98,10 @@ final _outletRoutes = GoRoute(
     GoRoute(path: 'route', builder: (_, _) => const RouteScreen()),
     GoRoute(
       path: ':id',
-      builder: (_, s) => OutletScreen(id: s.pathParameters['id']!),
+      builder: (_, s) => OutletScreen(
+        id: s.pathParameters['id']!,
+        justAdded: s.uri.queryParameters['added'] == '1',
+      ),
       routes: [
         GoRoute(
           path: 'edit',

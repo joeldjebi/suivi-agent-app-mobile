@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/models.dart';
+import 'outlet_activity.dart' show OutletVisitEntry;
 
 /// Statut commercial d'un point de vente (mêmes couleurs que le site).
 enum OutletStatus {
@@ -182,16 +183,25 @@ class OutletChange {
 }
 
 class OutletDetail {
-  OutletDetail(this.outlet, this.history);
+  OutletDetail(this.outlet, this.history, [this.visits = const []]);
 
   final Outlet outlet;
   final List<OutletChange> history;
 
-  factory OutletDetail.fromJson(Map<String, dynamic> j) =>
-      OutletDetail(Outlet.fromJson(j), [
-        for (final h in j['history'] as List? ?? const [])
-          OutletChange.fromJson(h as Map<String, dynamic>),
-      ]);
+  /// Dernières visites (missions et visites libres).
+  final List<OutletVisitEntry> visits;
+
+  factory OutletDetail.fromJson(Map<String, dynamic> j) => OutletDetail(
+    Outlet.fromJson(j),
+    [
+      for (final h in j['history'] as List? ?? const [])
+        OutletChange.fromJson(h as Map<String, dynamic>),
+    ],
+    [
+      for (final v in j['visits'] as List? ?? const [])
+        OutletVisitEntry.fromJson(v as Map<String, dynamic>),
+    ],
+  );
 }
 
 /// Fiche définie par la structure et types de commerce proposés.

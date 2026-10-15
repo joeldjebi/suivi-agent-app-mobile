@@ -13,6 +13,7 @@ import '../../core/form_drafts.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/sync.dart';
+import '../outlets/outlet_activity.dart' show outletReadingsProvider;
 import '../outlets/outlets_controller.dart';
 import '../outlets/route_screen.dart' show outletRouteProvider;
 
@@ -193,6 +194,7 @@ Future<SubmitOutcome> _queueAndSend(
   unawaited(sync.flush());
   if (outletId != null) {
     ref.invalidate(outletProvider(outletId));
+    ref.invalidate(outletReadingsProvider(outletId));
     ref.invalidate(outletsProvider);
     ref.invalidate(outletRouteProvider);
   }
