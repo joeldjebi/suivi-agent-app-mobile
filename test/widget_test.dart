@@ -485,24 +485,23 @@ void main() {
       await _settle(tester);
       await tester.tap(_tab('Profil'));
       await _settle(tester);
-      expect(find.text('MON COMPTE'), findsOneWidget);
+      expect(find.text('RÉGLAGES'), findsOneWidget);
+      // Profil allégé : le détail du compte est dans « Mon compte ».
+      expect(find.text('Informations personnelles'), findsNothing);
+      await _tapText(tester, 'Mon compte');
+      expect(find.text('MES INFORMATIONS'), findsOneWidget);
 
       // Informations personnelles.
       await _tapText(tester, 'Informations personnelles');
       await tester.enterText(find.byType(TextFormField).at(0), 'Koffi Junior');
       await _tapText(tester, 'Enregistrer');
       expect(repo.profile['firstName'], 'Koffi Junior');
-      await tester.scrollUntilVisible(
-        find.text('Koffi Junior Brou'),
-        -200,
-        scrollable: find.byType(Scrollable).last,
-      );
-      expect(find.text('Koffi Junior Brou'), findsOneWidget);
+      expect(find.text('MES INFORMATIONS'), findsOneWidget);
 
       // Téléphone : affiché, mais pas modifiable (identifiant de connexion).
       await tester.tap(find.text('Téléphone'));
       await _settle(tester);
-      expect(find.text('MON COMPTE'), findsOneWidget);
+      expect(find.text('MES INFORMATIONS'), findsOneWidget);
       expect(find.text('Enregistrer'), findsNothing);
 
       // Mot de passe : règles affichées, saisies différentes refusées.
@@ -517,7 +516,17 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(2), 'Nouveau2026!');
       await _tapText(tester, 'Enregistrer');
       expect(repo.passwordChanges.single, ('Password123!', 'Nouveau2026!'));
-      expect(find.text('MON COMPTE'), findsOneWidget);
+      expect(find.text('MES INFORMATIONS'), findsOneWidget);
+
+      // Retour au profil : le nouveau nom est affiché.
+      await tester.tap(find.byType(BackButton));
+      await _settle(tester);
+      await tester.scrollUntilVisible(
+        find.text('Koffi Junior Brou'),
+        -200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Koffi Junior Brou'), findsOneWidget);
 
       // Apparence : sombre (après la disparition du message de confirmation).
       await tester.pump(const Duration(seconds: 5));
@@ -547,7 +556,7 @@ void main() {
     expect(_tab('Missions'), findsNothing);
     await tester.tap(_tab('Profil'));
     await _settle(tester);
-    expect(find.text('MON COMPTE'), findsOneWidget);
+    expect(find.text('RÉGLAGES'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
@@ -587,7 +596,7 @@ void main() {
     await _settle(tester);
     await tester.tap(_tab('Profil'));
     await _settle(tester);
-    expect(find.text('RÉMUNÉRATION'), findsOneWidget);
+    expect(find.text('MON ACTIVITÉ'), findsOneWidget);
     // Estimation en direct dans la ligne du profil.
     expect(find.text('58\u202f300\u00a0FCFA'), findsOneWidget);
 
@@ -633,7 +642,7 @@ void main() {
     await _settle(tester);
     await tester.tap(_tab('Profil'));
     await _settle(tester);
-    expect(find.text('MON COMPTE'), findsOneWidget);
+    expect(find.text('RÉGLAGES'), findsOneWidget);
     expect(find.text('Mes gains'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
@@ -1103,9 +1112,11 @@ void main() {
     expect(find.byTooltip('Appeler Yao Kouassi'), findsOneWidget);
     expect(find.byTooltip('WhatsApp Yao Kouassi'), findsOneWidget);
 
-    // Profil : section « Mon équipe ».
+    // Profil : « Mon équipe » résumée sur une ligne, détail à part.
     await tester.tap(_tab('Profil'));
     await _settle(tester);
+    expect(find.text('Chef : Yao Kouassi · Plateau'), findsOneWidget);
+    await _tapText(tester, 'Mon équipe');
     expect(find.text('MON ÉQUIPE'), findsOneWidget);
     expect(find.text('Équipe Nord'), findsOneWidget);
     expect(find.text('4 agents'), findsOneWidget);

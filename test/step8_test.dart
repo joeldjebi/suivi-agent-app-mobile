@@ -205,6 +205,14 @@ void main() {
         ),
       );
       await _settle(tester);
+      // Verrouillage : dans « Mon compte ».
+      await tester.scrollUntilVisible(
+        find.text('Mon compte'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Mon compte'));
+      await _settle(tester);
       await tester.scrollUntilVisible(
         find.text('Déverrouiller avec Face ID'),
         300,

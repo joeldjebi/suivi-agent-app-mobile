@@ -129,6 +129,9 @@ final _profileRoute = GoRoute(
     GoRoute(path: 'edit', builder: (_, _) => const EditProfileScreen()),
     GoRoute(path: 'password', builder: (_, _) => const ChangePasswordScreen()),
     GoRoute(path: 'earnings', builder: (_, _) => const EarningsScreen()),
+    GoRoute(path: 'account', builder: (_, _) => const AccountScreen()),
+    GoRoute(path: 'help', builder: (_, _) => const HelpScreen()),
+    GoRoute(path: 'team', builder: (_, _) => const MyTeamScreen()),
     GoRoute(
       path: 'team-earnings',
       builder: (_, _) => const TeamEarningsScreen(),

@@ -371,6 +371,12 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
+        await tester.ensureVisible(find.text('Mon compte'));
+        await tester.pump();
+        await tester.tap(find.text('Mon compte'));
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
         await tester.tap(find.text('Mot de passe'));
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));

@@ -168,65 +168,39 @@ class ProfileScreen extends ConsumerWidget {
             textAlign: TextAlign.center,
             style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          GroupedList(
-            header: 'Mon compte',
-            footer:
-                'Votre numéro sert à vous connecter : seule votre structure peut le modifier.',
-            children: [
-              ListRow(
-                leading: icon(Icons.person_rounded, const Color(0xFF3B82F6)),
-                title: 'Informations personnelles',
-                subtitle: me.email,
-                onTap: () => context.push('/profile/edit'),
-              ),
-              ListRow(
-                leading: icon(Icons.phone_rounded, const Color(0xFF34A853)),
-                title: 'Téléphone',
-                value: me.phone == null ? null : displayPhone(me.phone!),
-              ),
-              ListRow(
-                leading: icon(Icons.key_rounded, const Color(0xFF6B7280)),
-                title: 'Mot de passe',
-                onTap: () => context.push('/profile/password'),
-              ),
-            ],
-          ),
-          if (me.isAgent)
+          // L'essentiel seulement : le détail est dans des sous-écrans (Mon compte, Aide).
+          if (me.isAgent || me.hasPayroll)
             GroupedList(
               header: 'Mon activité',
               children: [
-                ListRow(
-                  leading: icon(
-                    Icons.bar_chart_rounded,
-                    const Color(0xFF8B5CF6),
-                  ),
-                  title: 'Ma semaine',
-                  subtitle: 'Heures, objectif et formulaires',
-                  onTap: () => context.push('/day/week'),
-                ),
-              ],
-            ),
-          if (me.hasPayroll)
-            GroupedList(
-              header: 'Rémunération',
-              children: [
-                ListRow(
-                  leading: icon(
-                    Icons.account_balance_wallet_rounded,
-                    const Color(0xFF34A853),
-                  ),
-                  title: 'Mes gains',
-                  subtitle: 'Estimation en direct et paies',
-                  value: switch (ref.watch(myPayProvider).value) {
-                    final MyPay pay => formatMoney(
-                      pay.estimate?.gross ?? 0,
-                      pay.current.currency,
+                if (me.isAgent)
+                  ListRow(
+                    leading: icon(
+                      Icons.bar_chart_rounded,
+                      const Color(0xFF8B5CF6),
                     ),
-                    null => null,
-                  },
-                  onTap: () => context.push('/profile/earnings'),
-                ),
-                if (me.isTeamLead)
+                    title: 'Ma semaine',
+                    subtitle: 'Heures, objectif et formulaires',
+                    onTap: () => context.push('/day/week'),
+                  ),
+                if (me.isAgent) const _MyTeamRow(),
+                if (me.hasPayroll)
+                  ListRow(
+                    leading: icon(
+                      Icons.account_balance_wallet_rounded,
+                      const Color(0xFF34A853),
+                    ),
+                    title: 'Mes gains',
+                    value: switch (ref.watch(myPayProvider).value) {
+                      final MyPay pay => formatMoney(
+                        pay.estimate?.gross ?? 0,
+                        pay.current.currency,
+                      ),
+                      null => null,
+                    },
+                    onTap: () => context.push('/profile/earnings'),
+                  ),
+                if (me.hasPayroll && me.isTeamLead)
                   ListRow(
                     leading: icon(
                       Icons.groups_rounded,
@@ -237,39 +211,19 @@ class ProfileScreen extends ConsumerWidget {
                   ),
               ],
             ),
-          if (me.isAgent) const MyTeamSection(),
           if (me.isAgent) ...[
             const SectionHeader('Sécurité'),
             const SosButton(top: 0),
           ],
           GroupedList(
-            header: 'Ma structure',
+            header: 'Réglages',
             children: [
               ListRow(
-                leading: BrandLogo(branding: branding, size: 28),
-                title: branding.displayName,
+                leading: icon(Icons.person_rounded, const Color(0xFF3B82F6)),
+                title: 'Mon compte',
+                subtitle: 'Informations, mot de passe, verrouillage',
+                onTap: () => context.push('/profile/account'),
               ),
-              if (branding.supportPhone != null)
-                ListRow(
-                  leading: icon(Icons.call_rounded, const Color(0xFF34A853)),
-                  title: 'Appeler la structure',
-                  value: branding.supportPhone,
-                  onTap: () => launchUrl(
-                    Uri(
-                      scheme: 'tel',
-                      path: branding.supportPhone!.replaceAll(
-                        RegExp(r'[^0-9+]'),
-                        '',
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const BiometricSection(),
-          GroupedList(
-            header: 'Préférences',
-            children: [
               ListRow(
                 leading: icon(
                   Icons.notifications_rounded,
@@ -286,31 +240,15 @@ class ProfileScreen extends ConsumerWidget {
               ),
               ListRow(
                 leading: icon(
-                  Icons.auto_awesome_rounded,
+                  Icons.help_outline_rounded,
                   const Color(0xFF0EA5E9),
                 ),
-                title: 'Découvrir l’app',
-                onTap: () => context.push('/welcome'),
+                title: 'Aide',
+                subtitle: 'Découvrir l’app, contacter ${branding.displayName}',
+                onTap: () => context.push('/profile/help'),
               ),
             ],
           ),
-          if (me.isAgent)
-            GroupedList(
-              header: 'Confidentialité',
-              footer:
-                  'Votre position est partagée avec ${branding.displayName} uniquement pendant votre journée de travail'
-                  '${me.trackDuringPause ? ', pauses comprises' : ', sans les pauses'}. Le suivi s’arrête dès que vous terminez la journée.',
-              children: [
-                ListRow(
-                  leading: icon(
-                    Icons.location_on_rounded,
-                    const Color(0xFF3B82F6),
-                  ),
-                  title: 'Partage de position',
-                  value: 'En journée',
-                ),
-              ],
-            ),
           const SizedBox(height: Space.xxl),
           GroupedList(
             children: [
@@ -333,3 +271,169 @@ String _themeLabel(ThemeMode mode) => switch (mode) {
   ThemeMode.light => 'Clair',
   ThemeMode.dark => 'Sombre',
 };
+
+Widget _icon(IconData icon, Color color) =>
+    IconSquircle(icon: icon, color: color, size: 28, solid: true);
+
+/// Mon équipe sur une ligne (chef et zone) ; le détail s'ouvre à part.
+class _MyTeamRow extends ConsumerWidget {
+  const _MyTeamRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final team = ref.watch(myTeamProvider).value;
+    final summary = team == null
+        ? null
+        : [
+            team.leads.isEmpty
+                ? 'Chef non désigné'
+                : 'Chef : ${team.leads.first.fullName}',
+            if (team.zones.isNotEmpty) team.zones.map((z) => z.name).join(', '),
+          ].join(' · ');
+    return ListRow(
+      leading: _icon(Icons.groups_rounded, const Color(0xFF14B8A6)),
+      title: 'Mon équipe',
+      subtitle: summary,
+      onTap: () => context.push('/profile/team'),
+    );
+  }
+}
+
+/// Mon équipe : groupe, chef (appel, message) et zones.
+class MyTeamScreen extends StatelessWidget {
+  const MyTeamScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Mon équipe')),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(Space.page, 0, Space.page, Space.xxxl),
+      children: const [MyTeamSection()],
+    ),
+  );
+}
+
+/// Mon compte : identité, connexion et verrouillage de l'app.
+class AccountScreen extends ConsumerWidget {
+  const AccountScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(meProvider);
+    final branding = ref.watch(brandingProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mon compte')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          Space.page,
+          0,
+          Space.page,
+          Space.xxxl,
+        ),
+        children: [
+          GroupedList(
+            header: 'Mes informations',
+            footer:
+                'Votre numéro sert à vous connecter : seule votre structure peut le modifier.',
+            children: [
+              ListRow(
+                leading: _icon(Icons.person_rounded, const Color(0xFF3B82F6)),
+                title: 'Informations personnelles',
+                subtitle: me.email,
+                onTap: () => context.push('/profile/edit'),
+              ),
+              ListRow(
+                leading: _icon(Icons.phone_rounded, const Color(0xFF34A853)),
+                title: 'Téléphone',
+                value: me.phone == null ? null : displayPhone(me.phone!),
+              ),
+              ListRow(
+                leading: _icon(Icons.key_rounded, const Color(0xFF6B7280)),
+                title: 'Mot de passe',
+                onTap: () => context.push('/profile/password'),
+              ),
+            ],
+          ),
+          const BiometricSection(),
+          if (me.isAgent)
+            GroupedList(
+              header: 'Confidentialité',
+              footer:
+                  'Votre position est partagée avec ${branding.displayName} uniquement pendant votre journée de travail'
+                  '${me.trackDuringPause ? ', pauses comprises' : ', sans les pauses'}. Le suivi s’arrête dès que vous terminez la journée.',
+              children: [
+                ListRow(
+                  leading: _icon(
+                    Icons.location_on_rounded,
+                    const Color(0xFF3B82F6),
+                  ),
+                  title: 'Partage de position',
+                  value: 'En journée',
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Aide : découvrir l'app et contacter la structure.
+class HelpScreen extends ConsumerWidget {
+  const HelpScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final branding = ref.watch(brandingProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Aide')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          Space.page,
+          0,
+          Space.page,
+          Space.xxxl,
+        ),
+        children: [
+          GroupedList(
+            children: [
+              ListRow(
+                leading: _icon(
+                  Icons.auto_awesome_rounded,
+                  const Color(0xFF0EA5E9),
+                ),
+                title: 'Découvrir l’app',
+                subtitle: 'Les écrans principaux en quelques pages',
+                onTap: () => context.push('/welcome'),
+              ),
+            ],
+          ),
+          GroupedList(
+            header: 'Ma structure',
+            children: [
+              ListRow(
+                leading: BrandLogo(branding: branding, size: 28),
+                title: branding.displayName,
+              ),
+              if (branding.supportPhone != null)
+                ListRow(
+                  leading: _icon(Icons.call_rounded, const Color(0xFF34A853)),
+                  title: 'Appeler la structure',
+                  value: branding.supportPhone,
+                  onTap: () => launchUrl(
+                    Uri(
+                      scheme: 'tel',
+                      path: branding.supportPhone!.replaceAll(
+                        RegExp(r'[^0-9+]'),
+                        '',
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
