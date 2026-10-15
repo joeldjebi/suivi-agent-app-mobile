@@ -11,6 +11,9 @@ import 'package:suivi_agent/features/outlets/outlet_widgets.dart';
 import 'package:suivi_agent/features/outlets/outlets_screen.dart';
 import 'package:suivi_agent/features/outlets/outlet_models.dart';
 import 'package:suivi_agent/features/outlets/route_screen.dart';
+import 'package:suivi_agent/core/models.dart';
+import 'package:suivi_agent/features/missions/product_readings_input.dart'
+    show formatBreakdown, formatQuantity;
 import 'package:suivi_agent/features/outlets/product_insights_screen.dart'
     show rankSales;
 import 'package:suivi_agent/core/push.dart';
@@ -675,16 +678,23 @@ void main() {
     await _tap(tester, find.text('Valider la commande'));
     expect(find.textContaining('au moins un produit'), findsOneWidget);
 
-    // Coca : 2 casiers + 6 bouteilles = 30 bouteilles.
-    await tester.enterText(
-      find.widgetWithText(TextField, 'casiers').first,
-      '2',
-    );
+    // Coca : l'agent ajoute 2 casiers d'un toucher, puis 6 bouteilles ; la décomposition
+    // se calcule d'elle-même.
+    await _tap(tester, find.text('Casier (12)').first);
+    await _tap(tester, find.text('Casier (12)').first);
+    expect(find.text('= 2 casiers'), findsOneWidget);
+    for (var i = 0; i < 6; i++) {
+      await tester.tap(find.byTooltip('Une bouteille de plus').first);
+      await tester.pump();
+    }
+    expect(find.text('= 2 casiers + 6'), findsOneWidget);
+    // Ou directement le nombre de bouteilles.
     await tester.enterText(
       find.widgetWithText(TextField, 'bouteilles').first,
-      '6',
+      '30',
     );
     await tester.pump();
+    expect(find.text('= 2 casiers + 6'), findsOneWidget);
     expect(find.text('Valider · 9 000 FCFA'), findsOneWidget);
     await _tap(tester, find.text('Valider · 9 000 FCFA'));
     expect(find.text('Valider la commande ?'), findsOneWidget);
@@ -728,11 +738,7 @@ void main() {
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Boutique Awa'));
     await _tap(tester, find.text('Commander'));
-    await tester.enterText(
-      find.widgetWithText(TextField, 'casiers').first,
-      '1',
-    );
-    await tester.pump();
+    await _tap(tester, find.text('Casier (12)').first);
     await _tap(tester, find.textContaining('Valider ·'));
     await _tap(tester, find.text('Valider').last);
     expect(find.textContaining('envoyée au retour du réseau'), findsOneWidget);
@@ -861,6 +867,22 @@ void main() {
     final competitor = rankSales(products, own: false);
     expect(competitor.best.map((e) => e['name']), ['X']);
     expect(competitor.worst, isEmpty);
+  });
+
+  test('quantités : décomposition dans les conditionnements', () {
+    const coca = CatalogProduct(
+      id: 'p',
+      name: 'Coca-Cola',
+      own: true,
+      unit: 'Bouteille',
+      packagings: [(name: 'Pack', units: 6), (name: 'Casier', units: 12)],
+    );
+    expect(formatQuantity(31, coca), '31 bouteilles (2 casiers + 1 pack + 1)');
+    expect(formatQuantity(30, coca), '30 bouteilles (2 casiers + 1 pack)');
+    expect(formatQuantity(41, coca), '41 bouteilles (3 casiers + 5)');
+    expect(formatQuantity(4, coca), '4 bouteilles');
+    expect(formatQuantity(2.5, coca), '2,5 bouteilles');
+    expect(formatBreakdown(12, coca), '1 casier');
   });
 
   test('itinéraire Google Maps : départ, étapes, arrivée', () {

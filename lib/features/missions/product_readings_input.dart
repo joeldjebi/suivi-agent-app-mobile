@@ -22,17 +22,163 @@ String _plural(String word, num n) {
   return '${w}s';
 }
 
-/// « 41 bouteilles (3 casiers + 5) ».
+/// Décomposition d'une quantité entière dans les conditionnements, du plus grand au plus
+/// petit : 31 bouteilles = 2 casiers (12) + 1 pack (6) + 1. Vide si rien ne s'applique.
+({List<({String name, int count})> packs, num rest}) packBreakdown(
+  num units,
+  List<({String name, int units})> packagings,
+) {
+  if (units <= 0 || units != units.roundToDouble()) {
+    return (packs: const [], rest: units);
+  }
+  final sorted = [...packagings]..sort((a, b) => b.units.compareTo(a.units));
+  var left = units.toInt();
+  final packs = <({String name, int count})>[];
+  for (final p in sorted) {
+    if (p.units <= 1 || left < p.units) continue;
+    packs.add((name: p.name, count: left ~/ p.units));
+    left %= p.units;
+  }
+  return (packs: packs, rest: left);
+}
+
+/// « 2 casiers + 1 pack + 1 » ; null si la quantité ne remplit aucun conditionnement.
+String? formatBreakdown(num units, CatalogProduct? product) {
+  final b = packBreakdown(units, product?.packagings ?? const []);
+  if (b.packs.isEmpty) return null;
+  return [
+    for (final p in b.packs) '${p.count} ${_plural(p.name, p.count)}',
+    if (b.rest > 0) formatNumber(b.rest),
+  ].join(' + ');
+}
+
+/// « 41 bouteilles (3 casiers + 5) », « 30 bouteilles (2 casiers + 1 pack) ».
 String formatQuantity(num units, CatalogProduct? product) {
   final unit = product?.unit ?? 'unité';
   final base = '${formatNumber(units)} ${_plural(unit, units)}';
-  final packs = [...?product?.packagings]
-    ..sort((a, b) => b.units.compareTo(a.units));
-  final pack = packs.where((p) => p.units <= units).firstOrNull;
-  if (pack == null || units != units.roundToDouble()) return base;
-  final n = units ~/ pack.units;
-  final rest = units - n * pack.units;
-  return '$base ($n ${_plural(pack.name, n)}${rest > 0 ? ' + ${formatNumber(rest)}' : ''})';
+  final packs = formatBreakdown(units, product);
+  return packs == null ? base : '$base ($packs)';
+}
+
+/// Quantité commandée, en unités de base : l'agent la saisit ou l'ajoute d'un toucher (un
+/// conditionnement entier ou une unité) ; la décomposition en casiers, packs… est calculée.
+class UnitQuantityField extends StatefulWidget {
+  const UnitQuantityField({
+    super.key,
+    required this.product,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final CatalogProduct product;
+  final num? value;
+  final ValueChanged<num?> onChanged;
+
+  @override
+  State<UnitQuantityField> createState() => _UnitQuantityFieldState();
+}
+
+class _UnitQuantityFieldState extends State<UnitQuantityField> {
+  late final _units = TextEditingController(
+    text: widget.value == null || widget.value == 0
+        ? ''
+        : _QuantityFieldState.formatInput(widget.value!),
+  );
+
+  @override
+  void dispose() {
+    _units.dispose();
+    super.dispose();
+  }
+
+  num get _current => _QuantityFieldState._parse(_units.text) ?? 0;
+
+  void _set(num v) {
+    final next = v <= 0 ? 0 : v;
+    _units.text = next == 0 ? '' : _QuantityFieldState.formatInput(next);
+    _units.selection = TextSelection.collapsed(offset: _units.text.length);
+    HapticFeedback.selectionClick();
+    setState(() {});
+    widget.onChanged(next == 0 ? null : next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final p = widget.product;
+    final packs = [...p.packagings]..sort((a, b) => b.units.compareTo(a.units));
+    final unitWord = _plural(p.unit, 2);
+    final q = _current;
+    final breakdown = q > 0 ? formatBreakdown(q, p) : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            IconButton.outlined(
+              tooltip: 'Une ${p.unit.toLowerCase()} de moins',
+              onPressed: q > 0 ? () => _set(q - 1) : null,
+              icon: const Icon(Icons.remove_rounded),
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: TextField(
+                controller: _units,
+                textAlign: TextAlign.center,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: unitWord,
+                  hintText: '0',
+                ),
+                onChanged: (_) {
+                  setState(() {});
+                  final v = _QuantityFieldState._parse(_units.text);
+                  widget.onChanged(v == null || v == 0 ? null : v);
+                },
+              ),
+            ),
+            const SizedBox(width: Space.sm),
+            IconButton.outlined(
+              tooltip: 'Une ${p.unit.toLowerCase()} de plus',
+              onPressed: () => _set(q + 1),
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
+        if (packs.isNotEmpty) ...[
+          const SizedBox(height: Space.xs),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final pack in packs)
+                ActionChip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.add_rounded, size: 16),
+                  label: Text('${pack.name} (${pack.units})'),
+                  onPressed: () => _set(q + pack.units),
+                ),
+            ],
+          ),
+        ],
+        if (breakdown != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '= $breakdown',
+              style: text.bodySmall?.copyWith(
+                color: scheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// Résumé d'un relevé envoyé : « 3 produits relevés · 1 rupture ».

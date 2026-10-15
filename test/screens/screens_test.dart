@@ -909,12 +909,8 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           await tester.enterText(
-            find.widgetWithText(TextField, 'casiers').first,
-            '2',
-          );
-          await tester.enterText(
             find.widgetWithText(TextField, 'bouteilles').first,
-            '6',
+            '30',
           );
         },
       ),

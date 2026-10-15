@@ -9,13 +9,13 @@ import '../../core/sync.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
-import '../missions/product_readings_input.dart'
-    show QuantityField, formatQuantity;
+import '../missions/product_readings_input.dart' show UnitQuantityField;
 import '../outlets/outlets_controller.dart';
 import 'orders.dart';
 
 /// Prise de commande chez un point de vente : les produits aux prix de son type de client,
-/// les quantités en casiers et en unités, le total en direct. Fonctionne sans réseau.
+/// la quantité en unités (casiers, packs… calculés d'eux-mêmes), le total en direct.
+/// Fonctionne sans réseau.
 class OrderEditorScreen extends ConsumerStatefulWidget {
   const OrderEditorScreen({super.key, required this.outletId});
 
@@ -271,17 +271,7 @@ class _ProductLine extends StatelessWidget {
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: Space.sm),
-          QuantityField(
-            label: 'Quantité',
-            product: p,
-            value: quantity,
-            onChanged: onChanged,
-          ),
-          if (q > 0 && pack == null)
-            Text(
-              formatQuantity(q, p),
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
+          UnitQuantityField(product: p, value: quantity, onChanged: onChanged),
         ],
       ),
     );
