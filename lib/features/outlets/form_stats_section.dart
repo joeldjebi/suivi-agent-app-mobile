@@ -108,23 +108,19 @@ class _FormStatsSectionState extends ConsumerState<FormStatsSection> {
                 'Aucun formulaire envoyé sur la période. Les chiffres apparaissent dès les premières visites ou missions.',
           )
         else ...[
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final f in forms)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      showCheckmark: false,
-                      label: Text('${f.name} (${f.submissions})'),
-                      selected: f.id == selected!.id,
-                      onSelected: (_) => setState(() => _typeId = f.id),
-                    ),
-                  ),
-              ],
-            ),
+          // Tous les formulaires visibles (pas de défilement caché).
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final f in forms)
+                ChoiceChip(
+                  showCheckmark: false,
+                  label: Text('${f.name} (${f.submissions})'),
+                  selected: f.id == selected!.id,
+                  onSelected: (_) => setState(() => _typeId = f.id),
+                ),
+            ],
           ),
           const SizedBox(height: Space.sm),
           _FormStats(typeId: selected!.id, days: widget.days),
@@ -139,14 +135,26 @@ class _FormStatsSectionState extends ConsumerState<FormStatsSection> {
   }
 }
 
-class _FormStats extends ConsumerWidget {
+class _FormStats extends ConsumerStatefulWidget {
   const _FormStats({required this.typeId, required this.days});
 
   final String typeId;
   final int days;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FormStats> createState() => _FormStatsState();
+}
+
+class _FormStatsState extends ConsumerState<_FormStats> {
+  /// Questions montrées d'abord ; les autres se déplient.
+  static const _shown = 4;
+  bool _all = false;
+
+  String get typeId => widget.typeId;
+  int get days => widget.days;
+
+  @override
+  Widget build(BuildContext context) {
     final stats = ref.watch(formStatsProvider((typeId: typeId, days: days)));
     final s = stats.value;
     if (s == null) {
@@ -174,10 +182,21 @@ class _FormStats extends ConsumerWidget {
           style: text.bodyMedium,
         ),
         const SizedBox(height: Space.sm),
-        for (final f in (s['fields'] as List).cast<Map<String, dynamic>>()) ...[
+        for (final f in (s['fields'] as List).cast<Map<String, dynamic>>().take(
+          _all ? 1 << 20 : _shown,
+        )) ...[
           _FieldCard(field: f, total: n),
           const SizedBox(height: Space.sm),
         ],
+        if ((s['fields'] as List).length > _shown)
+          TextButton(
+            onPressed: () => setState(() => _all = !_all),
+            child: Text(
+              _all
+                  ? 'Voir moins'
+                  : 'Voir les ${(s['fields'] as List).length} questions',
+            ),
+          ),
       ],
     );
   }

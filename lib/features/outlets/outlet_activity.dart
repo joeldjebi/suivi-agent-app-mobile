@@ -11,6 +11,8 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
+import 'outlet_widgets.dart' show FicheSection, PhotoThumb;
+import 'outlets_controller.dart' show outletProvider;
 import 'visit_forms.dart';
 
 /// Visite d'un point de vente (mission ou visite libre), la plus récente d'abord.
@@ -23,9 +25,13 @@ class OutletVisitEntry {
     required this.at,
     required this.status,
     this.missionId,
+    this.photoId,
   });
 
   final String id;
+
+  /// Première photo de la visite (miniature).
+  final String? photoId;
 
   /// null : visite libre (sans mission).
   final String? missionId;
@@ -45,6 +51,7 @@ class OutletVisitEntry {
     agent: j['agent'] as String? ?? '',
     at: DateTime.parse(j['submittedAt'] as String).toLocal(),
     status: j['status'] as String? ?? 'accepted',
+    photoId: j['photoId'] as String?,
   );
 }
 
@@ -100,7 +107,28 @@ final outletReadingsProvider = FutureProvider.autoDispose
       ],
     );
 
-/// Fiche : le dernier relevé de chaque produit (nos produits d'abord, puis la concurrence).
+/// Ruptures d'abord, puis nos produits, puis la concurrence.
+List<ProductReading> _ordered(List<ProductReading> list) =>
+    [...list]..sort((a, b) {
+      final out = (a.presence == false ? 0 : 1) - (b.presence == false ? 0 : 1);
+      if (out != 0) return out;
+      final own = (a.product.own ? 0 : 1) - (b.product.own ? 0 : 1);
+      return own != 0 ? own : a.product.label.compareTo(b.product.label);
+    });
+
+/// « 18 produits · 12 en rupture · relevé le 16 oct. »
+String readingsHeadline(List<ProductReading> list) {
+  final out = list.where((r) => r.presence == false).length;
+  final last = list.map((r) => r.at).reduce((a, b) => a.isAfter(b) ? a : b);
+  return [
+    '${list.length} produit${list.length > 1 ? 's' : ''}',
+    if (out > 0) '$out en rupture' else 'aucune rupture',
+    'relevé le ${formatShortDate(last)}',
+  ].join(' · ');
+}
+
+/// Fiche : le dernier relevé de chaque produit. Résumé, les 5 premiers (ruptures d'abord), et
+/// « Voir tout » vers la page des relevés.
 class OutletProductsSection extends ConsumerWidget {
   const OutletProductsSection({super.key, required this.outletId});
 
@@ -109,43 +137,134 @@ class OutletProductsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final readings = ref.watch(outletReadingsProvider(outletId));
-    final text = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
     final list = readings.value;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionHeader('Produits relevés'),
-        if (list == null && readings.isLoading)
-          const Padding(
-            padding: EdgeInsets.all(Space.lg),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (list == null)
-          Text(
-            'Relevés indisponibles hors connexion.',
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          )
-        else if (list.isEmpty)
-          SurfaceCard(
-            child: Text(
-              'Aucun relevé pour le moment : faites une visite pour noter la présence, le stock et le prix des produits.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          )
-        else
-          SurfaceCard(
-            padding: EdgeInsets.zero,
-            child: Column(
+    if (list == null) {
+      return FicheSection(
+        title: 'Produits relevés',
+        rows: const [],
+        empty: readings.isLoading
+            ? 'Chargement…'
+            : 'Relevés indisponibles hors connexion.',
+      );
+    }
+    final ordered = _ordered(list);
+    return FicheSection(
+      title: 'Produits relevés',
+      summary: list.isEmpty ? null : readingsHeadline(list),
+      empty:
+          'Aucun relevé pour le moment : faites une visite avec un formulaire de relevé pour noter la présence, le stock et le prix des produits.',
+      rows: [
+        for (final r in ordered.take(FicheSection.shown))
+          _ReadingRow(reading: r),
+      ],
+      seeAllLabel: 'Voir les ${list.length} produits',
+      onSeeAll: list.length > FicheSection.shown
+          ? () => context.push('/outlets/$outletId/products')
+          : null,
+    );
+  }
+}
+
+enum _ReadingFilter { all, out, own, competitor }
+
+/// Tous les produits relevés d'un point de vente, avec un filtre : en rupture, nos produits,
+/// la concurrence.
+class OutletReadingsScreen extends ConsumerStatefulWidget {
+  const OutletReadingsScreen({super.key, required this.outletId});
+
+  final String outletId;
+
+  @override
+  ConsumerState<OutletReadingsScreen> createState() =>
+      _OutletReadingsScreenState();
+}
+
+class _OutletReadingsScreenState extends ConsumerState<OutletReadingsScreen> {
+  _ReadingFilter _filter = _ReadingFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
+    final readings = ref.watch(outletReadingsProvider(widget.outletId));
+    final list = readings.value ?? const <ProductReading>[];
+    final name = ref.watch(outletProvider(widget.outletId)).value?.outlet.name;
+    final text = Theme.of(context).textTheme;
+    final shown = _ordered(list).where(
+      (r) => switch (_filter) {
+        _ReadingFilter.all => true,
+        _ReadingFilter.out => r.presence == false,
+        _ReadingFilter.own => r.product.own,
+        _ReadingFilter.competitor => !r.product.own,
+      },
+    );
+    return Scaffold(
+      appBar: AppBar(title: Text(name ?? 'Produits relevés')),
+      body: RefreshIndicator(
+        onRefresh: () =>
+            ref.refresh(outletReadingsProvider(widget.outletId).future),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Space.sm,
+            Space.page,
+            Space.xxxl,
+          ),
+          children: [
+            if (list.isNotEmpty) ...[
+              Text(readingsHeadline(list), style: text.bodyMedium),
+              const SizedBox(height: Space.sm),
+            ],
+            // Toutes les pastilles visibles (pas de défilement caché).
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
               children: [
-                for (final (i, r) in list.indexed) ...[
-                  if (i > 0) const Divider(height: 1, indent: 52),
-                  _ReadingRow(reading: r),
-                ],
+                for (final (f, label) in [
+                  (_ReadingFilter.all, 'Tous (${list.length})'),
+                  (
+                    _ReadingFilter.out,
+                    'En rupture (${list.where((r) => r.presence == false).length})',
+                  ),
+                  (
+                    _ReadingFilter.own,
+                    'Nos produits (${list.where((r) => r.product.own).length})',
+                  ),
+                  (
+                    _ReadingFilter.competitor,
+                    'Concurrents (${list.where((r) => !r.product.own).length})',
+                  ),
+                ])
+                  ChoiceChip(
+                    showCheckmark: false,
+                    label: Text(label),
+                    selected: _filter == f,
+                    onSelected: (_) => setState(() => _filter = f),
+                  ),
               ],
             ),
-          ),
-      ],
+            const SizedBox(height: Space.sm),
+            if (shown.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(Space.xl),
+                child: Text(
+                  readings.isLoading ? 'Chargement…' : 'Aucun produit ici.',
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              SurfaceCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (final (i, r) in shown.indexed) ...[
+                      if (i > 0) const Divider(height: 1, indent: 52),
+                      _ReadingRow(reading: r),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -241,8 +360,8 @@ class _ReadingRow extends StatelessWidget {
   }
 }
 
-/// Fiche : les dernières visites (missions et visites libres), rejetées signalées ; chacune
-/// s'ouvre, et « Tout voir » mène à l'historique complet.
+/// Fiche : les 5 dernières visites (missions et visites libres), rejetées signalées ; chacune
+/// s'ouvre, et « Voir tout » mène à l'historique complet.
 class OutletVisitsSection extends StatelessWidget {
   const OutletVisitsSection({
     super.key,
@@ -253,73 +372,47 @@ class OutletVisitsSection extends StatelessWidget {
   final String outletId;
   final List<OutletVisitEntry> visits;
 
-  /// Visites montrées sur la fiche.
-  static const shown = 5;
-
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          'Dernières visites',
-          trailing: visits.isEmpty
-              ? null
-              : TextButton(
-                  onPressed: () => context.push('/outlets/$outletId/visits'),
-                  child: const Text('Tout voir'),
-                ),
-        ),
-        if (visits.isEmpty)
-          SurfaceCard(
-            child: Text(
-              'Pas encore de visite.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          )
-        else
-          SurfaceCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (final (i, v) in visits.take(shown).indexed) ...[
-                  if (i > 0) const Divider(height: 1, indent: 52),
-                  ListTile(
-                    leading: Icon(
-                      v.rejected
-                          ? Icons.block_rounded
-                          : Icons.assignment_turned_in_outlined,
-                      color: v.rejected
-                          ? toneColor(context, Tone.danger)
-                          : scheme.primary,
-                    ),
-                    title: Text(
-                      v.missionId == null
-                          ? 'Visite libre · ${v.formName}'
-                          : v.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      [
-                        '${formatShortDate(v.at)} à ${formatTime(v.at)}',
-                        if (v.agent.isNotEmpty) v.agent,
-                        if (v.rejected) 'rejetée',
-                      ].join(' · '),
-                      style: v.rejected
-                          ? TextStyle(color: toneColor(context, Tone.danger))
-                          : null,
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => context.push('/visits/${v.id}'),
+    final danger = toneColor(context, Tone.danger);
+    final n = visits.length;
+    return FicheSection(
+      title: 'Dernières visites',
+      summary: n == 0
+          ? null
+          : '${n >= 30 ? '30+' : n} visite${n > 1 ? 's' : ''} · dernière le ${formatShortDate(visits.first.at)}',
+      empty: 'Pas encore de visite : touchez « Visiter » en haut de la fiche.',
+      rows: [
+        for (final v in visits.take(FicheSection.shown))
+          ListTile(
+            leading: v.photoId != null && !v.rejected
+                ? PhotoThumb(id: v.photoId!, label: 'Photo de la visite')
+                : Icon(
+                    v.rejected
+                        ? Icons.block_rounded
+                        : Icons.assignment_turned_in_outlined,
+                    color: v.rejected ? danger : scheme.primary,
                   ),
-                ],
-              ],
+            title: Text(
+              v.missionId == null ? v.formName : v.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
+            subtitle: Text(
+              [
+                '${formatShortDate(v.at)} à ${formatTime(v.at)}',
+                if (v.agent.isNotEmpty) v.agent,
+                if (v.rejected) 'rejetée',
+              ].join(' · '),
+              style: v.rejected ? TextStyle(color: danger) : null,
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/visits/${v.id}'),
           ),
       ],
+      seeAllLabel: 'Voir toutes les visites',
+      onSeeAll: n > 0 ? () => context.push('/outlets/$outletId/visits') : null,
     );
   }
 }

@@ -798,3 +798,41 @@ class NoReadingsRepo extends FormStatsRepo {
     _ => {'products': <dynamic>[], 'categories': <dynamic>[]},
   };
 }
+
+/// Fiche chargée : 8 produits relevés (3 en rupture, 2 concurrents) et 7 changements de statut.
+class BusyOutletRepo extends ActivityRepo {
+  BusyOutletRepo() {
+    Map<String, dynamic> reading(
+      String id,
+      String name, {
+      bool own = true,
+      bool out = false,
+    }) => {
+      'productId': id,
+      'name': name,
+      'format': '33 cl',
+      'own': own,
+      'unit': 'Bouteille',
+      'packagings': [
+        {'name': 'Casier', 'units': 12},
+      ],
+      'last': {
+        'at': '2026-10-12T10:00:00.000Z',
+        'presence': !out,
+        'stock': out ? null : 24,
+        'price': out ? null : 300,
+      },
+      'stockHistory': <dynamic>[],
+    };
+    outletReadingsJson = [
+      reading('a', 'Alpha'),
+      reading('b', 'Bravo'),
+      reading('c', 'Charlie', out: true),
+      reading('d', 'Delta'),
+      reading('e', 'Echo', out: true),
+      reading('f', 'Foxtrot'),
+      reading('x', 'Xray', own: false, out: true),
+      reading('y', 'Yankee', own: false),
+    ];
+  }
+}

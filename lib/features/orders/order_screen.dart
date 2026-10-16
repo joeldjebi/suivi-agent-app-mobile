@@ -10,7 +10,8 @@ import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
-import '../outlets/outlet_widgets.dart' show openOutlet;
+import '../outlets/outlet_widgets.dart' show FicheSection, openOutlet;
+import '../outlets/outlets_controller.dart' show outletProvider;
 import 'orders.dart';
 
 /// Pastille du statut d'une commande : icône et libellé.
@@ -309,7 +310,25 @@ class _ReasonSheetState extends State<_ReasonSheet> {
   );
 }
 
-/// Fiche d'un point de vente : ses dernières commandes (« Commander » est en tête de fiche).
+/// Ligne d'une commande : référence, montant, date, agent, statut ; s'ouvre au toucher.
+class OrderTile extends StatelessWidget {
+  const OrderTile({super.key, required this.order});
+
+  final OrderItem order;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    title: Text(
+      '${order.reference} · ${formatMoney(order.total, order.currency)}',
+    ),
+    subtitle: Text('${formatShortDate(order.takenAt)} · ${order.agentName}'),
+    trailing: OrderStatusChip(order.status),
+    onTap: () => context.push('/orders/${order.id}'),
+  );
+}
+
+/// Fiche d'un point de vente : les 5 dernières commandes (« Commander » est en tête de fiche),
+/// et « Voir tout » vers toutes ses commandes.
 class OutletOrdersSection extends ConsumerWidget {
   const OutletOrdersSection({super.key, required this.outletId});
 
@@ -319,46 +338,94 @@ class OutletOrdersSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(meProvider);
     final orders = ref.watch(outletOrdersProvider(outletId)).value;
-    final text = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          'Commandes',
-          trailing: orders != null && orders.total > orders.items.length
-              ? Text('${orders.total} au total', style: text.bodySmall)
-              : null,
-        ),
-        if (orders != null && orders.items.isEmpty)
-          Text(
-            me.isTeamLead
-                ? 'Pas encore de commande.'
-                : 'Pas encore de commande : touchez « Commander » en haut de la fiche.',
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          )
-        else if (orders != null)
-          SurfaceCard(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (final (i, o) in orders.items.indexed) ...[
-                  if (i > 0) const Divider(height: 1),
-                  ListTile(
-                    title: Text(
-                      '${o.reference} · ${formatMoney(o.total, o.currency)}',
-                    ),
-                    subtitle: Text(
-                      '${formatShortDate(o.takenAt)} · ${o.agentName}',
-                    ),
-                    trailing: OrderStatusChip(o.status),
-                    onTap: () => context.push('/orders/${o.id}'),
-                  ),
-                ],
-              ],
-            ),
-          ),
+    final items = orders?.items ?? const <OrderItem>[];
+    final open = items.where((o) => o.status == OrderStatus.taken).length;
+    return FicheSection(
+      title: 'Commandes',
+      summary: orders == null || orders.total == 0
+          ? null
+          : [
+              '${orders.total} commande${orders.total > 1 ? 's' : ''}',
+              if (open > 0) '$open à livrer',
+              'dernière le ${formatShortDate(items.first.takenAt)}',
+            ].join(' · '),
+      empty: orders == null
+          ? 'Chargement…'
+          : me.isTeamLead
+          ? 'Pas encore de commande.'
+          : 'Pas encore de commande : touchez « Commander » en haut de la fiche.',
+      rows: [
+        for (final o in items.take(FicheSection.shown)) OrderTile(order: o),
       ],
+      seeAllLabel: 'Voir les ${orders?.total ?? 0} commandes',
+      onSeeAll: (orders?.total ?? 0) > FicheSection.shown
+          ? () => context.push('/outlets/$outletId/orders')
+          : null,
+    );
+  }
+}
+
+/// Toutes les commandes d'un point de vente (100 dernières), les plus récentes d'abord.
+final allOutletOrdersProvider = FutureProvider.autoDispose
+    .family<List<OrderItem>, String>((ref, outletId) async {
+      final json = await ref
+          .read(repositoryProvider)
+          .orders(outletId: outletId, limit: 100);
+      return [
+        for (final o in json['items'] as List)
+          OrderItem.fromJson(o as Map<String, dynamic>),
+      ];
+    });
+
+class OutletOrdersScreen extends ConsumerWidget {
+  const OutletOrdersScreen({super.key, required this.outletId});
+
+  final String outletId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orders = ref.watch(allOutletOrdersProvider(outletId));
+    final list = orders.value;
+    final name = ref.watch(outletProvider(outletId)).value?.outlet.name;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(name == null ? 'Commandes' : 'Commandes · $name'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => ref.refresh(allOutletOrdersProvider(outletId).future),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            Space.page,
+            Space.sm,
+            Space.page,
+            Space.xxxl,
+          ),
+          children: [
+            if (orders.hasError && list == null)
+              InfoBanner(
+                icon: Icons.wifi_off_rounded,
+                message: ApiException.from(orders.error!).message,
+              )
+            else if (list == null)
+              const Padding(
+                padding: EdgeInsets.all(Space.xxl),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              SurfaceCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (final (i, o) in list.indexed) ...[
+                      if (i > 0) const Divider(height: 1),
+                      OrderTile(order: o),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

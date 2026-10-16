@@ -11,6 +11,7 @@ import '../../core/format.dart';
 import '../../core/models.dart';
 import '../../design/components.dart';
 import '../../widgets/common.dart';
+import '../../widgets/photo_viewer.dart';
 import '../outlets/outlet_models.dart';
 import '../outlets/outlet_widgets.dart';
 import '../outlets/outlets_controller.dart';
@@ -693,14 +694,31 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
           children: [
             widget.label,
             if (photo != null && photo.file.existsSync()) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: Image.file(
-                    photo.file,
-                    fit: BoxFit.cover,
-                    semanticLabel: 'Photo prise',
+              // Un toucher l'ouvre en grand, pour vérifier qu'elle est nette.
+              Semantics(
+                container: true,
+                button: true,
+                label: 'Photo prise, ouvrir en grand',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  onTap: () => showPhoto(
+                    context,
+                    image: FileImage(photo.file),
+                    title: 'Photo prise',
+                    caption: 'Prise à ${formatTime(photo.takenAt)}',
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.file(photo.file, fit: BoxFit.cover),
+                          const ExpandBadge(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

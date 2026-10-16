@@ -26,6 +26,7 @@ import 'features/shell/live_updates.dart';
 import 'features/missions/mission_form_screen.dart';
 import 'features/orders/order_editor_screen.dart';
 import 'features/orders/order_screen.dart';
+import 'features/outlets/outlet_activity.dart' show OutletReadingsScreen;
 import 'features/outlets/outlet_visits.dart';
 import 'features/outlets/suggestions.dart';
 import 'features/missions/mission_outlets_screen.dart';
@@ -117,6 +118,22 @@ final _outletRoutes = GoRoute(
         GoRoute(
           path: 'edit',
           builder: (_, s) => OutletEditLoader(id: s.pathParameters['id']!),
+        ),
+        // Pages « Voir tout » de la fiche.
+        GoRoute(
+          path: 'products',
+          builder: (_, s) =>
+              OutletReadingsScreen(outletId: s.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'orders',
+          builder: (_, s) =>
+              OutletOrdersScreen(outletId: s.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: 'history',
+          builder: (_, s) =>
+              OutletHistoryScreen(outletId: s.pathParameters['id']!),
         ),
         // Historique des visites du point de vente.
         GoRoute(

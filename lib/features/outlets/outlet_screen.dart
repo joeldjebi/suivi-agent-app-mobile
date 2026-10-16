@@ -231,82 +231,81 @@ class OutletScreen extends ConsumerWidget {
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
-      const SizedBox(height: Space.lg),
-      SurfaceCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Info('Gérant', o.managerName),
-            _Info('Téléphone', o.phone == null ? null : displayPhone(o.phone!)),
-            _Info('Repère', o.landmark),
-            for (final f in fields.where((f) => f.type != FieldType.photo))
-              _Info(f.label, _value(f, o.data[f.key])),
-            _Info('Ajouté par', o.createdBy),
-          ],
-        ),
-      ),
-      for (final f in fields.where(
-        (f) => f.type == FieldType.photo && o.data[f.key] is String,
-      )) ...[
-        const SizedBox(height: Space.md),
-        Text(f.label, style: text.titleSmall),
-        const SizedBox(height: Space.xs),
-        RemotePhoto(id: o.data[f.key] as String, label: f.label),
+      // Ce qui sert le plus sur le terrain d'abord ; chaque section : 5 lignes et « Voir tout ».
+      if (ref.watch(meProvider).hasProductAudits) ...[
+        const SizedBox(height: Space.lg),
+        OutletProductsSection(outletId: o.id),
       ],
       if (ref.watch(meProvider).hasOrders) ...[
         const SizedBox(height: Space.lg),
         OutletOrdersSection(outletId: o.id),
       ],
-      if (ref.watch(meProvider).hasProductAudits) ...[
-        const SizedBox(height: Space.lg),
-        OutletProductsSection(outletId: o.id),
-      ],
       const SizedBox(height: Space.lg),
       OutletVisitsSection(outletId: o.id, visits: detail.visits),
-      const SizedBox(height: Space.xl),
-      Text('Historique du statut', style: text.titleMedium),
-      const SizedBox(height: Space.sm),
-      for (final h in detail.history)
-        Padding(
-          padding: const EdgeInsets.only(bottom: Space.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      const SizedBox(height: Space.lg),
+      // Informations de la fiche : repliées, elles ne chargent pas l'écran.
+      SurfaceCard(
+        padding: EdgeInsets.zero,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            shape: const Border(),
+            collapsedShape: const Border(),
+            tilePadding: const EdgeInsets.symmetric(horizontal: Space.md),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              Space.md,
+              0,
+              Space.md,
+              Space.md,
+            ),
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            leading: Icon(Icons.info_outline_rounded, color: scheme.primary),
+            title: const Text('Informations'),
+            subtitle: Text(
+              [
+                if (o.managerName != null) o.managerName!,
+                if (o.phone != null) displayPhone(o.phone!),
+                if (o.landmark != null) o.landmark!,
+              ].join(' · ').ifEmpty('Gérant, téléphone, repère…'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: LucideIcon(h.to.icon, size: 18, color: h.to.color),
+              _Info('Gérant', o.managerName),
+              _Info(
+                'Téléphone',
+                o.phone == null ? null : displayPhone(o.phone!),
               ),
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      h.from == null
-                          ? 'Ajouté · ${h.to.label}'
-                          : h.from == h.to
-                          ? 'Note'
-                          : '${h.from!.label} → ${h.to.label}',
-                      style: text.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (h.comment != null) Text('« ${h.comment} »'),
-                    Text(
-                      [
-                        '${formatShortDate(h.at)} à ${formatTime(h.at)}',
-                        ?h.user,
-                      ].join(' · '),
-                      style: text.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _Info('Repère', o.landmark),
+              for (final f in fields.where((f) => f.type != FieldType.photo))
+                _Info(f.label, _value(f, o.data[f.key])),
+              _Info('Ajouté par', o.createdBy),
+              for (final f in fields.where(
+                (f) => f.type == FieldType.photo && o.data[f.key] is String,
+              )) ...[
+                const SizedBox(height: Space.md),
+                Text(f.label, style: text.titleSmall),
+                const SizedBox(height: Space.xs),
+                RemotePhoto(id: o.data[f.key] as String, label: f.label),
+              ],
             ],
           ),
         ),
+      ),
+      const SizedBox(height: Space.lg),
+      FicheSection(
+        title: 'Historique du statut',
+        summary:
+            '${o.status.label} depuis le ${formatShortDate(o.statusChangedAt.toLocal())}',
+        rows: [
+          for (final h in detail.history.take(FicheSection.shown))
+            StatusChangeRow(change: h),
+        ],
+        seeAllLabel: 'Voir tout l’historique (${detail.history.length})',
+        onSeeAll: detail.history.length > FicheSection.shown
+            ? () => context.push('/outlets/${o.id}/history')
+            : null,
+      ),
     ];
   }
 
@@ -635,6 +634,86 @@ class _QuickAction extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
+}
+
+/// Un changement de statut : de quoi à quoi, le commentaire, quand et par qui.
+class StatusChangeRow extends StatelessWidget {
+  const StatusChangeRow({super.key, required this.change});
+
+  final OutletChange change;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final h = change;
+    return ListTile(
+      leading: LucideIcon(h.to.icon, size: 20, color: h.to.color),
+      title: Text(
+        h.from == null
+            ? 'Ajouté · ${h.to.label}'
+            : h.from == h.to
+            ? 'Note'
+            : '${h.from!.label} → ${h.to.label}',
+        style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (h.comment != null) Text('« ${h.comment} »'),
+          Text(
+            [
+              '${formatShortDate(h.at)} à ${formatTime(h.at)}',
+              ?h.user,
+            ].join(' · '),
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tout l'historique du statut d'un point de vente.
+class OutletHistoryScreen extends ConsumerWidget {
+  const OutletHistoryScreen({super.key, required this.outletId});
+
+  final String outletId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detail = ref.watch(outletProvider(outletId)).value;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Historique du statut')),
+      body: detail == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.page,
+                Space.sm,
+                Space.page,
+                Space.xxxl,
+              ),
+              children: [
+                SurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (final (i, h) in detail.history.indexed) ...[
+                        if (i > 0) const Divider(height: 1, indent: 52),
+                        StatusChangeRow(change: h),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

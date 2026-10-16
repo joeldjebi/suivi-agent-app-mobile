@@ -26,9 +26,13 @@ class VisitSummary {
     this.rejectedReason,
     this.distance,
     this.readings = 0,
+    this.photoId,
   });
 
   final String id;
+
+  /// Première photo de la visite (miniature).
+  final String? photoId;
 
   /// null : visite libre (sans mission).
   final String? missionId;
@@ -61,6 +65,7 @@ class VisitSummary {
     rejectedReason: j['rejectedReason'] as String?,
     distance: (j['distance'] as num?)?.toInt(),
     // Liste : le nombre de produits relevés ; détail : les relevés eux-mêmes.
+    photoId: j['photoId'] as String?,
     readings: switch (j['readings']) {
       final num n => n.toInt(),
       final List l => l.length,
@@ -275,10 +280,14 @@ class VisitTile extends StatelessWidget {
     final danger = toneColor(context, Tone.danger);
     final v = visit;
     return ListTile(
-      leading: Icon(
-        v.rejected ? Icons.block_rounded : Icons.assignment_turned_in_outlined,
-        color: v.rejected ? danger : scheme.primary,
-      ),
+      leading: v.photoId != null && !v.rejected
+          ? PhotoThumb(id: v.photoId!, label: 'Photo de la visite')
+          : Icon(
+              v.rejected
+                  ? Icons.block_rounded
+                  : Icons.assignment_turned_in_outlined,
+              color: v.rejected ? danger : scheme.primary,
+            ),
       title: Text(v.label, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         [

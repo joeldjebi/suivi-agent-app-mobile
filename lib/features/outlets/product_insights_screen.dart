@@ -31,6 +31,20 @@ final _periodProvider = NotifierProvider<_PeriodController, int>(
   _PeriodController.new,
 );
 
+/// Onglet de la page : ventes, visites (formulaires), produits (relevés).
+enum StatsTab { sales, visits, products }
+
+class _TabController extends Notifier<StatsTab?> {
+  @override
+  StatsTab? build() => null;
+
+  void set(StatsTab tab) => state = tab;
+}
+
+final _tabProvider = NotifierProvider<_TabController, StatsTab?>(
+  _TabController.new,
+);
+
 /// Ventes : nos produits ou ceux de la concurrence.
 class _OwnController extends Notifier<bool> {
   @override
@@ -172,7 +186,7 @@ class ProductInsightsScreen extends ConsumerWidget {
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ],
-              _ => _content(context, ref, data.value!, own: own),
+              _ => _content(context, ref, data.value!, own: own, days: days),
             },
           ],
         ),
@@ -185,52 +199,74 @@ class ProductInsightsScreen extends ConsumerWidget {
     WidgetRef ref,
     ProductInsights d, {
     required bool own,
+    required int days,
   }) {
-    final leader = ref.watch(meProvider).isTeamLead;
+    final me = ref.watch(meProvider);
     final r = d.readings;
-    // Aucun relevé produit sur la période : rien à montrer, seulement le moyen d'en avoir.
-    final noReadings = r != null && (r.overview['visits'] as num? ?? 0) == 0;
+    // Les onglets que la formule permet, dans l'ordre de l'agent : vendre, visiter, observer.
+    final tabs = {
+      if (d.orders != null) StatsTab.sales: 'Ventes',
+      if (me.hasMissions || me.hasOutlets) StatsTab.visits: 'Visites',
+      if (r != null) StatsTab.products: 'Produits',
+    };
+    if (tabs.isEmpty) return const [];
+    final chosen = ref.watch(_tabProvider);
+    final tab = tabs.containsKey(chosen) ? chosen! : tabs.keys.first;
+    final visits = ref.watch(formUsageProvider(days)).value;
     return [
-      if (d.orders != null) ...[
-        SectionHeader(leader ? 'Ventes de l’équipe' : 'Mes ventes'),
-        const _Caption('D’après les commandes livrées ou payées.'),
-        ..._orders(context, d.orders!),
-      ],
-      if (d.orders != null || (r != null && !noReadings)) ...[
-        const SectionHeader('Ventes par produit'),
-        AppSegmented<bool>(
-          segments: const {true: 'Nos produits', false: 'Concurrents'},
-          selected: own,
-          onChanged: (v) => ref.read(_ownProvider.notifier).set(v),
+      _Headline(insights: d, visits: visits, days: days),
+      const SizedBox(height: Space.md),
+      if (tabs.length > 1) ...[
+        AppSegmented<StatsTab>(
+          segments: tabs,
+          selected: tab,
+          onChanged: (t) => ref.read(_tabProvider.notifier).set(t),
         ),
         const SizedBox(height: Space.sm),
-        ..._sales(d, own: own),
       ],
-      // Les formulaires créés par la structure, champ par champ.
-      if (ref.watch(meProvider).hasMissions || ref.watch(meProvider).hasOutlets)
-        FormStatsSection(days: ref.watch(_periodProvider)),
-      if (r != null) ...[
-        const SectionHeader('Constaté en visite (relevés)'),
-        const _Caption(
-          'D’après les relevés produits des visites : ce que l’agent constate dans les commerces (présence, stock, prix, revente), pour nos produits et ceux des concurrents.',
-        ),
-        if (noReadings)
-          const InfoBanner(
-            icon: Icons.info_outline_rounded,
-            tone: Tone.info,
-            message:
-                'Aucun relevé produit sur la période. Pour suivre les ruptures et la revente en rayon, la structure ajoute un champ « Relevé par produit » (mesures Présence, Stock, Prix, Vendu) au formulaire de visite.',
-          )
-        else
-          ..._readings(context, ref, r, own: own),
-      ],
+      ...switch (tab) {
+        StatsTab.sales => [
+          const _Caption('D’après les commandes livrées ou payées.'),
+          ..._orders(context, d.orders!),
+          const SectionHeader('Nos produits vendus'),
+          ..._sales(d, own: true),
+        ],
+        StatsTab.visits => [FormStatsSection(days: days)],
+        StatsTab.products => [
+          const _Caption(
+            'D’après les relevés de visite : ce que l’agent voit dans les commerces, pour nos produits et ceux des concurrents.',
+          ),
+          if ((r!.overview['visits'] as num? ?? 0) == 0)
+            const InfoBanner(
+              icon: Icons.info_outline_rounded,
+              tone: Tone.info,
+              message:
+                  'Aucun relevé produit sur la période. Pour suivre les ruptures et les prix, faites une visite avec un formulaire qui contient un « Relevé par produit ».',
+            )
+          else ...[
+            ..._readings(context, ref, r, own: own),
+            const SectionHeader('Revendu par les commerces'),
+            AppSegmented<bool>(
+              segments: const {true: 'Nos produits', false: 'Concurrents'},
+              selected: own,
+              onChanged: (v) => ref.read(_ownProvider.notifier).set(v),
+            ),
+            const SizedBox(height: Space.sm),
+            ..._sales(d, own: own, fromReadings: true),
+          ],
+        ],
+      },
     ];
   }
 
   /// Ventes par produit. Nos produits : nos commandes livrées ou payées (à défaut, la revente
   /// relevée en visite) ; concurrents : leur revente relevée en visite.
-  List<Widget> _sales(ProductInsights d, {required bool own}) {
-    final fromOrders = own && d.orders != null;
+  List<Widget> _sales(
+    ProductInsights d, {
+    required bool own,
+    bool fromReadings = false,
+  }) {
+    final fromOrders = own && d.orders != null && !fromReadings;
     final products = fromOrders
         ? [
             for (final p in d.orders!.products)
@@ -258,7 +294,8 @@ class ProductInsightsScreen extends ConsumerWidget {
       ];
     }
     return [
-      _Caption(source),
+      // Ventes : la source est déjà dite en tête de l'onglet.
+      if (!fromOrders) _Caption(source),
       if (ranked.best.isNotEmpty)
         _SalesCard(
           title: fromOrders ? 'Les plus commandés' : 'Les plus vendus',
@@ -296,7 +333,7 @@ class ProductInsightsScreen extends ConsumerWidget {
         childAspectRatio: 1.45,
         children: [
           _Kpi(
-            label: 'Ventes (commandes)',
+            label: 'Vendu',
             value: formatMoney(
               amountOf('delivered') + amountOf('paid'),
               currency,
@@ -383,76 +420,75 @@ class ProductInsightsScreen extends ConsumerWidget {
           message: 'Aucune rupture en cours sur la période.',
         )
       else
-        SurfaceCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (i, r) in ruptures.take(30).indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 52),
-                ListTile(
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: danger.withValues(alpha: 0.12),
-                    child: Icon(Icons.close_rounded, size: 18, color: danger),
-                  ),
-                  title: Text(
-                    [r['productName'], ?r['format']].join(' '),
-                    style: text.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    [
-                      r['outletName'],
-                      ?r['zone'],
-                      formatShortDate(
-                        DateTime.parse(r['since'] as String).toLocal(),
-                      ),
-                    ].join(' · '),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => openOutlet(context, r['outletId'] as String),
+        _TopList(
+          more: 'Voir les ${ruptures.length} ruptures',
+          rows: [
+            for (final r in ruptures)
+              ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: danger.withValues(alpha: 0.12),
+                  child: Icon(Icons.close_rounded, size: 18, color: danger),
                 ),
-              ],
-            ],
-          ),
+                title: Text(
+                  [r['productName'], ?r['format']].join(' '),
+                  style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  [
+                    r['outletName'],
+                    ?r['zone'],
+                    formatShortDate(
+                      DateTime.parse(r['since'] as String).toLocal(),
+                    ),
+                  ].join(' · '),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => openOutlet(context, r['outletId'] as String),
+              ),
+          ],
         ),
       if (byProduct.isNotEmpty) ...[
-        const SectionHeader('Taux de rupture par produit'),
-        SurfaceCard(
-          child: Column(
-            children: [
-              for (final p in byProduct) ...[
-                Row(
-                  children: [
-                    _Dot(own: p['own'] as bool),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        [p['name'], ?p['format']].join(' '),
-                        overflow: TextOverflow.ellipsis,
+        const SectionHeader('Produits les plus souvent en rupture'),
+        _TopList(
+          more: 'Voir les ${byProduct.length} produits',
+          padded: true,
+          rows: [
+            for (final p in [
+              ...byProduct,
+            ]..sort((a, b) => (b['rate'] as num).compareTo(a['rate'] as num)))
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      _Dot(own: p['own'] as bool),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          [p['name'], ?p['format']].join(' '),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${p['rate']} % (${p['stockouts']}/${p['checked']})',
-                      style: text.bodyMedium?.copyWith(
-                        color: (p['rate'] as num) >= 20 ? danger : null,
-                        fontWeight: (p['rate'] as num) >= 20
-                            ? FontWeight.w700
-                            : null,
+                      Text(
+                        '${p['rate']} % (${p['stockouts']}/${p['checked']})',
+                        style: text.bodyMedium?.copyWith(
+                          color: (p['rate'] as num) >= 20 ? danger : null,
+                          fontWeight: (p['rate'] as num) >= 20
+                              ? FontWeight.w700
+                              : null,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ThinProgress(
-                  value: (p['rate'] as num) / 100,
-                  color: (p['rate'] as num) >= 20 ? danger : _own,
-                ),
-                const SizedBox(height: Space.sm),
-              ],
-            ],
-          ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ThinProgress(
+                    value: (p['rate'] as num) / 100,
+                    color: (p['rate'] as num) >= 20 ? danger : _own,
+                  ),
+                  const SizedBox(height: Space.sm),
+                ],
+              ),
+          ],
         ),
       ],
       if (categories.isNotEmpty) ...[
@@ -653,4 +689,147 @@ class _Caption extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// En haut de la page : ce qu'il faut retenir de la période, en phrases courtes.
+class _Headline extends StatelessWidget {
+  const _Headline({
+    required this.insights,
+    required this.visits,
+    required this.days,
+  });
+
+  final ProductInsights insights;
+
+  /// Formulaires remplis sur la période (null : en cours de chargement).
+  final List<FormUsage>? visits;
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final o = insights.orders?.summary;
+    num paid = 0, sold = 0;
+    if (o != null) {
+      final by = (o['byStatus'] as Map).cast<String, dynamic>();
+      paid = (by['paid'] as Map)['amount'] as num;
+      sold = paid + ((by['delivered'] as Map)['amount'] as num);
+    }
+    final currency = o?['currency'] as String? ?? 'XOF';
+    final forms = visits?.fold<int>(0, (n, f) => n + f.submissions);
+    final r = insights.readings;
+    final ruptures = r == null ? null : (r.stockouts['outlets'] as List).length;
+    final lines = <(IconData, String)>[
+      if (o != null)
+        (
+          Icons.payments_outlined,
+          sold == 0
+              ? 'Aucune vente livrée ou payée'
+              : '${formatMoney(sold, currency)} vendus, dont ${formatMoney(paid, currency)} encaissés',
+        ),
+      if (forms != null)
+        (
+          Icons.assignment_turned_in_outlined,
+          forms == 0
+              ? 'Aucun formulaire envoyé'
+              : '$forms formulaire${forms > 1 ? 's' : ''} envoyé${forms > 1 ? 's' : ''}',
+        ),
+      if (ruptures != null)
+        (
+          Icons.remove_shopping_cart_outlined,
+          ruptures == 0
+              ? 'Aucune rupture repérée'
+              : '$ruptures rupture${ruptures > 1 ? 's' : ''} repérée${ruptures > 1 ? 's' : ''} en rayon',
+        ),
+    ];
+    return SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'En bref, sur $days jours',
+            style: text.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: Space.xs),
+          for (final (icon, line) in lines)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Icon(icon, size: 20, color: scheme.primary),
+                  const SizedBox(width: Space.sm),
+                  Expanded(child: Text(line, style: text.bodyLarge)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Une liste courte : les 5 premières lignes, puis « Voir les N … » déplie le reste sur place.
+class _TopList extends StatefulWidget {
+  const _TopList({required this.rows, required this.more, this.padded = false});
+
+  final List<Widget> rows;
+
+  /// « Voir les 12 ruptures »
+  final String more;
+
+  /// Lignes sans marge propre (barres) : la carte en ajoute une.
+  final bool padded;
+
+  @override
+  State<_TopList> createState() => _TopListState();
+}
+
+class _TopListState extends State<_TopList> {
+  static const _shown = 5;
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final rows = _all ? widget.rows : widget.rows.take(_shown).toList();
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, r) in rows.indexed) ...[
+            if (i > 0 && !widget.padded) const Divider(height: 1, indent: 52),
+            if (widget.padded)
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  Space.md,
+                  i == 0 ? Space.md : 0,
+                  Space.md,
+                  0,
+                ),
+                child: r,
+              )
+            else
+              r,
+          ],
+          if (widget.rows.length > _shown) ...[
+            const Divider(height: 1),
+            InkWell(
+              onTap: () => setState(() => _all = !_all),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  _all ? 'Voir moins' : widget.more,
+                  textAlign: TextAlign.center,
+                  style: text.titleSmall?.copyWith(color: scheme.primary),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

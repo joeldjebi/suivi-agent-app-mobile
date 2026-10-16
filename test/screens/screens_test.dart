@@ -923,15 +923,47 @@ void main() {
             await tester.pump(const Duration(milliseconds: 100));
           }
           await tester.scrollUntilVisible(
-            find.text('Tout voir'),
+            find.text('Voir toutes les visites'),
             200,
             scrollable: find.byType(Scrollable).first,
           );
-          await tester.tap(find.text('Tout voir'));
+          // Au milieu de l'écran : pas sous la barre d'onglets.
+          await tester.ensureVisible(find.text('Voir toutes les visites'));
+          await Scrollable.ensureVisible(
+            tester.element(find.text('Voir toutes les visites')),
+            alignment: 0.5,
+          );
+          await tester.pump();
+          await tester.tap(find.text('Voir toutes les visites'));
           for (var i = 0; i < 8; i++) {
             await tester.pump(const Duration(milliseconds: 100));
           }
           await tester.tap(find.textContaining('2 produits relevés'));
+        },
+      ),
+    );
+    testWidgets(
+      'fiche chargee',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+          repo: BusyOutletRepo(),
+        ),
+        '53-agent-fiche-sections',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -560),
+          );
         },
       ),
     );

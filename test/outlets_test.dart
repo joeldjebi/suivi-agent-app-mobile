@@ -137,6 +137,9 @@ void main() {
     await _tap(tester, find.text('Boutique Awa'));
     expect(find.text('Statut'), findsOneWidget);
     expect(find.text('Itinéraire'), findsOneWidget);
+    // Les informations de la fiche sont repliées : un toucher les ouvre.
+    expect(find.text('Possède un frigo'), findsNothing);
+    await _tap(tester, find.text('Informations'));
     expect(find.text('Possède un frigo'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Ajouté · Prospect'),
@@ -403,6 +406,8 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Statistiques de l’équipe'));
+    // Les relevés sont dans l'onglet « Produits ».
+    await _tap(tester, find.text('Produits'));
 
     await tester.scrollUntilVisible(
       find.text('21 %'),
@@ -626,7 +631,7 @@ void main() {
       200,
       scrollable: list,
     );
-    expect(find.text('Visite libre · Audit point de vente'), findsOneWidget);
+    expect(find.text('Audit point de vente'), findsWidgets);
     expect(find.textContaining('rejetée'), findsOneWidget);
     await _close(tester);
 
@@ -809,7 +814,7 @@ void main() {
     await _settle(tester);
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Boutique Awa'));
-    await _tap(tester, find.text('Tout voir'));
+    await _tap(tester, find.text('Voir toutes les visites'));
 
     // Mes visites d'abord.
     expect(find.text('Historique des visites'), findsOneWidget);
@@ -840,7 +845,7 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Rayon bien rempli'), findsOneWidget);
-    // La photo s'affiche en image, pas seulement « Photo jointe ».
+    // La photo s'affiche en image, pas seulement « Photo jointe »…
     await tester.scrollUntilVisible(
       find.text('PHOTO DU RAYON'),
       200,
@@ -848,6 +853,16 @@ void main() {
     );
     expect(find.byType(RemotePhoto), findsOneWidget);
     expect(find.text('Photo jointe'), findsNothing);
+    // … et s'ouvre en plein écran, avec le zoom.
+    await _tap(
+      tester,
+      find.bySemanticsLabel('Photo du rayon, ouvrir en grand'),
+    );
+    expect(find.text('Écartez deux doigts pour zoomer'), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    await tester.tap(find.byTooltip('Fermer'));
+    await _settle(tester);
+    expect(find.byType(InteractiveViewer), findsNothing);
     await _close(tester);
   });
 
@@ -866,6 +881,7 @@ void main() {
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Mes statistiques'));
     expect(find.text('Mes statistiques'), findsOneWidget);
+    await _tap(tester, find.text('Produits'));
     await tester.scrollUntilVisible(
       find.text('Les plus vendus'),
       200,
@@ -907,7 +923,19 @@ void main() {
     await _tap(tester, _tab('Points de vente'));
     // Sans les relevés produits, la page existe grâce aux commandes.
     await _tap(tester, find.text('Mes statistiques'));
-    expect(find.text('Ventes (commandes)'), findsOneWidget);
+    expect(find.text('Vendu'), findsOneWidget);
+    // « En bref » : l'essentiel en une phrase, avant les chiffres détaillés.
+    expect(find.text('En bref, sur 30 jours'), findsOneWidget);
+    expect(
+      find.text(
+        '9\u202f000\u00a0FCFA vendus, dont 9\u202f000\u00a0FCFA encaissés',
+      ),
+      findsOneWidget,
+    );
+    // Onglets selon la formule : ventes et visites, pas de relevés produits.
+    expect(find.text('Ventes'), findsOneWidget);
+    expect(find.text('Visites'), findsOneWidget);
+    expect(find.text('Produits'), findsNothing);
     // Payée : 30 × 300 ; la commande seulement prise est « à livrer ».
     expect(find.text('9\u202f000\u00a0FCFA'), findsNWidgets(2));
     expect(find.text('À livrer'), findsOneWidget);
@@ -991,12 +1019,13 @@ void main() {
       await _settle(tester);
       await _tap(tester, _tab('Points de vente'));
       await _tap(tester, find.text('Mes statistiques'));
-      await tester.scrollUntilVisible(
+      // « En bref » le dit tout de suite ; l'onglet Produits explique quoi faire.
+      expect(find.text('Aucune rupture repérée'), findsOneWidget);
+      await _tap(tester, find.text('Produits'));
+      expect(
         find.textContaining('Aucun relevé produit sur la période'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+        findsOneWidget,
       );
-      expect(find.text('CONSTATÉ EN VISITE (RELEVÉS)'), findsOneWidget);
       expect(find.text('RUPTURES EN COURS'), findsNothing);
       expect(find.text('REVENDU PAR LES COMMERCES'), findsNothing);
       await _close(tester);
@@ -1047,6 +1076,14 @@ void main() {
     );
     await _tap(tester, find.text('Prendre la photo'));
     expect(photos.taken, 1);
+    // Avant d'envoyer, l'agent vérifie sa photo en grand.
+    await _tap(tester, find.bySemanticsLabel('Photo prise, ouvrir en grand'));
+    expect(
+      find.textContaining('Écartez deux doigts pour zoomer'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Fermer'));
+    await _settle(tester);
     await _tap(tester, find.text('Envoyer le signalement'));
 
     final body = repo.suggestionBodies.single;
@@ -1075,6 +1112,44 @@ void main() {
     );
     await _close(tester);
   });
+
+  testWidgets(
+    'fiche chargée : 5 produits, ruptures d’abord, puis « Voir tout »',
+    (tester) async {
+      _phone(tester);
+      await tester.pumpWidget(
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+          repo: BusyOutletRepo(),
+        ),
+      );
+      await _settle(tester);
+      await _tap(tester, _tab('Points de vente'));
+      await _tap(tester, find.text('Boutique Awa'));
+      final list = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('Voir les 8 produits'),
+        200,
+        scrollable: list,
+      );
+      expect(find.textContaining('8 produits · 3 en rupture'), findsOneWidget);
+      // Les ruptures d'abord, 5 lignes au plus.
+      for (final name in ['Charlie', 'Echo', 'Xray', 'Alpha', 'Bravo']) {
+        expect(find.text('$name 33 cl'), findsOneWidget);
+      }
+      expect(find.text('Delta 33 cl'), findsNothing);
+
+      await _tap(tester, find.text('Voir les 8 produits'));
+      expect(find.text('Delta 33 cl'), findsOneWidget);
+      await _tap(tester, find.text('En rupture (3)'));
+      expect(find.text('Alpha 33 cl'), findsNothing);
+      expect(find.text('Charlie 33 cl'), findsOneWidget);
+      await _tap(tester, find.text('Concurrents (2)'));
+      expect(find.text('Yankee 33 cl'), findsOneWidget);
+      expect(find.text('Charlie 33 cl'), findsNothing);
+      await _close(tester);
+    },
+  );
 
   test('décision sur un produit signalé : la liste des signalements', () {
     for (final type in [

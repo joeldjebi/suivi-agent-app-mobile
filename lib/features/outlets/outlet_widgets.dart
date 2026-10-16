@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../design/components.dart';
 import '../../design/lucide.dart';
+import '../../design/tokens.dart';
+import '../../widgets/photo_viewer.dart';
 import 'outlet_models.dart';
 import 'outlets_controller.dart';
 
@@ -201,47 +204,87 @@ class _PinPainter extends CustomPainter {
       old.color != color || old.stroke != stroke;
 }
 
-/// Photo déjà envoyée (fiche du point de vente).
+/// Photo déjà envoyée (fiche, visite) : un toucher l'ouvre en plein écran, avec zoom.
 class RemotePhoto extends ConsumerWidget {
   const RemotePhoto({
     super.key,
     required this.id,
     required this.label,
     this.height = 180,
+    this.caption,
   });
 
   final String id;
   final String label;
   final double height;
 
+  /// Sous la photo en plein écran (heure de la prise…).
+  final String? caption;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final bytes = ref.watch(photoBytesProvider(id));
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        height: height,
-        width: double.infinity,
-        color: scheme.surfaceContainerHighest,
-        child: switch (bytes) {
-          AsyncData(:final value) when value != null => Image.memory(
-            Uint8List.fromList(value),
-            fit: BoxFit.cover,
-            semanticLabel: label,
+    final bytes = ref.watch(photoBytesProvider(id)).value;
+    final image = bytes == null ? null : MemoryImage(Uint8List.fromList(bytes));
+    return Semantics(
+      container: true,
+      button: image != null,
+      label: image != null ? '$label, ouvrir en grand' : label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: image == null
+            ? null
+            : () => showPhoto(
+                context,
+                image: image,
+                title: label,
+                caption: caption,
+              ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            height: height,
+            width: double.infinity,
+            color: scheme.surfaceContainerHighest,
+            child: switch (ref.watch(photoBytesProvider(id))) {
+              AsyncData(:final value) when value != null => Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image(image: image!, fit: BoxFit.cover),
+                  if (height >= 80) const ExpandBadge(),
+                ],
+              ),
+              AsyncLoading() => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              _ => Icon(
+                Icons.hide_image_outlined,
+                color: scheme.onSurfaceVariant,
+                semanticLabel: 'Photo indisponible',
+              ),
+            },
           ),
-          AsyncLoading() => const Center(
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          _ => Icon(
-            Icons.hide_image_outlined,
-            color: scheme.onSurfaceVariant,
-            semanticLabel: 'Photo indisponible',
-          ),
-        },
+        ),
       ),
     );
   }
+}
+
+/// Miniature carrée d'une photo envoyée, dans une liste (visites) ; s'ouvre en grand.
+class PhotoThumb extends StatelessWidget {
+  const PhotoThumb({super.key, required this.id, required this.label});
+
+  final String id;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 44,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: RemotePhoto(id: id, label: label, height: 44),
+    ),
+  );
 }
 
 /// « 120 m », « 1,4 km ».
@@ -292,5 +335,105 @@ void openOutlet(BuildContext context, String id) {
     context.push('/outlets/$id');
   } else {
     context.go('/outlets/$id');
+  }
+}
+
+/// Section de la fiche d'un point de vente : un titre, une ligne de résumé, 5 lignes au plus
+/// et « Voir tout » vers une page dédiée. La fiche reste courte même avec beaucoup de données.
+class FicheSection extends StatelessWidget {
+  const FicheSection({
+    super.key,
+    required this.title,
+    required this.rows,
+    this.summary,
+    this.empty,
+    this.seeAllLabel,
+    this.onSeeAll,
+  });
+
+  /// Lignes montrées sur la fiche.
+  static const shown = 5;
+
+  final String title;
+
+  /// Ce qu'il faut retenir, en une phrase (« 18 produits · 12 en rupture »).
+  final String? summary;
+
+  /// Les lignes (déjà limitées et triées : le plus important d'abord).
+  final List<Widget> rows;
+
+  /// Rien à montrer : ce que l'agent peut faire.
+  final String? empty;
+
+  /// « Voir tout (32) » ; absent : pas de page dédiée.
+  final String? seeAllLabel;
+  final VoidCallback? onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(title),
+        if (summary != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Space.sm, left: 4),
+            child: Text(summary!, style: text.bodyMedium),
+          ),
+        if (rows.isEmpty)
+          SurfaceCard(
+            child: Text(
+              empty ?? 'Rien pour le moment.',
+              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          )
+        else
+          SurfaceCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final (i, r) in rows.indexed) ...[
+                  if (i > 0) const Divider(height: 1, indent: 52),
+                  r,
+                ],
+                if (onSeeAll != null) ...[
+                  const Divider(height: 1),
+                  InkWell(
+                    onTap: onSeeAll,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.md,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              seeAllLabel ?? 'Voir tout',
+                              overflow: TextOverflow.ellipsis,
+                              style: text.titleSmall?.copyWith(
+                                color: scheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: scheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
