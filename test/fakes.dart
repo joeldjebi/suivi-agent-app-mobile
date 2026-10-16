@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:latlong2/latlong.dart';
 import 'package:suivi_agent/app.dart';
 import 'package:suivi_agent/core/api_client.dart';
@@ -1522,6 +1523,8 @@ Widget testApp({
   FakeAlerts? alerts,
   PhotoCapture? photos,
   Biometrics? biometrics,
+  List<Override> overrides = const [],
+  bool mapTiles = false,
 }) {
   final db = AppDatabase(NativeDatabase.memory());
   final repository = repo ?? FakeRepository();
@@ -1531,8 +1534,8 @@ Widget testApp({
       onboardingProvider.overrideWith(SeenOnboarding.new),
       repositoryProvider.overrideWithValue(repository),
       databaseProvider.overrideWithValue(db),
-      // Pas de fonds de carte téléchargés pendant les tests.
-      mapTilesProvider.overrideWithValue(false),
+      // Pas de fonds de carte téléchargés pendant les tests (sauf tuiles enregistrées).
+      mapTilesProvider.overrideWithValue(mapTiles),
       trackerProvider.overrideWith((ref) => FakeTracker(db)),
       alertSinkProvider.overrideWithValue(alerts ?? FakeAlerts()),
       photoCaptureProvider.overrideWithValue(photos ?? FakePhotoCapture()),
@@ -1544,6 +1547,7 @@ Widget testApp({
           connectivity: const Stream<List<ConnectivityResult>>.empty(),
         ),
       ),
+      ...overrides,
     ],
     child: const SuiviAgentApp(),
   );

@@ -140,6 +140,30 @@ void main() {
     );
   });
 
+  testWidgets('agent - journée interrompue', (tester) {
+    final today = DateTime.now();
+    final repo = FakeRepository()
+      ..day = DayState(
+        resumable: ResumableDay(
+          id: 'd1',
+          endedAt: DateTime(today.year, today.month, today.day, 13, 5),
+          workedSeconds: 5 * 3600 + 10 * 60,
+        ),
+        approved: ZoneRequest(
+          id: 'r1',
+          zoneId: 'z1',
+          status: RequestStatus.approved,
+          expiresAt: null,
+          isChange: false,
+        ),
+      );
+    return _capture(
+      tester,
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+      '55-agent-journee-interrompue',
+    );
+  });
+
   testWidgets(
     'agent - sans zone',
     (tester) => _capture(

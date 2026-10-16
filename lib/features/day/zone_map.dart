@@ -15,7 +15,11 @@ import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../team/map_options.dart';
 import '../team/team_map_screen.dart'
-    show MapRoundButton, MapZoomControls, mapTilesProvider;
+    show
+        MapRoundButton,
+        MapZoomControls,
+        mapTileSourceProvider,
+        mapTilesProvider;
 
 /// « depuis 6 min », « depuis 1 h 05 ».
 String _since(DateTime since) {
@@ -89,6 +93,7 @@ class ZoneMap extends ConsumerWidget {
         if (ref.watch(mapTilesProvider))
           TileLayer(
             urlTemplate: style.url,
+            tileProvider: ref.watch(mapTileSourceProvider),
             subdomains: const ['a', 'b', 'c'],
             tileBuilder: style.tileBuilder,
             // Exigé par la politique d'usage des tuiles OpenStreetMap.

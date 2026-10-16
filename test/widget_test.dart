@@ -906,6 +906,42 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('agent : journée terminée puis reprise le même jour', (
+    tester,
+  ) async {
+    _phone(tester);
+    final today = DateTime.now();
+    final repo = FakeRepository()
+      ..day = DayState(
+        resumable: ResumableDay(
+          id: 'd1',
+          endedAt: DateTime(today.year, today.month, today.day, 13, 5),
+          workedSeconds: 5 * 3600 + 10 * 60,
+        ),
+        approved: ZoneRequest(
+          id: 'r1',
+          zoneId: 'z1',
+          status: RequestStatus.approved,
+          expiresAt: null,
+          isChange: false,
+        ),
+      );
+    await tester.pumpWidget(
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+    );
+    await _settle(tester);
+    // Le compteur repart du temps déjà travaillé, pas de zéro.
+    expect(find.text('Journée interrompue'), findsOneWidget);
+    expect(find.text('5 h 10'), findsWidgets);
+    expect(find.text('Déjà travaillé aujourd’hui'), findsOneWidget);
+    expect(find.textContaining('Terminée à 13:05'), findsOneWidget);
+    expect(find.text('Reprendre ma journée'), findsOneWidget);
+    expect(find.text('Démarrer ma journée'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('chef : durée de la sortie de zone dans l’équipe', (
     tester,
   ) async {

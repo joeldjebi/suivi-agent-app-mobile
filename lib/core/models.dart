@@ -360,10 +360,31 @@ class WorkDay {
 }
 
 /// État de l'agent : journée ouverte, zone approuvée, demande en attente.
+/// Journée du jour terminée par l'agent : un nouveau démarrage la reprend (la coupure
+/// ne compte pas comme travaillée).
+class ResumableDay {
+  ResumableDay({
+    required this.id,
+    required this.endedAt,
+    required this.workedSeconds,
+  });
+
+  final String id;
+  final DateTime endedAt;
+  final int workedSeconds;
+
+  factory ResumableDay.fromJson(Map<String, dynamic> json) => ResumableDay(
+    id: json['id'] as String,
+    endedAt: DateTime.parse(json['endedAt'] as String).toLocal(),
+    workedSeconds: (json['workedSeconds'] as num).toInt(),
+  );
+}
+
 class DayState {
-  DayState({this.day, this.approved, this.pending});
+  DayState({this.day, this.resumable, this.approved, this.pending});
 
   final WorkDay? day;
+  final ResumableDay? resumable;
   final ZoneRequest? approved;
   final ZoneRequest? pending;
 
@@ -373,6 +394,9 @@ class DayState {
     day: json['day'] == null
         ? null
         : WorkDay.fromJson(json['day'] as Map<String, dynamic>),
+    resumable: json['resumable'] == null
+        ? null
+        : ResumableDay.fromJson(json['resumable'] as Map<String, dynamic>),
     approved: json['approved'] == null
         ? null
         : ZoneRequest.fromJson(json['approved'] as Map<String, dynamic>),

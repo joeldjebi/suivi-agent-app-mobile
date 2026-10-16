@@ -19,6 +19,10 @@ import 'team_controller.dart';
 /// Fonds de carte chargés depuis Internet (désactivés dans les tests).
 final mapTilesProvider = Provider<bool>((ref) => true);
 
+/// Source des tuiles ; vide : téléchargées depuis le serveur de cartes (rendus d'écrans :
+/// tuiles enregistrées à l'avance).
+final mapTileSourceProvider = Provider<TileProvider?>((ref) => null);
+
 /// Itinéraire d'une journée, chargé à la demande.
 final trackProvider = FutureProvider.autoDispose
     .family<List<TrackPoint>, String>(
@@ -245,6 +249,7 @@ class _TeamMapScreenState extends ConsumerState<TeamMapScreen> {
                     if (ref.watch(mapTilesProvider))
                       TileLayer(
                         urlTemplate: style.url,
+                        tileProvider: ref.watch(mapTileSourceProvider),
                         subdomains: const ['a', 'b', 'c'],
                         tileBuilder: style.tileBuilder,
                         // Exigé par la politique d'usage des tuiles OpenStreetMap.

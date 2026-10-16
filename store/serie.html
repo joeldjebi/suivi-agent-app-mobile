@@ -1,0 +1,95 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Anton; src: url(Anton-Regular.ttf); }
+@font-face { font-family: Jakarta; src: url(PlusJakartaSans.ttf); font-weight: 200 800; }
+html, body { margin: 0; overflow: hidden; background: #2563EB; }
+.pano { position: relative; font-family: Jakarta, sans-serif; color: #fff;
+  background:
+    radial-gradient(40% 40% at 8% 0%, rgba(255,255,255,.14), transparent 70%),
+    radial-gradient(40% 40% at 55% 0%, rgba(255,255,255,.10), transparent 70%),
+    radial-gradient(40% 45% at 92% 100%, rgba(10,30,110,.35), transparent 70%),
+    linear-gradient(100deg, #2f6df0 0%, #2563EB 50%, #1f55dc 100%); }
+.panel { position: absolute; top: 0; }
+.logo { position: absolute; left: 50%; transform: translateX(-50%); }
+.time { position: absolute; left: 50%; transform: translateX(-50%); border-radius: 999px;
+  background: rgba(255,255,255,.16); font-weight: 700; letter-spacing: 2px; white-space: nowrap; }
+h1 { position: absolute; left: 0; right: 0; margin: 0; text-align: center; font-family: Anton, sans-serif;
+  font-weight: 400; text-transform: uppercase; letter-spacing: 1px; }
+.sub { position: absolute; margin: 0; text-align: center; font-weight: 500; color: rgba(255,255,255,.9); text-wrap: balance; }
+.card { position: absolute; background: #f2f2f7; overflow: hidden; box-shadow: 0 40px 120px rgba(8,25,80,.45); z-index: 2; }
+.card img { display: block; width: 100%; }
+.credit { position: absolute; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.6); }
+svg.route { position: absolute; left: 0; top: 0; z-index: 1; }
+.node { position: absolute; z-index: 3; border-radius: 50%; border-style: solid; border-color: #fff;
+  box-sizing: border-box; background: #2563EB; }
+.badge { position: absolute; z-index: 3; display: flex; align-items: center; border-radius: 999px; background: #fff;
+  font-weight: 800; white-space: nowrap; box-shadow: 0 24px 60px rgba(8,25,80,.35); transform: translateX(-50%); }
+.badge i { display: inline-flex; border-radius: 50%; color: #fff; font-style: normal; align-items: center; justify-content: center; }
+</style></head>
+<body><div class="pano" id="pano"></div>
+<script>
+// Formats : App Store 6,9" (1320 × 2868) et Play Store (1080 × 1920).
+const play = location.search.includes('play');
+const W = play ? 1080 : 1320, H = play ? 1920 : 2868;
+const L = play
+  ? { logo: [60, 76], time: [150, 30, 10, 26], h1: [215, 112], sub: [500, 34, 70], card: [680, 70, 940], credit: [632, 20], line: 640, node: 84, nodeB: 21, badge: [30, 18, 36, 46] }
+  : { logo: [90, 104], time: [215, 40, 14, 34], h1: [300, 160], sub: [720, 46, 100], card: [1090, 80, 1160], credit: [1010, 26], line: 1000, node: 120, nodeB: 30, badge: [44, 26, 46, 64] };
+const steps = [
+  ['01-journee', '07 H 45 · LE MATIN', 'La journée<br>commence', 'Pointage, zone et temps de travail en un geste'],
+  ['02-tournee', '08 H 30 · LE DÉPART', 'La tournée<br>est tracée', 'Les points de vente à visiter, dans le bon ordre', true],
+  ['03-fiche-point-de-vente', '09 H 10 · LA VISITE', 'Arrivée chez<br>le client', 'Son statut, ses visites et ses commandes en un coup d’œil'],
+  ['04-releve-produits', '09 H 25 · LE RELEVÉ', 'Stocks et prix<br>relevés', 'Ruptures et concurrence signalées sur place'],
+  ['05-commande', '09 H 35 · LA COMMANDE', 'La commande<br>est prise', 'Casiers calculés tout seuls, total en direct'],
+  ['06-chef-en-direct', '11 H 00 · LE CHEF', 'Le chef suit<br>en direct', 'Toute l’équipe sur la carte, alertes comprises'],
+  ['07-ventes', '18 H 00 · LE BILAN', 'Vos ventes<br>en chiffres', 'Ventes, encaissements et ruptures du mois'],
+];
+// Éléments à cheval sur les raccords (après l'écran n°i) : étape du parcours ou badge.
+const joints = [
+  ['node'],
+  ['node'],
+  ['badge', '#d92d20', '#b42318', '✕', 'Rupture : Eau Cascade 1,5 L'],
+  ['node'],
+  ['badge', '#16a34a', '#15803d', '✓', 'Commande envoyée · 40 800 FCFA'],
+  ['badge', '#2563EB', '#1d4ed8', '↗', '1 232 100 FCFA vendus ce mois'],
+];
+const pano = document.getElementById('pano');
+const N = steps.length;
+pano.style.width = W * N + 'px'; pano.style.height = H + 'px';
+let html = '';
+// Le trajet de l'agent : une ondulation qui traverse toute la série.
+let d = `M -40 ${L.line}`;
+for (let i = 0; i < N; i++) {
+  const x = i * W, a = (i % 2 ? -1 : 1) * W * 0.06;
+  d += ` C ${x + W * .3} ${L.line + a}, ${x + W * .7} ${L.line - a}, ${x + W} ${L.line}`;
+}
+html += `<svg class="route" width="${W * N}" height="${H}"><path d="${d}" fill="none" stroke="rgba(255,255,255,.55)"
+  stroke-width="${play ? 18 : 26}" stroke-linecap="round" stroke-dasharray="2 ${play ? 40 : 54}"/></svg>`;
+steps.forEach(([img, time, title, sub, credit], i) => {
+  const [ct, cl, cw] = L.card;
+  html += `<div class="panel" style="left:${i * W}px;width:${W}px;height:${H}px">
+    ${i === 0 ? `<svg class="logo" style="top:${L.logo[0]}px;width:${L.logo[1]}px;height:${L.logo[1]}px" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="16" fill="rgba(255,255,255,.16)"/>
+      <g transform="translate(9.7 8.8) scale(0.75)"><path d="M16 52C16 40 48 43 48 32S16 23 16 12" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="16" cy="52" r="7" fill="#fff"/><circle cx="16" cy="12" r="9" fill="#fff"/></g></svg>` : ''}
+    <div class="time" style="top:${L.time[0]}px;font-size:${L.time[1]}px;padding:${L.time[2]}px ${L.time[3]}px">${time}</div>
+    <h1 style="top:${L.h1[0]}px;font-size:${L.h1[1]}px;line-height:1.16">${title}</h1>
+    <p class="sub" style="top:${L.sub[0]}px;font-size:${L.sub[1]}px;left:${L.sub[2]}px;right:${L.sub[2]}px;line-height:1.3">${sub}</p>
+    ${credit ? `<div class="credit" style="top:${L.credit[0]}px;font-size:${L.credit[1]}px">Carte © les contributeurs d’OpenStreetMap</div>` : ''}
+    <div class="card" style="top:${ct}px;left:${cl}px;width:${cw}px;height:${H}px;border-radius:${play ? 56 : 80}px"><img src="${img}.png"></div>
+  </div>`;
+});
+joints.forEach(([kind, bg, fg, icon, label], i) => {
+  const x = (i + 1) * W, y = L.line;
+  if (kind === 'node') {
+    html += `<div class="node" style="left:${x - L.node / 2}px;top:${y - L.node / 2}px;width:${L.node}px;height:${L.node}px;border-width:${L.nodeB}px"></div>`;
+  } else {
+    const [fs, py, px, ic] = L.badge;
+    html += `<div class="badge" style="left:${x}px;top:${y - (ic + 2 * py) / 2}px;font-size:${fs}px;padding:${py}px ${px}px;gap:${py}px;color:${fg}">
+      <i style="width:${ic}px;height:${ic}px;font-size:${ic * .6}px;background:${bg}">${icon}</i>${label}</div>`;
+  }
+});
+pano.innerHTML = html;
+const part = location.hash.slice(1);
+if (part !== 'all') pano.style.transform = `translateX(${-W * Number(part)}px)`;
+</script></body></html>

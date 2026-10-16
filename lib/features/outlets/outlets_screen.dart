@@ -16,7 +16,8 @@ import '../../design/tokens.dart';
 import '../../widgets/brand_header.dart';
 import '../../widgets/common.dart';
 import '../team/map_options.dart';
-import '../team/team_map_screen.dart' show mapTilesProvider;
+import '../team/team_map_screen.dart'
+    show mapTileSourceProvider, mapTilesProvider;
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
 import 'outlets_controller.dart';
@@ -549,6 +550,7 @@ class _OutletsMap extends ConsumerWidget {
         if (ref.watch(mapTilesProvider))
           TileLayer(
             urlTemplate: style.url,
+            tileProvider: ref.watch(mapTileSourceProvider),
             subdomains: const ['a', 'b', 'c'],
             tileBuilder: style.tileBuilder,
             userAgentPackageName: 'ci.suiviagent.app',

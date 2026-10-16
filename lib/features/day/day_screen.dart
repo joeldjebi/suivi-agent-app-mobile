@@ -87,9 +87,12 @@ class _DayScreenState extends ConsumerState<DayScreen>
       }
       return;
     }
+    final resuming = ref.read(dayProvider).value?.resumable != null;
     await _run(
       () => ref.read(dayProvider.notifier).act('start'),
-      success: 'Journée démarrée. Bon courage !',
+      success: resuming
+          ? 'Journée reprise : votre temps continue.'
+          : 'Journée démarrée. Bon courage !',
     );
   }
 
@@ -260,8 +263,10 @@ class _StatusCardState extends State<_StatusCard> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final day = widget.state.day;
+    final resumable = day == null ? widget.state.resumable : null;
     final now = DateTime.now();
-    final worked = day?.worked(now) ?? Duration.zero;
+    final worked =
+        day?.worked(now) ?? Duration(seconds: resumable?.workedSeconds ?? 0);
 
     final (String label, Color color) = switch (day?.status) {
       DayStatus.active => (
@@ -269,6 +274,10 @@ class _StatusCardState extends State<_StatusCard> {
         toneColor(context, Tone.success),
       ),
       DayStatus.paused => ('En pause', toneColor(context, Tone.warning)),
+      _ when resumable != null => (
+        'Journée interrompue',
+        scheme.onSurfaceVariant,
+      ),
       _ => (
         widget.state.approved == null
             ? 'Journée non démarrée'
@@ -337,7 +346,9 @@ class _StatusCardState extends State<_StatusCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        day == null ? '0 h 00' : formatShortDuration(worked),
+                        day == null && resumable == null
+                            ? '0 h 00'
+                            : formatShortDuration(worked),
                         style: text.headlineSmall?.copyWith(
                           fontSize: 20,
                           fontFeatures: tabular,
@@ -355,7 +366,32 @@ class _StatusCardState extends State<_StatusCard> {
               ),
               const SizedBox(width: Space.xl),
               Expanded(
-                child: day == null
+                child: resumable != null
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Déjà travaillé aujourd’hui',
+                            style: text.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            formatShortDuration(worked),
+                            style: text.titleLarge,
+                          ),
+                          const SizedBox(height: Space.sm),
+                          Text(
+                            widget.state.approved == null
+                                ? 'Terminée à ${formatTime(resumable.endedAt)}. Choisissez votre zone pour la reprendre.'
+                                : 'Terminée à ${formatTime(resumable.endedAt)}. La coupure ne compte pas.',
+                            style: text.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      )
+                    : day == null
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -762,7 +798,9 @@ class _ActionBar extends StatelessWidget {
       );
     } else {
       actions = PillButton(
-        label: 'Démarrer ma journée',
+        label: state.resumable != null
+            ? 'Reprendre ma journée'
+            : 'Démarrer ma journée',
         icon: Icons.play_arrow_rounded,
         loading: busy,
         onPressed: onStart,
