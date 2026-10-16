@@ -12,6 +12,7 @@ import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
 import '../outlets/outlet_widgets.dart' show FicheSection, openOutlet;
 import '../outlets/outlets_controller.dart' show outletProvider;
+import 'order_editor_screen.dart';
 import 'orders.dart';
 
 /// Pastille du statut d'une commande : icône et libellé.
@@ -25,8 +26,40 @@ class OrderStatusChip extends StatelessWidget {
       StatusChip(label: status.label, icon: status.icon, tone: status.tone);
 }
 
+/// « Commander à nouveau » : l'éditeur de commande pré-rempli avec les lignes de [id].
+class ReorderScreen extends ConsumerWidget {
+  const ReorderScreen({super.key, required this.id});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detail = ref.watch(orderProvider(id));
+    // La saisie en cours survit à un rechargement de la commande d'origine.
+    return switch (detail) {
+      AsyncValue(:final value?) => OrderEditorScreen(
+        key: ValueKey(id),
+        outletId: value.order.outletId,
+        copyOf: value,
+      ),
+      AsyncError(:final error) => Scaffold(
+        appBar: AppBar(title: const Text('Commande')),
+        body: Padding(
+          padding: const EdgeInsets.all(Space.page),
+          child: InfoBanner(
+            icon: Icons.wifi_off_rounded,
+            message: ApiException.from(error).message,
+          ),
+        ),
+      ),
+      _ => const Scaffold(body: Center(child: CircularProgressIndicator())),
+    };
+  }
+}
+
 /// Détail d'une commande : lignes aux prix figés, total, historique ; l'agent qui l'a prise la
-/// marque livrée ou payée, ou l'annule tant qu'elle n'est pas livrée (motif obligatoire).
+/// marque livrée ou payée, ou l'annule tant qu'elle n'est pas livrée (motif obligatoire). Son
+/// chef fait de même, et peut aussi annuler une commande livrée.
 class OrderScreen extends ConsumerStatefulWidget {
   const OrderScreen({super.key, required this.id});
 
@@ -79,7 +112,13 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final d = detail.value;
-    final next = d != null && d.order.agentId == me.id
+    // L'agent qui a pris la commande la fait avancer ; son chef aussi (le serveur ne lui montre
+    // que les commandes de son équipe).
+    final next = d == null
+        ? const <OrderStatus>[]
+        : !me.isAgent
+        ? d.order.status.managerNext
+        : d.order.agentId == me.id
         ? d.order.status.agentNext
         : const <OrderStatus>[];
     return Scaffold(
@@ -207,6 +246,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   },
                   loading: _busy == s,
                   onPressed: _busy == null ? () => _advance(d, s) : null,
+                ),
+              ],
+              // Gain de temps : l'agent repart de cette commande, quel que soit son statut.
+              if (me.isAgent) ...[
+                const SizedBox(height: Space.sm),
+                PillButton(
+                  label: 'Commander à nouveau',
+                  icon: Icons.replay_rounded,
+                  style: PillStyle.outline,
+                  onPressed: () => context.push('/orders/${d.order.id}/again'),
                 ),
               ],
               const SizedBox(height: Space.xl),

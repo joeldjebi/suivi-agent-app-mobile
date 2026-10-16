@@ -36,6 +36,14 @@ enum OrderStatus {
     delivered => [paid],
     _ => const [],
   };
+
+  /// Suites possibles pour un responsable (chef de l'équipe, administrateur) : il peut aussi
+  /// annuler une commande déjà livrée.
+  List<OrderStatus> get managerNext => switch (this) {
+    taken => [delivered, paid, cancelled],
+    delivered => [paid, cancelled],
+    _ => const [],
+  };
 }
 
 /// Produit du catalogue d'un point de vente, avec son prix pour ce type de client.

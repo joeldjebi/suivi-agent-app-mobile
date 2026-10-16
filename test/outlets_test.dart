@@ -751,6 +751,80 @@ void main() {
     await _close(tester);
   });
 
+  testWidgets('le chef fait avancer la commande d’un agent de son équipe', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = OrdersRepo();
+    await repo.createOrder({
+      'outletId': 'o1',
+      'lines': [
+        {'productId': 'p-coca', 'quantity': 12},
+      ],
+    });
+    repo.ordersJson.first
+      ..['agentId'] = 'u7'
+      ..['agentName'] = 'Awa Koné'
+      ..['status'] = 'delivered';
+    await tester.pumpWidget(
+      testApp(
+        auth: () =>
+            SignedInAuth(fakeMe(role: 'team_lead', features: orderFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.textContaining('CMD-000001').first);
+    // Livrée : le chef peut encore l'annuler, contrairement à l'agent.
+    expect(find.text('Annuler la commande'), findsOneWidget);
+    await _tap(tester, find.text('Marquer payée'));
+    expect(repo.orderStatusChanges.single, ('ord-1', 'paid', null));
+    expect(find.text('Marquer payée'), findsNothing);
+    await _close(tester);
+  });
+
+  testWidgets('commander à nouveau : mêmes produits, prix du jour', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = OrdersRepo();
+    await repo.createOrder({
+      'outletId': 'o1',
+      'lines': [
+        {'productId': 'p-coca', 'quantity': 12},
+        {'productId': 'p-retire', 'quantity': 6},
+      ],
+    });
+    final old = repo.ordersJson.first;
+    old['status'] = 'cancelled';
+    ((old['lines'] as List)[1] as Map)['name'] = 'Sprite 50 cl';
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: orderFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.textContaining('CMD-000001').first);
+    // Même annulée, elle se reprend.
+    await _tap(tester, find.text('Commander à nouveau'));
+    expect(find.textContaining('Reprise de CMD-000001'), findsOneWidget);
+    expect(find.textContaining('retiré : Sprite 50 cl'), findsOneWidget);
+    expect(find.text('= 1 casier'), findsOneWidget);
+    // Prix du jour : 12 bouteilles à 300.
+    await _tap(tester, find.textContaining(RegExp(r'Valider · 3.600')));
+    await _tap(tester, find.text('Valider').last);
+    expect(repo.orderBodies.last['lines'], [
+      {'productId': 'p-coca', 'quantity': 12},
+    ]);
+    expect(find.text('CMD-000002'), findsOneWidget);
+    await _close(tester);
+  });
+
   testWidgets('prise de commande sans réseau : gardée puis envoyée', (
     tester,
   ) async {

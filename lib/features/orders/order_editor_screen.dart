@@ -15,11 +15,15 @@ import 'orders.dart';
 
 /// Prise de commande chez un point de vente : les produits aux prix de son type de client,
 /// la quantité en unités (casiers, packs… calculés d'eux-mêmes), le total en direct.
-/// Fonctionne sans réseau.
+/// Fonctionne sans réseau. Peut repartir d'une commande précédente (« Commander à nouveau ») :
+/// mêmes produits et quantités, aux prix du jour, modifiables avant de valider.
 class OrderEditorScreen extends ConsumerStatefulWidget {
-  const OrderEditorScreen({super.key, required this.outletId});
+  const OrderEditorScreen({super.key, required this.outletId, this.copyOf});
 
   final String outletId;
+
+  /// Commande reprise : ses lignes pré-remplissent les quantités.
+  final OrderDetail? copyOf;
 
   @override
   ConsumerState<OrderEditorScreen> createState() => _OrderEditorScreenState();
@@ -31,6 +35,19 @@ class _OrderEditorScreenState extends ConsumerState<OrderEditorScreen> {
   final _search = TextEditingController();
   bool _saving = false;
   String? _error;
+
+  /// Produits de la commande reprise, en tête de liste.
+  late final Set<String> _copied = {
+    for (final l in widget.copyOf?.lines ?? const <OrderLine>[]) l.product.id,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    for (final l in widget.copyOf?.lines ?? const <OrderLine>[]) {
+      _quantities[l.product.id] = (_quantities[l.product.id] ?? 0) + l.quantity;
+    }
+  }
 
   @override
   void dispose() {
@@ -45,9 +62,11 @@ class _OrderEditorScreenState extends ConsumerState<OrderEditorScreen> {
   );
 
   Future<void> _submit(OrderCatalog catalog, String outletName) async {
+    // Seulement les produits encore au catalogue de ce point de vente.
+    final offered = {for (final p in catalog.products) p.product.id};
     final lines = {
       for (final e in _quantities.entries)
-        if (e.value > 0) e.key: e.value,
+        if (e.value > 0 && offered.contains(e.key)) e.key: e.value,
     };
     if (lines.isEmpty) {
       setState(() => _error = 'Saisissez la quantité d’au moins un produit.');
@@ -106,7 +125,23 @@ class _OrderEditorScreenState extends ConsumerState<OrderEditorScreen> {
       for (final p in c?.products ?? const <PricedProduct>[])
         if (needle.isEmpty || p.product.label.toLowerCase().contains(needle)) p,
     ];
-    final count = _quantities.values.where((q) => q > 0).length;
+    if (_copied.isNotEmpty) {
+      shown.sort(
+        (a, b) =>
+            (_copied.contains(a.product.id) ? 0 : 1) -
+            (_copied.contains(b.product.id) ? 0 : 1),
+      );
+    }
+    final offered = {
+      for (final p in c?.products ?? const <PricedProduct>[]) p.product.id,
+    };
+    final count = _quantities.entries
+        .where((e) => e.value > 0 && offered.contains(e.key))
+        .length;
+    final gone = [
+      for (final l in widget.copyOf?.lines ?? const <OrderLine>[])
+        if (c != null && !offered.contains(l.product.id)) l.name,
+    ];
 
     return Scaffold(
       appBar: AppBar(title: Text(outlet?.name ?? 'Commande')),
@@ -144,6 +179,24 @@ class _OrderEditorScreenState extends ConsumerState<OrderEditorScreen> {
                 message: _error!,
               ),
               const SizedBox(height: Space.md),
+            ],
+            if (widget.copyOf case final o?) ...[
+              InfoBanner(
+                icon: Icons.replay_rounded,
+                tone: Tone.info,
+                message:
+                    'Reprise de ${o.order.reference} : vérifiez les quantités. Les prix sont ceux du jour.',
+              ),
+              const SizedBox(height: Space.sm),
+            ],
+            if (gone.isNotEmpty) ...[
+              InfoBanner(
+                icon: Icons.info_outline_rounded,
+                tone: Tone.warning,
+                message:
+                    'Plus proposé${gone.length > 1 ? 's' : ''} à ce point de vente, retiré${gone.length > 1 ? 's' : ''} : ${gone.join(', ')}.',
+              ),
+              const SizedBox(height: Space.sm),
             ],
             Text(
               'Tarif ${c.priceList} · saisissez les quantités commandées.',

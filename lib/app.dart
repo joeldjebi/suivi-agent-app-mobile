@@ -370,6 +370,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/orders/:id',
         builder: (_, s) => OrderScreen(id: s.pathParameters['id']!),
       ),
+      // Nouvelle commande reprise d'une précédente.
+      GoRoute(
+        path: '/orders/:id/again',
+        builder: (_, s) => ReorderScreen(id: s.pathParameters['id']!),
+      ),
     ],
   );
   ref.onDispose(router.dispose);
