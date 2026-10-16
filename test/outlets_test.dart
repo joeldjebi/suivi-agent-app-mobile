@@ -11,6 +11,7 @@ import 'package:suivi_agent/features/outlets/outlet_widgets.dart';
 import 'package:suivi_agent/features/outlets/outlets_screen.dart';
 import 'package:suivi_agent/features/outlets/outlet_models.dart';
 import 'package:suivi_agent/features/outlets/route_screen.dart';
+import 'package:suivi_agent/features/team/requests_screen.dart';
 import 'package:suivi_agent/core/models.dart';
 import 'package:suivi_agent/features/missions/product_readings_input.dart'
     show formatBreakdown, formatQuantity;
@@ -95,6 +96,12 @@ void main() {
     await _settle(tester);
     expect(_tab('Points de vente'), findsOneWidget);
     expect(_tab('Demandes'), findsNothing);
+    // Les demandes de zone restent à portée : un bloc toujours visible sur « Mon équipe ».
+    expect(find.text('Demandes de zone'), findsOneWidget);
+    await _tap(tester, find.text('Demandes de zone'));
+    expect(find.byType(RequestsScreen), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await _settle(tester);
     expect(
       find.descendant(of: find.byType(AppNavBar), matching: find.byType(Icon)),
       findsNWidgets(5),
@@ -397,6 +404,11 @@ void main() {
     await _tap(tester, _tab('Points de vente'));
     await _tap(tester, find.text('Statistiques de l’équipe'));
 
+    await tester.scrollUntilVisible(
+      find.text('21 %'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('21 %'), findsOneWidget);
     expect(find.text('4 sur 19 relevés'), findsOneWidget);
     await tester.scrollUntilVisible(
@@ -962,6 +974,118 @@ void main() {
     expect(find.text('Rayon rangé'), findsOneWidget);
     expect(find.text('0 % de Oui'), findsOneWidget);
     await _close(tester);
+  });
+
+  testWidgets(
+    'statistiques sans relevé produit : l’explication, pas des cases vides',
+    (tester) async {
+      _phone(tester);
+      await tester.pumpWidget(
+        testApp(
+          auth: () => SignedInAuth(
+            fakeMe(features: {...outletFeatures, 'product_audits'}),
+          ),
+          repo: NoReadingsRepo(),
+        ),
+      );
+      await _settle(tester);
+      await _tap(tester, _tab('Points de vente'));
+      await _tap(tester, find.text('Mes statistiques'));
+      await tester.scrollUntilVisible(
+        find.textContaining('Aucun relevé produit sur la période'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('CONSTATÉ EN VISITE (RELEVÉS)'), findsOneWidget);
+      expect(find.text('RUPTURES EN COURS'), findsNothing);
+      expect(find.text('REVENDU PAR LES COMMERCES'), findsNothing);
+      await _close(tester);
+    },
+  );
+
+  testWidgets('signaler un produit concurrent depuis la fiche', (tester) async {
+    _phone(tester);
+    final repo = ActivityRepo()
+      ..suggestionsJson = [
+        {
+          'id': 'old',
+          'name': 'Bonbon Choco',
+          'format': null,
+          'status': 'rejected',
+          'createdAt': '2026-10-10T10:00:00.000Z',
+          'outletName': null,
+          'productName': null,
+          'rejectReason': 'Déjà au catalogue',
+        },
+      ];
+    final photos = FakePhotoCapture();
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+        repo: repo,
+        photos: photos,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Concurrent'));
+    expect(find.textContaining('Vu chez Boutique Awa'), findsOneWidget);
+
+    // Le nom est obligatoire.
+    await _tap(tester, find.text('Envoyer le signalement'));
+    expect(find.text('Nom obligatoire'), findsOneWidget);
+    expect(repo.suggestionBodies, isEmpty);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nom du produit *'),
+      'Youzou Cola',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Format'),
+      '33 cl',
+    );
+    await _tap(tester, find.text('Prendre la photo'));
+    expect(photos.taken, 1);
+    await _tap(tester, find.text('Envoyer le signalement'));
+
+    final body = repo.suggestionBodies.single;
+    expect(body, containsPair('name', 'Youzou Cola'));
+    expect(body, containsPair('format', '33 cl'));
+    expect(body, containsPair('outletId', 'o1'));
+    expect(body['clientId'], isA<String>());
+    // La photo part d'abord ; le signalement n'en garde que l'identifiant.
+    expect(body['photoId'], isA<String>());
+    expect(body.containsKey('photo'), isFalse);
+    expect(
+      find.textContaining('L’administrateur va l’examiner'),
+      findsOneWidget,
+    );
+
+    // Mes signalements : en attente, et celui qui n'a pas été retenu, avec le motif.
+    await tester.tap(find.byType(BackButton));
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Produits concurrents signalés'));
+    expect(find.text('Youzou Cola 33 cl'), findsOneWidget);
+    expect(find.text('En attente'), findsOneWidget);
+    expect(
+      find.textContaining('Non retenu : Déjà au catalogue'),
+      findsOneWidget,
+    );
+    await _close(tester);
+  });
+
+  test('décision sur un produit signalé : la liste des signalements', () {
+    for (final type in [
+      'product.suggestion_accepted',
+      'product.suggestion_rejected',
+    ]) {
+      expect(
+        pushRouteFor({'type': type}, leader: false),
+        '/outlets/suggestions',
+      );
+    }
   });
 
   test('ventes : les plus vendus, puis les moins vendus sans doublon', () {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/format.dart';
@@ -21,20 +22,26 @@ class RequestsScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final count = requests.value?.length ?? 0;
+    // Ouvert par-dessus un écran (chef avec les points de vente : plus d'onglet Demandes) :
+    // barre de titre et retour ; sinon, grand titre d'onglet.
+    final pushed = context.canPop();
 
     return Scaffold(
+      appBar: pushed ? AppBar(title: const Text('Demandes de zone')) : null,
       body: RefreshIndicator(
         onRefresh: () => ref.read(requestsProvider.notifier).refresh(),
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             Space.page,
-            MediaQuery.paddingOf(context).top + Space.lg,
+            pushed ? Space.sm : MediaQuery.paddingOf(context).top + Space.lg,
             Space.page,
             Space.xxl,
           ),
           children: [
-            Text('Demandes', style: text.headlineMedium),
-            const SizedBox(height: 2),
+            if (!pushed) ...[
+              Text('Demandes', style: text.headlineMedium),
+              const SizedBox(height: 2),
+            ],
             Text(
               count == 0
                   ? 'Aucune demande en attente'

@@ -208,6 +208,22 @@ class _OutletsScreenState extends ConsumerState<OutletsScreen> {
                             ),
                             const SizedBox(height: Space.md),
                           ],
+                          // Agent : signaler un produit concurrent, suivre ses signalements.
+                          if (!ref.watch(meProvider).isTeamLead &&
+                              ref.watch(meProvider).hasProductAudits) ...[
+                            SurfaceCard(
+                              padding: EdgeInsets.zero,
+                              child: ListRow(
+                                leading: const Icon(Icons.add_box_outlined),
+                                title: 'Produits concurrents signalés',
+                                subtitle:
+                                    'Un concurrent absent du catalogue ? Signalez-le',
+                                onTap: () =>
+                                    context.push('/outlets/suggestions'),
+                              ),
+                            ),
+                            const SizedBox(height: Space.md),
+                          ],
                           // Agent : sa tournée parmi les points de vente en retard.
                           if (!ref.watch(meProvider).isTeamLead &&
                               (data?.overdueCount ?? 0) > 0) ...[

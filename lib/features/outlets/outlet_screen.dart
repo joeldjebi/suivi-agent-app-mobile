@@ -199,6 +199,13 @@ class OutletScreen extends ConsumerWidget {
                 label: 'Appeler',
                 onTap: () => launchUrl(Uri.parse('tel:${o.phone}')),
               ),
+            // Un produit concurrent absent du catalogue, vu dans ce commerce.
+            if (me.hasProductAudits && !me.isTeamLead)
+              _QuickAction(
+                icon: Icons.add_box_outlined,
+                label: 'Concurrent',
+                onTap: () => context.push('/outlets/suggest?outlet=${o.id}'),
+              ),
             if (o.position != null)
               _QuickAction(
                 icon: Icons.directions_rounded,

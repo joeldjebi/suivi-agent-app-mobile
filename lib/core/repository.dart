@@ -247,6 +247,16 @@ class Repository {
   Future<List<dynamic>> outletReadings(String id) =>
       api.get<List<dynamic>>('/insights/products/outlets/$id');
 
+  // Produits concurrents signalés depuis le terrain.
+
+  /// Signalement (idempotent sur clientId).
+  Future<Map<String, dynamic>> createSuggestion(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/product-suggestions', body);
+
+  /// Mes signalements, ceux à traiter d'abord.
+  Future<List<dynamic>> suggestions() =>
+      api.get<List<dynamic>>('/product-suggestions');
+
   // Prise de commande.
 
   /// Catalogue d'un point de vente, aux prix de son type de client.

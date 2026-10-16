@@ -163,7 +163,8 @@ void main() {
     expect(find.text('À SURVEILLER'), findsOneWidget);
     expect(find.text('Hors zone · 12 min'), findsOneWidget);
     expect(find.text('Serge Gbagbo'), findsOneWidget);
-    expect(find.text('1 demande de zone à valider'), findsOneWidget);
+    expect(find.text('Demandes de zone'), findsOneWidget);
+    expect(find.text('1 à valider'), findsOneWidget);
 
     await tester.tap(_tab('Demandes'));
     await _settle(tester);

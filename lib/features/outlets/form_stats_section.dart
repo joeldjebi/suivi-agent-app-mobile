@@ -83,6 +83,13 @@ class _FormStatsSectionState extends ConsumerState<FormStatsSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeader(leader ? 'Formulaires de l’équipe' : 'Mes formulaires'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: Space.sm),
+          child: Text(
+            'D’après les formulaires remplis (visites et missions), champ par champ.',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
         if (usage.hasError && forms == null)
           InfoBanner(
             icon: Icons.wifi_off_rounded,

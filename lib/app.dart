@@ -27,6 +27,7 @@ import 'features/missions/mission_form_screen.dart';
 import 'features/orders/order_editor_screen.dart';
 import 'features/orders/order_screen.dart';
 import 'features/outlets/outlet_visits.dart';
+import 'features/outlets/suggestions.dart';
 import 'features/missions/mission_outlets_screen.dart';
 import 'features/outlets/outlet_editor_screen.dart';
 import 'features/outlets/outlet_screen.dart';
@@ -99,6 +100,13 @@ final _outletRoutes = GoRoute(
     GoRoute(path: 'new', builder: (_, _) => const OutletEditorScreen()),
     GoRoute(path: 'insights', builder: (_, _) => const ProductInsightsScreen()),
     GoRoute(path: 'route', builder: (_, _) => const RouteScreen()),
+    // Produits concurrents signalés depuis le terrain.
+    GoRoute(path: 'suggestions', builder: (_, _) => const SuggestionsScreen()),
+    GoRoute(
+      path: 'suggest',
+      builder: (_, s) =>
+          SuggestionEditorScreen(outletId: s.uri.queryParameters['outlet']),
+    ),
     GoRoute(
       path: ':id',
       builder: (_, s) => OutletScreen(

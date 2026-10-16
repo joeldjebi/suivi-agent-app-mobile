@@ -216,6 +216,11 @@ class SyncService extends ChangeNotifier {
     }
     final result = switch (row.kind) {
       'create' => await repo.createOutlet({...body, 'clientId': row.clientId}),
+      // Produit concurrent signalé (sa photo est envoyée juste avant).
+      'suggestion' => await repo.createSuggestion({
+        ...body,
+        'clientId': row.clientId,
+      }),
       // Commande prise chez le point de vente, même sans réseau.
       'order' => await repo.createOrder({...body, 'clientId': row.clientId}),
       'status' => await repo.changeOutletStatus(

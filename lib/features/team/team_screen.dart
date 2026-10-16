@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
+import '../../core/providers.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/brand_header.dart';
@@ -105,35 +106,63 @@ class TeamScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (pending > 0) ...[
-                  const SizedBox(height: Space.sm),
-                  SurfaceCard(
-                    onTap: () => context.go('/requests'),
-                    padding: const EdgeInsets.fromLTRB(
-                      Space.lg,
-                      Space.md,
-                      Space.md,
-                      Space.md,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.pending_actions_outlined,
-                          size: 20,
-                          color: toneColor(context, Tone.warning),
-                        ),
-                        const SizedBox(width: Space.md),
-                        Expanded(
-                          child: Text(
-                            '$pending demande${pending > 1 ? 's' : ''} de zone à valider',
-                            style: text.titleSmall,
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right_rounded, size: 20),
-                      ],
-                    ),
+                // Demandes de zone : toujours là (l'onglet a laissé sa place aux points
+                // de vente), avec le nombre à valider.
+                const SizedBox(height: Space.sm),
+                SurfaceCard(
+                  onTap: () => ref.read(meProvider).hasOutlets
+                      // Hors des onglets : ouvert par-dessus l'écran.
+                      ? context.push('/requests')
+                      : context.go('/requests'),
+                  semanticLabel: pending == 0
+                      ? 'Demandes de zone : aucune en attente'
+                      : 'Demandes de zone : $pending à valider',
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.lg,
+                    Space.md,
+                    Space.md,
+                    Space.md,
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.pending_actions_outlined,
+                        size: 20,
+                        color: pending > 0
+                            ? toneColor(context, Tone.warning)
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: Space.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Demandes de zone', style: text.titleSmall),
+                            Text(
+                              pending == 0
+                                  ? 'Aucune demande en attente'
+                                  : '$pending à valider',
+                              style: text.bodySmall?.copyWith(
+                                color: pending > 0
+                                    ? toneColor(context, Tone.warning)
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (pending > 0)
+                        Badge(
+                          label: Text('$pending'),
+                          backgroundColor: toneColor(context, Tone.warning),
+                        ),
+                      const SizedBox(width: Space.sm),
+                      const Icon(Icons.chevron_right_rounded, size: 20),
+                    ],
+                  ),
+                ),
                 if (t.alerts.isNotEmpty) ...[
                   SectionHeader(
                     'À surveiller',

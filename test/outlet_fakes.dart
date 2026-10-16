@@ -773,3 +773,28 @@ class FormStatsRepo extends OutletsRepo {
     };
   }
 }
+
+/// Relevés produits dans la formule, mais aucune visite avec relevé sur la période.
+class NoReadingsRepo extends FormStatsRepo {
+  @override
+  Future<Map<String, dynamic>> productInsights(
+    String part, {
+    required String from,
+    required String to,
+  }) async => switch (part) {
+    'overview' => {
+      'visits': 0,
+      'outlets': 0,
+      'products': 0,
+      'ownStockouts': 0,
+      'ownChecked': 0,
+      'stockoutRate': null,
+      'ownSold': 0,
+      'competitorSold': 0,
+      'ownLosses': 0,
+    },
+    'stockouts' => {'byProduct': <dynamic>[], 'outlets': <dynamic>[]},
+    'sales' => {'products': <dynamic>[], 'lossOutlets': <dynamic>[]},
+    _ => {'products': <dynamic>[], 'categories': <dynamic>[]},
+  };
+}

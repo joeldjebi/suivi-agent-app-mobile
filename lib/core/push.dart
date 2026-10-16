@@ -43,6 +43,9 @@ String pushRouteFor(Map<String, String> data, {required bool leader}) {
     'team.message' || 'report.daily' => leader ? '/report' : '/notifications',
     // Avis du matin : les points de vente en retard de visite.
     'outlets.overdue' => '/outlets?overdue=1',
+    // Produit concurrent signalé : ajouté au catalogue ou non retenu.
+    'product.suggestion_accepted' ||
+    'product.suggestion_rejected' => '/outlets/suggestions',
     // Visite libre rejetée : la fiche du point de vente.
     'visit.rejected' when data['outletId'] != null =>
       '/outlets/${data['outletId']}',

@@ -185,16 +185,98 @@ class ProductInsightsScreen extends ConsumerWidget {
     WidgetRef ref,
     ProductInsights d, {
     required bool own,
-  }) => [
-    if (d.orders != null) ..._orders(context, d.orders!),
-    // Les formulaires créés par la structure, champ par champ.
-    if (ref.watch(meProvider).hasMissions || ref.watch(meProvider).hasOutlets)
-      FormStatsSection(days: ref.watch(_periodProvider)),
-    if (d.readings != null) ...[
-      const SectionHeader('Produits : tous formulaires'),
-      ..._readings(context, ref, d.readings!, own: own),
-    ],
-  ];
+  }) {
+    final leader = ref.watch(meProvider).isTeamLead;
+    final r = d.readings;
+    // Aucun relevé produit sur la période : rien à montrer, seulement le moyen d'en avoir.
+    final noReadings = r != null && (r.overview['visits'] as num? ?? 0) == 0;
+    return [
+      if (d.orders != null) ...[
+        SectionHeader(leader ? 'Ventes de l’équipe' : 'Mes ventes'),
+        const _Caption('D’après les commandes livrées ou payées.'),
+        ..._orders(context, d.orders!),
+      ],
+      if (d.orders != null || (r != null && !noReadings)) ...[
+        const SectionHeader('Ventes par produit'),
+        AppSegmented<bool>(
+          segments: const {true: 'Nos produits', false: 'Concurrents'},
+          selected: own,
+          onChanged: (v) => ref.read(_ownProvider.notifier).set(v),
+        ),
+        const SizedBox(height: Space.sm),
+        ..._sales(d, own: own),
+      ],
+      // Les formulaires créés par la structure, champ par champ.
+      if (ref.watch(meProvider).hasMissions || ref.watch(meProvider).hasOutlets)
+        FormStatsSection(days: ref.watch(_periodProvider)),
+      if (r != null) ...[
+        const SectionHeader('Constaté en visite (relevés)'),
+        const _Caption(
+          'D’après les relevés produits des visites : ce que l’agent constate dans les commerces (présence, stock, prix, revente), pour nos produits et ceux des concurrents.',
+        ),
+        if (noReadings)
+          const InfoBanner(
+            icon: Icons.info_outline_rounded,
+            tone: Tone.info,
+            message:
+                'Aucun relevé produit sur la période. Pour suivre les ruptures et la revente en rayon, la structure ajoute un champ « Relevé par produit » (mesures Présence, Stock, Prix, Vendu) au formulaire de visite.',
+          )
+        else
+          ..._readings(context, ref, r, own: own),
+      ],
+    ];
+  }
+
+  /// Ventes par produit. Nos produits : nos commandes livrées ou payées (à défaut, la revente
+  /// relevée en visite) ; concurrents : leur revente relevée en visite.
+  List<Widget> _sales(ProductInsights d, {required bool own}) {
+    final fromOrders = own && d.orders != null;
+    final products = fromOrders
+        ? [
+            for (final p in d.orders!.products)
+              {...p, 'own': true, 'sold': p['quantity']},
+          ]
+        : (d.readings?.sales['products'] as List? ?? const [])
+              .cast<Map<String, dynamic>>();
+    final ranked = rankSales(products, own: own);
+    final source = fromOrders
+        ? 'D’après les commandes livrées ou payées.'
+        : 'D’après la revente constatée en visite (mesure « Vendu » des relevés).';
+    if (ranked.best.isEmpty && ranked.worst.isEmpty) {
+      return [
+        InfoBanner(
+          icon: Icons.info_outline_rounded,
+          tone: Tone.info,
+          message: fromOrders
+              ? 'Aucune commande livrée ou payée sur la période : une commande compte comme vente une fois livrée.'
+              : d.readings == null
+              ? 'Les ventes des concurrents se suivent avec les relevés produits en visite.'
+              : own
+              ? 'Aucune revente de nos produits relevée sur la période.'
+              : 'Aucune revente de la concurrence relevée sur la période (mesure « Vendu » des relevés).',
+        ),
+      ];
+    }
+    return [
+      _Caption(source),
+      if (ranked.best.isNotEmpty)
+        _SalesCard(
+          title: fromOrders ? 'Les plus commandés' : 'Les plus vendus',
+          icon: Icons.trending_up_rounded,
+          products: ranked.best,
+          own: own,
+        ),
+      if (ranked.worst.isNotEmpty) ...[
+        const SizedBox(height: Space.sm),
+        _SalesCard(
+          title: fromOrders ? 'Les moins commandés' : 'Les moins vendus',
+          icon: Icons.trending_down_rounded,
+          products: ranked.worst,
+          own: own,
+        ),
+      ],
+    ];
+  }
 
   /// Ce que la structure a vendu : commandes livrées ou payées de la période.
   List<Widget> _orders(BuildContext context, OrderInsights o) {
@@ -204,9 +286,6 @@ class ProductInsightsScreen extends ConsumerWidget {
     int countOf(String st) => ((by[st] as Map)['count'] as num).toInt();
     final currency = s['currency'] as String? ?? 'XOF';
     final sold = countOf('delivered') + countOf('paid');
-    final ranked = rankSales([
-      for (final p in o.products) {...p, 'own': true, 'sold': p['quantity']},
-    ], own: true);
     return [
       GridView.count(
         crossAxisCount: 2,
@@ -243,32 +322,6 @@ class ProductInsightsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      const SectionHeader('Nos produits vendus'),
-      if (ranked.best.isEmpty && ranked.worst.isEmpty)
-        const InfoBanner(
-          icon: Icons.info_outline_rounded,
-          tone: Tone.info,
-          message:
-              'Aucune commande livrée ou payée sur la période. Une commande compte comme vente une fois livrée.',
-        )
-      else ...[
-        if (ranked.best.isNotEmpty)
-          _SalesCard(
-            title: 'Les plus commandés',
-            icon: Icons.trending_up_rounded,
-            products: ranked.best,
-            own: true,
-          ),
-        if (ranked.worst.isNotEmpty) ...[
-          const SizedBox(height: Space.sm),
-          _SalesCard(
-            title: 'Les moins commandés',
-            icon: Icons.trending_down_rounded,
-            products: ranked.worst,
-            own: true,
-          ),
-        ],
-      ],
     ];
   }
 
@@ -286,10 +339,6 @@ class ProductInsightsScreen extends ConsumerWidget {
         .cast<Map<String, dynamic>>();
     final ruptures = (d.stockouts['outlets'] as List)
         .cast<Map<String, dynamic>>();
-    final ranked = rankSales(
-      (d.sales['products'] as List).cast<Map<String, dynamic>>(),
-      own: own,
-    );
     final categories = (d.prices['categories'] as List)
         .cast<Map<String, dynamic>>();
     final danger = toneColor(context, Tone.danger);
@@ -315,7 +364,7 @@ class ProductInsightsScreen extends ConsumerWidget {
             hint: '${o['visits']} visites avec relevé',
           ),
           _Kpi(
-            label: 'Vendu (nos produits)',
+            label: 'Revendu (nos produits)',
             value: formatNumber(o['ownSold'] as num),
             hint: 'Concurrence : ${formatNumber(o['competitorSold'] as num)}',
           ),
@@ -405,39 +454,6 @@ class ProductInsightsScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ],
-      const SectionHeader('Ventes'),
-      AppSegmented<bool>(
-        segments: const {true: 'Nos produits', false: 'Concurrents'},
-        selected: own,
-        onChanged: (v) => ref.read(_ownProvider.notifier).set(v),
-      ),
-      const SizedBox(height: Space.sm),
-      if (ranked.best.isEmpty && ranked.worst.isEmpty)
-        InfoBanner(
-          icon: Icons.info_outline_rounded,
-          tone: Tone.info,
-          message: own
-              ? 'Aucune vente de nos produits relevée sur la période.'
-              : 'Aucune vente de la concurrence relevée sur la période.',
-        )
-      else ...[
-        if (ranked.best.isNotEmpty)
-          _SalesCard(
-            title: 'Les plus vendus',
-            icon: Icons.trending_up_rounded,
-            products: ranked.best,
-            own: own,
-          ),
-        if (ranked.worst.isNotEmpty) ...[
-          const SizedBox(height: Space.sm),
-          _SalesCard(
-            title: 'Les moins vendus',
-            icon: Icons.trending_down_rounded,
-            products: ranked.worst,
-            own: own,
-          ),
-        ],
       ],
       if (categories.isNotEmpty) ...[
         const SectionHeader('Prix face à la concurrence'),
@@ -619,4 +635,22 @@ class _SalesCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Phrase d'explication sous un titre de section : d'où viennent les chiffres.
+class _Caption extends StatelessWidget {
+  const _Caption(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: Space.sm),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 }

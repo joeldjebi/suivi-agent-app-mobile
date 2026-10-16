@@ -532,6 +532,32 @@ class FakeRepository extends Repository {
     freeVisits.add({...body, 'path': id});
   }
 
+  // Produits concurrents signalés.
+  final suggestionBodies = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> suggestionsJson = [];
+
+  @override
+  Future<Map<String, dynamic>> createSuggestion(
+    Map<String, dynamic> body,
+  ) async {
+    suggestionBodies.add(body);
+    final s = {
+      'id': 'sg-${suggestionBodies.length}',
+      'name': body['name'],
+      'format': body['format'],
+      'status': 'pending',
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+      'outletName': body['outletId'] == null ? null : 'Boutique Awa',
+      'productName': null,
+      'rejectReason': null,
+    };
+    suggestionsJson.insert(0, s);
+    return s;
+  }
+
+  @override
+  Future<List<dynamic>> suggestions() async => suggestionsJson;
+
   // Prise de commande.
   Map<String, dynamic> orderCatalogJson = const {
     'priceList': null,
