@@ -70,27 +70,34 @@ class BrandHeader extends ConsumerWidget {
                     ? 'Notifications, $unread non lues'
                     : 'Notifications',
                 excludeSemantics: true,
-                child: Material(
-                  color: scheme.surfaceContainerHighest,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => context.push('/notifications'),
-                    child: SizedBox.square(
-                      dimension: 34,
-                      child: Badge(
-                        isLabelVisible: unread > 0,
-                        label: Text(unread > 99 ? '99+' : '$unread'),
-                        // Pastille à cheval sur le coin haut droit du bouton.
-                        offset: const Offset(6, -6),
-                        child: Icon(
-                          Icons.notifications_none_rounded,
-                          size: 19,
-                          color: scheme.onSurface,
+                // Pastille posée à cheval sur le coin haut droit du bouton, à une
+                // position fixe : nombre centré quel que soit le téléphone.
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Material(
+                      color: scheme.surfaceContainerHighest,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => context.push('/notifications'),
+                        child: SizedBox.square(
+                          dimension: 34,
+                          child: Icon(
+                            Icons.notifications_none_rounded,
+                            size: 19,
+                            color: scheme.onSurface,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    if (unread > 0)
+                      Positioned(
+                        top: -5,
+                        right: -5,
+                        child: IgnorePointer(child: UnreadBadge(count: unread)),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -185,6 +192,40 @@ class InfoRow extends StatelessWidget {
           ),
           Text(value, style: text.titleSmall),
         ],
+      ),
+    );
+  }
+}
+
+/// Nombre de notifications non lues : rond rouge cerclé de la couleur du fond, chiffre
+/// centré ; s'élargit en pilule à partir de 10 (« 99+ » au-delà).
+class UnreadBadge extends StatelessWidget {
+  const UnreadBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.error,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.surface, width: 2),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        textAlign: TextAlign.center,
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          color: scheme.onError,
+          fontSize: 10.5,
+          height: 1,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

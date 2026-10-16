@@ -891,8 +891,11 @@ class FakeRepository extends Repository {
   @override
   Future<List<int>?> avatarBytes(String userId) async => null;
 
+  /// Notifications du compte (la cloche affiche le nombre de non lues).
+  List<AppNotification> notificationsList = [];
+
   @override
-  Future<List<AppNotification>> notifications() async => [];
+  Future<List<AppNotification>> notifications() async => notificationsList;
 
   int markAllReadCalls = 0;
 

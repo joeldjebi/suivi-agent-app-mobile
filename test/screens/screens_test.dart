@@ -121,6 +121,25 @@ void main() {
     );
   });
 
+  testWidgets('accueil avec notifications non lues', (tester) {
+    final repo = FakeRepository()
+      ..notificationsList = [
+        for (var i = 0; i < 3; i++)
+          AppNotification(
+            id: 'n$i',
+            title: 'Demande de zone approuvée',
+            body: null,
+            createdAt: DateTime(2026, 10, 16, 8, i),
+            read: false,
+          ),
+      ];
+    return _capture(
+      tester,
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+      '02b-agent-notifications-non-lues',
+    );
+  });
+
   testWidgets(
     'agent - sans zone',
     (tester) => _capture(
