@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-/// Serveur de production (adresse IP en attendant le nom de domaine et le HTTPS).
-const productionApiUrl = 'http://185.215.167.87:8090/api';
+/// Serveur de production, en HTTPS.
+const productionApiUrl = 'https://performx.online/api';
 
 /// URL de l'API. Surcharger avec : flutter run --dart-define=API_URL=https://…
 /// Version publiée (release) : la production. Développement : la machine hôte
