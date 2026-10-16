@@ -70,34 +70,39 @@ class BrandHeader extends ConsumerWidget {
                     ? 'Notifications, $unread non lues'
                     : 'Notifications',
                 excludeSemantics: true,
-                // Pastille posée à cheval sur le coin haut droit du bouton, à une
-                // position fixe : nombre centré quel que soit le téléphone.
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Material(
-                      color: scheme.surfaceContainerHighest,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => context.push('/notifications'),
-                        child: SizedBox.square(
-                          dimension: 34,
-                          child: Icon(
-                            Icons.notifications_none_rounded,
-                            size: 19,
-                            color: scheme.onSurface,
+                // Pastille dans le coin haut droit d'une zone un peu plus grande que le
+                // bouton : elle reste dans les limites de l'en-tête, sans déborder.
+                child: SizedBox.square(
+                  dimension: 42,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Material(
+                        color: scheme.surfaceContainerHighest,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => context.push('/notifications'),
+                          child: SizedBox.square(
+                            dimension: 34,
+                            child: Icon(
+                              Icons.notifications_none_rounded,
+                              size: 19,
+                              color: scheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    if (unread > 0)
-                      Positioned(
-                        top: -5,
-                        right: -5,
-                        child: IgnorePointer(child: UnreadBadge(count: unread)),
-                      ),
-                  ],
+                      if (unread > 0)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IgnorePointer(
+                            child: UnreadBadge(count: unread),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

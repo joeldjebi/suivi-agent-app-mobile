@@ -249,6 +249,10 @@ class Repository {
 
   // Produits concurrents signalés depuis le terrain.
 
+  /// Catalogue produits ; `side` : own (les nôtres) ou competitor (la concurrence).
+  Future<List<dynamic>> products({String? side}) =>
+      api.get<List<dynamic>>('/products', query: {'side': ?side});
+
   /// Signalement (idempotent sur clientId).
   Future<Map<String, dynamic>> createSuggestion(Map<String, dynamic> body) =>
       api.post<Map<String, dynamic>>('/product-suggestions', body);

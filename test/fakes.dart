@@ -532,6 +532,15 @@ class FakeRepository extends Repository {
     freeVisits.add({...body, 'path': id});
   }
 
+  /// Catalogue produits (`side` : own / competitor).
+  List<Map<String, dynamic>> productsJson = [];
+
+  @override
+  Future<List<dynamic>> products({String? side}) async => [
+    for (final p in productsJson)
+      if (side == null || (side == 'own') == (p['own'] == true)) p,
+  ];
+
   // Produits concurrents signalés.
   final suggestionBodies = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> suggestionsJson = [];

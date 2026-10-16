@@ -57,6 +57,67 @@ class ProductSuggestion {
       );
 }
 
+/// Produit concurrent déjà au catalogue (pour ne pas le signaler une seconde fois).
+class KnownProduct {
+  KnownProduct({
+    required this.id,
+    required this.name,
+    this.format,
+    this.brand,
+    this.category,
+  });
+
+  final String id;
+  final String name;
+  final String? format;
+  final String? brand;
+  final String? category;
+
+  String get label => [name, ?format].join(' ');
+
+  factory KnownProduct.fromJson(Map<String, dynamic> j) => KnownProduct(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    format: j['format'] as String?,
+    brand: j['brand'] as String?,
+    category: j['category'] as String?,
+  );
+}
+
+/// Produits concurrents du catalogue (gardés pour le hors ligne par le cache des réponses).
+final competitorProductsProvider =
+    FutureProvider.autoDispose<List<KnownProduct>>(
+      (ref) async => [
+        for (final p
+            in await ref.read(repositoryProvider).products(side: 'competitor'))
+          KnownProduct.fromJson(p as Map<String, dynamic>),
+      ],
+    );
+
+/// « Héineken 33 CL » → « heineken 33 cl » : comparaison sans accents ni majuscules.
+String plainText(String s) {
+  const from = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæ';
+  const to = 'aaaaaaceeeeiiiinooooouuuuyyoa';
+  final lower = s.toLowerCase();
+  final out = StringBuffer();
+  for (final ch in lower.split('')) {
+    final i = from.indexOf(ch);
+    out.write(i < 0 ? ch : to[i]);
+  }
+  return out.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
+/// Produits du catalogue dont le nom (ou la marque) contient ce qui est tapé.
+List<KnownProduct> matchingProducts(List<KnownProduct> all, String query) {
+  final q = plainText(query);
+  if (q.length < 2) return const [];
+  return [
+    for (final p in all)
+      if (plainText('${p.name} ${p.format ?? ''} ${p.brand ?? ''}').contains(q))
+        p,
+  ];
+}
+
 /// Mes signalements.
 final suggestionsProvider = FutureProvider.autoDispose<List<ProductSuggestion>>(
   (ref) async => [
@@ -189,6 +250,12 @@ class _SuggestionEditorScreenState
   bool _saving = false;
   String? _error;
 
+  /// Le produit est déjà au catalogue : rien à signaler.
+  KnownProduct? _existing;
+
+  /// Nouveau format d'un produit du catalogue : nom, marque et catégorie repris.
+  KnownProduct? _variantOf;
+
   @override
   void dispose() {
     for (final c in [_name, _format, _brand, _category, _note]) {
@@ -199,6 +266,17 @@ class _SuggestionEditorScreenState
 
   Future<void> _save() async {
     if (!(_form.currentState?.validate() ?? false)) return;
+    // Même nom et même format qu'un produit du catalogue : il existe déjà.
+    final known = ref.read(competitorProductsProvider).value ?? const [];
+    final same = known.where(
+      (p) =>
+          plainText(p.name) == plainText(_name.text) &&
+          plainText(p.format ?? '') == plainText(_format.text),
+    );
+    if (same.isNotEmpty) {
+      setState(() => _existing = same.first);
+      return;
+    }
     tapFeedback();
     setState(() {
       _saving = true;
@@ -251,6 +329,8 @@ class _SuggestionEditorScreenState
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    // Catalogue gardé pendant toute la saisie : suggestions et contrôle des doublons à l'envoi.
+    final known = ref.watch(competitorProductsProvider).value ?? const [];
     final outlet = widget.outletId == null
         ? null
         : ref.watch(outletProvider(widget.outletId!)).value?.outlet;
@@ -274,6 +354,19 @@ class _SuggestionEditorScreenState
               ),
               const SizedBox(height: Space.md),
             ],
+            if (_existing != null) ...[
+              InfoBanner(
+                icon: Icons.check_circle_outline_rounded,
+                tone: Tone.success,
+                message:
+                    '${_existing!.label} est déjà au catalogue : inutile de le signaler. Relevez-le pendant vos visites (présence, stock, prix).',
+                action: TextButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('Compris'),
+                ),
+              ),
+              const SizedBox(height: Space.md),
+            ],
             Text(
               outlet == null
                   ? 'Un produit concurrent absent du catalogue : décrivez-le, l’administrateur l’ajoutera.'
@@ -290,7 +383,29 @@ class _SuggestionEditorScreenState
               ),
               validator: (v) =>
                   (v ?? '').trim().isEmpty ? 'Nom obligatoire' : null,
+              onChanged: (_) => setState(() => _existing = null),
             ),
+            if (_variantOf != null) ...[
+              const SizedBox(height: Space.sm),
+              InputChip(
+                avatar: const Icon(Icons.layers_outlined, size: 18),
+                label: Text('Nouveau format de ${_variantOf!.name}'),
+                onDeleted: () => setState(() => _variantOf = null),
+                deleteButtonTooltipMessage: 'Ce n’est pas un nouveau format',
+              ),
+            ] else
+              _KnownMatches(
+                matches: matchingProducts(known, _name.text),
+                onSame: (p) => setState(() => _existing = p),
+                onVariant: (p) => setState(() {
+                  _variantOf = p;
+                  _existing = null;
+                  _name.text = p.name;
+                  if (p.brand != null) _brand.text = p.brand!;
+                  if (p.category != null) _category.text = p.category!;
+                  _format.clear();
+                }),
+              ),
             const SizedBox(height: Space.md),
             Row(
               children: [
@@ -361,6 +476,107 @@ class _SuggestionEditorScreenState
             loading: _saving,
             onPressed: _saving ? null : _save,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sous le nom : les produits concurrents déjà au catalogue qui ressemblent à ce qui est tapé.
+/// « C'est lui » : rien à signaler ; « Autre format » : un nouveau format de ce produit.
+class _KnownMatches extends StatelessWidget {
+  const _KnownMatches({
+    required this.matches,
+    required this.onSame,
+    required this.onVariant,
+  });
+
+  final List<KnownProduct> matches;
+  final ValueChanged<KnownProduct> onSame;
+  final ValueChanged<KnownProduct> onVariant;
+
+  @override
+  Widget build(BuildContext context) {
+    if (matches.isEmpty) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.sm),
+      child: SurfaceCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.md,
+                Space.md,
+                Space.md,
+                Space.xs,
+              ),
+              child: Text(
+                'Déjà au catalogue : est-ce l’un d’eux ?',
+                style: text.titleSmall,
+              ),
+            ),
+            for (final p in matches.take(5))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.md,
+                  Space.sm,
+                  Space.md,
+                  Space.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      p.label,
+                      style: text.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (p.brand != null)
+                      Text(
+                        p.brand!,
+                        style: text.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    const SizedBox(height: Space.xs),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => onSame(p),
+                            child: const Text('C’est lui'),
+                          ),
+                        ),
+                        const SizedBox(width: Space.sm),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => onVariant(p),
+                            child: const Text('Autre format'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.md,
+                0,
+                Space.md,
+                Space.md,
+              ),
+              child: Text(
+                'Aucun ne correspond ? Continuez : c’est un nouveau produit.',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ],
         ),
       ),
     );

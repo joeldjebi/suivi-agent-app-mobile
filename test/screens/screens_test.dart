@@ -943,6 +943,53 @@ void main() {
       ),
     );
     testWidgets(
+      'signalement avec recherche dans le catalogue',
+      (tester) => _capture(
+        tester,
+        testApp(
+          auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+          repo: ActivityRepo()
+            ..productsJson = [
+              {
+                'id': 'h65',
+                'name': 'Heineken',
+                'format': '65 cl',
+                'brand': 'Brasivoire',
+                'category': 'Bières',
+                'own': false,
+              },
+              {
+                'id': 'h33',
+                'name': 'Heineken',
+                'format': '33 cl',
+                'brand': 'Brasivoire',
+                'category': 'Bières',
+                'own': false,
+              },
+            ],
+        ),
+        '54-agent-signalement-recherche',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Boutique Awa'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.tap(find.text('Concurrent'));
+          for (var i = 0; i < 8; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+          await tester.enterText(
+            find.widgetWithText(TextFormField, 'Nom du produit *'),
+            'heine',
+          );
+        },
+      ),
+    );
+    testWidgets(
       'fiche chargee',
       (tester) => _capture(
         tester,

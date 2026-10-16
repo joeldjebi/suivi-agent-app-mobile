@@ -12,6 +12,8 @@ import 'package:suivi_agent/features/outlets/outlets_screen.dart';
 import 'package:suivi_agent/features/outlets/outlet_models.dart';
 import 'package:suivi_agent/features/outlets/route_screen.dart';
 import 'package:suivi_agent/features/team/requests_screen.dart';
+import 'package:suivi_agent/features/outlets/suggestions.dart'
+    show KnownProduct, matchingProducts, plainText;
 import 'package:suivi_agent/core/models.dart';
 import 'package:suivi_agent/features/missions/product_readings_input.dart'
     show formatBreakdown, formatQuantity;
@@ -1150,6 +1152,106 @@ void main() {
       await _close(tester);
     },
   );
+
+  testWidgets('signalement : chercher d’abord dans le catalogue', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = ActivityRepo()
+      ..productsJson = [
+        {
+          'id': 'p-pepsi',
+          'name': 'Pepsi',
+          'format': '33 cl',
+          'brand': 'PepsiCo',
+          'category': 'Boissons',
+          'own': false,
+        },
+        {
+          'id': 'p-ivoire',
+          'name': 'Ivoire',
+          'format': '65 cl',
+          'brand': 'Brasivoire',
+          'category': 'Bières',
+          'own': false,
+        },
+      ];
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(features: auditFeatures)),
+        repo: repo,
+      ),
+    );
+    await _settle(tester);
+    await _tap(tester, _tab('Points de vente'));
+    await _tap(tester, find.text('Boutique Awa'));
+    await _tap(tester, find.text('Concurrent'));
+    final name = find.widgetWithText(TextFormField, 'Nom du produit *');
+
+    // 1. Déjà au catalogue : rien à signaler.
+    await tester.enterText(name, 'pép');
+    await tester.pump();
+    expect(
+      find.text('Déjà au catalogue : est-ce l’un d’eux ?'),
+      findsOneWidget,
+    );
+    expect(find.text('Pepsi 33 cl'), findsOneWidget);
+    expect(find.text('Ivoire 65 cl'), findsNothing);
+    await _tap(tester, find.text('C’est lui'));
+    expect(
+      find.textContaining('Pepsi 33 cl est déjà au catalogue'),
+      findsOneWidget,
+    );
+
+    // 2. Nouveau format d'un produit connu : nom, marque et catégorie repris.
+    await tester.enterText(name, 'Pep');
+    await tester.pump();
+    await _tap(tester, find.text('Autre format'));
+    expect(find.text('Nouveau format de Pepsi'), findsOneWidget);
+    expect(find.text('PepsiCo'), findsOneWidget);
+    // 3. Même nom et même format qu'au catalogue : refusé avant l'envoi.
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Format'),
+      '33 CL',
+    );
+    await _tap(tester, find.text('Envoyer le signalement'));
+    expect(repo.suggestionBodies, isEmpty);
+    expect(
+      find.textContaining('Pepsi 33 cl est déjà au catalogue'),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Format'),
+      '50 cl',
+    );
+    await _tap(tester, find.text('Envoyer le signalement'));
+    expect(repo.suggestionBodies.single, containsPair('name', 'Pepsi'));
+    expect(repo.suggestionBodies.single, containsPair('format', '50 cl'));
+    expect(repo.suggestionBodies.single, containsPair('brand', 'PepsiCo'));
+    expect(repo.suggestionBodies.single, containsPair('category', 'Boissons'));
+    await _close(tester);
+  });
+
+  test('comparaison sans accents ni majuscules', () {
+    expect(plainText('  Héineken   33 CL '), 'heineken 33 cl');
+    final all = [
+      KnownProduct(
+        id: 'a',
+        name: 'Heineken',
+        format: '65 cl',
+        brand: 'Brasivoire',
+      ),
+      KnownProduct(
+        id: 'b',
+        name: 'Ivoire',
+        format: '33 cl',
+        brand: 'Brasivoire',
+      ),
+    ];
+    expect(matchingProducts(all, 'h').map((p) => p.id), isEmpty);
+    expect(matchingProducts(all, 'héin').map((p) => p.id), ['a']);
+    expect(matchingProducts(all, 'brasi').map((p) => p.id), ['a', 'b']);
+  });
 
   test('décision sur un produit signalé : la liste des signalements', () {
     for (final type in [
