@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../safety/sos.dart';
+import '../../core/app_version.dart';
 import '../../core/config.dart';
 import '../../core/network_status.dart';
 import '../../core/providers.dart';
@@ -92,7 +93,19 @@ class LiveUpdates {
     });
     socket.on('sync', (data) {
       final topic = data is Map ? data['topic'] : null;
+      // Couleurs ou logo changés par la structure : appliqués aussitôt, sans attendre.
+      if (topic == 'branding') {
+        unawaited(_ref.read(authProvider.notifier).reloadBranding());
+      }
       schedule(topic is String ? areasFor(topic) : LiveArea.values);
+    });
+    // L'éditeur publie une version : fenêtre de mise à jour, ou blocage si elle est critique.
+    socket.on('app_version', (data) {
+      if (data is Map) {
+        _ref
+            .read(updateProvider.notifier)
+            .apply(Map<String, dynamic>.from(data));
+      }
     });
     socket.on('notification', (_) {
       _ref.invalidate(unreadCountProvider);
@@ -105,6 +118,8 @@ class LiveUpdates {
     _fallback = Timer.periodic(const Duration(seconds: 45), (_) {
       if (!(_socket?.connected ?? false)) {
         schedule(const [LiveArea.day, LiveArea.team, LiveArea.alerts]);
+        // Apparence : le logo n'est retéléchargé que s'il a changé.
+        unawaited(_ref.read(authProvider.notifier).reloadBranding());
       }
     });
   }
@@ -113,6 +128,8 @@ class LiveUpdates {
   /// tout et on se reconnecte si besoin.
   void resume() {
     schedule(LiveArea.values);
+    // Version publiée pendant que l'app était en arrière-plan.
+    _ref.read(updateProvider.notifier).check();
     final socket = _socket;
     if (socket != null && !socket.connected) {
       _retry?.cancel();

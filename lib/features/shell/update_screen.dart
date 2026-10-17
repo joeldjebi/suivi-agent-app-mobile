@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -149,15 +151,34 @@ class _ReleaseNotes extends StatelessWidget {
   }
 }
 
-/// Mise à jour recommandée : fenêtre à l'ouverture de l'espace connecté, avec « Plus tard ».
-/// Elle revient au plus une fois par jour tant que l'app n'est pas à jour.
+/// Nouvelle version (mineure ou recommandée) : fenêtre qu'on peut fermer, affichée dès que
+/// l'éditeur la publie, puis de nouveau une fois par jour (mineure) ou toutes les heures
+/// (recommandée) tant que l'app n'est pas à jour. Une version critique bloque l'app (écran).
 class UpdatePrompt extends ConsumerStatefulWidget {
   const UpdatePrompt({super.key, required this.child});
 
   final Widget child;
 
-  /// Dernière proposition : « version|jour ».
+  /// Dernière proposition : « version|importance|instant ».
   static const prefKey = 'update.prompted';
+
+  /// L'app ouverte longtemps : délai de nouvelle proposition vérifié régulièrement.
+  static const tick = Duration(minutes: 1);
+
+  /// Filet de sécurité si l'annonce en direct est manquée (connexion coupée).
+  static const recheck = Duration(minutes: 30);
+
+  /// À proposer maintenant ? Nouvelle version ou importance changée : tout de suite ; sinon
+  /// après le délai de l'importance.
+  static bool due(UpdateInfo update, String? last, DateTime now) {
+    final parts = last?.split('|');
+    if (parts == null || parts.length != 3) return true;
+    if (parts[0] != '${update.version}' || parts[1] != update.importance.name) {
+      return true;
+    }
+    final at = DateTime.fromMillisecondsSinceEpoch(int.tryParse(parts[2]) ?? 0);
+    return now.difference(at) >= update.remindEvery;
+  }
 
   @override
   ConsumerState<UpdatePrompt> createState() => _UpdatePromptState();
@@ -165,6 +186,8 @@ class UpdatePrompt extends ConsumerStatefulWidget {
 
 class _UpdatePromptState extends ConsumerState<UpdatePrompt> {
   bool _showing = false;
+  Timer? _tick;
+  Timer? _recheck;
 
   @override
   void initState() {
@@ -172,23 +195,41 @@ class _UpdatePromptState extends ConsumerState<UpdatePrompt> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeShow(ref.read(updateProvider)),
     );
+    _tick = Timer.periodic(
+      UpdatePrompt.tick,
+      (_) => _maybeShow(ref.read(updateProvider)),
+    );
+    _recheck = Timer.periodic(
+      UpdatePrompt.recheck,
+      (_) => ref.read(updateProvider.notifier).check(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    _recheck?.cancel();
+    super.dispose();
   }
 
   Future<void> _maybeShow(UpdateInfo? update) async {
     if (_showing || update == null || !update.prompt) return;
     final now = DateTime.now();
-    final mark = '${update.version}|${now.year}-${now.month}-${now.day}';
     SharedPreferences? prefs;
+    String? last;
     try {
       prefs = await SharedPreferences.getInstance();
-      if (prefs.getString(UpdatePrompt.prefKey) == mark) return;
+      last = prefs.getString(UpdatePrompt.prefKey);
     } catch (_) {
       // Stockage indisponible : proposée à chaque ouverture.
     }
-    if (!mounted || _showing) return;
+    if (!UpdatePrompt.due(update, last, now) || !mounted || _showing) return;
     _showing = true;
     try {
-      await prefs?.setString(UpdatePrompt.prefKey, mark);
+      await prefs?.setString(
+        UpdatePrompt.prefKey,
+        '${update.version}|${update.importance.name}|${now.millisecondsSinceEpoch}',
+      );
     } catch (_) {}
     if (!mounted) return;
     await showModalBottomSheet<void>(
@@ -234,7 +275,9 @@ class _UpdateSheet extends StatelessWidget {
           ),
           const SizedBox(height: Space.sm),
           Text(
-            'Une mise à jour recommandée est disponible. Installez-la dès que possible.',
+            update.importance == UpdateImportance.recommended
+                ? 'Une mise à jour recommandée est disponible. Installez-la dès que possible.'
+                : 'Une nouvelle version de l’application est disponible.',
             style: text.bodyLarge?.copyWith(color: muted),
           ),
           if (update.releaseNotes case final notes?) ...[

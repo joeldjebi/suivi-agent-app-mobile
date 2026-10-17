@@ -37,10 +37,10 @@ int compareVersions(String a, String b) {
 
 /// Importance de la dernière version, choisie par l'éditeur.
 enum UpdateImportance {
-  /// Bandeau discret (profil).
+  /// Fenêtre qu'on peut fermer, de nouveau proposée une fois par jour.
   minor,
 
-  /// Fenêtre à l'ouverture, avec « Plus tard » (une fois par jour).
+  /// Fenêtre qu'on peut fermer, de nouveau proposée toutes les heures.
   recommended,
 
   /// Obligatoire : l'app est bloquée jusqu'à la mise à jour.
@@ -70,8 +70,13 @@ class UpdateInfo {
   /// Nouveautés de la version, rédigées par l'éditeur.
   final String? releaseNotes;
 
-  /// Proposée avec une fenêtre à l'ouverture de l'app.
-  bool get prompt => !required && importance == UpdateImportance.recommended;
+  /// Proposée dans une fenêtre qu'on peut fermer (mineure ou recommandée).
+  bool get prompt => !required;
+
+  /// Délai avant de proposer de nouveau la même mise à jour, une fois la fenêtre fermée.
+  Duration get remindEvery => importance == UpdateImportance.recommended
+      ? const Duration(hours: 1)
+      : const Duration(days: 1);
 }
 
 class UpdateController extends Notifier<UpdateInfo?> {
@@ -96,10 +101,15 @@ class UpdateController extends Notifier<UpdateInfo?> {
           .read(repositoryProvider)
           .api
           .get<Map<String, dynamic>>('/app/version');
-      state = updateFor(AppVersion.current, info, ios: Platform.isIOS);
+      apply(info);
     } catch (_) {
       // Hors connexion : vérifié au prochain lancement.
     }
+  }
+
+  /// Réglages de version reçus (API, ou annonce en direct quand l'éditeur les change).
+  void apply(Map<String, dynamic> info) {
+    state = updateFor(AppVersion.current, info, ios: Platform.isIOS);
   }
 }
 

@@ -224,6 +224,17 @@ class AuthController extends Notifier<AuthState> {
             : Uint8List.fromList(await _repo.logoBytes());
       }
       final branding = Branding.fromJson(json, logo: logo);
+      // Inchangée (relecture de contrôle) : l'app n'est pas reconstruite pour rien.
+      if (cached != null &&
+          identical(cached.logo, branding.logo) &&
+          cached.version == branding.version &&
+          cached.displayName == branding.displayName &&
+          cached.primary == branding.primary &&
+          cached.onPrimary == branding.onPrimary &&
+          cached.welcomeMessage == branding.welcomeMessage &&
+          cached.supportPhone == branding.supportPhone) {
+        return cached;
+      }
       await ref.read(brandingCacheProvider).write(branding);
       if (state case SignedIn(:final me)) state = SignedIn(me, branding);
       return branding;

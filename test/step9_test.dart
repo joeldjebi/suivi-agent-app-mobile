@@ -9,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:suivi_agent/app.dart';
 import 'package:suivi_agent/core/app_version.dart';
 import 'package:suivi_agent/core/database.dart';
+import 'package:suivi_agent/core/providers.dart';
 import 'package:suivi_agent/core/sync.dart';
 import 'package:suivi_agent/core/tracking.dart';
 import 'package:suivi_agent/design/components.dart';
+import 'package:suivi_agent/features/shell/update_screen.dart';
 
 import 'fakes.dart';
 
@@ -119,6 +121,13 @@ void main() {
       version: '1.3.0',
       storeUrl: 'https://exemple.ci/app.apk',
     );
+    await _settle(tester);
+    // Mineure : fenêtre affichée tout de suite, qu'on peut fermer.
+    expect(find.text('Nouvelle version 1.3.0'), findsOneWidget);
+    await tester.ensureVisible(find.text('Plus tard'));
+    await _settle(tester);
+    await tester.tap(find.text('Plus tard'));
+    await _settle(tester);
     await tester.tap(
       find.descendant(
         of: find.byType(AppNavBar),
@@ -150,9 +159,10 @@ void main() {
     };
     // À jour : rien.
     expect(updateFor('1.3.0', info(), ios: false), isNull);
-    // Mineure : proposée, sans fenêtre.
+    // Mineure : fenêtre qu'on peut fermer, de nouveau proposée le lendemain.
     final minor = updateFor('1.2.0', info(), ios: false)!;
-    expect((minor.required, minor.prompt), (false, false));
+    expect((minor.required, minor.prompt), (false, true));
+    expect(minor.remindEvery, const Duration(days: 1));
     expect(minor.storeUrl, 'https://exemple.ci/app.apk');
     // Recommandée : fenêtre, avec les nouveautés.
     final recommended = updateFor(
@@ -162,6 +172,7 @@ void main() {
     )!;
     expect((recommended.required, recommended.prompt), (false, true));
     expect(recommended.releaseNotes, 'Carte plus rapide.');
+    expect(recommended.remindEvery, const Duration(hours: 1));
     expect(recommended.storeUrl, 'https://apps.apple.com/app/id1');
     // Critique : bloquée, même sans version minimale reçue.
     expect(
@@ -200,9 +211,9 @@ void main() {
       expect(find.text('Envoi des commandes plus rapide.'), findsOneWidget);
       expect(find.text('Mettre à jour'), findsOneWidget);
       // Grande police : la fenêtre défile jusqu'au bouton.
-    await tester.ensureVisible(find.text('Plus tard'));
-    await _settle(tester);
-    await tester.tap(find.text('Plus tard'));
+      await tester.ensureVisible(find.text('Plus tard'));
+      await _settle(tester);
+      await tester.tap(find.text('Plus tard'));
       await _settle(tester);
       expect(find.text('Nouvelle version 1.4.0'), findsNothing);
       // L'app reste utilisable ; la fenêtre ne revient pas le même jour.
@@ -242,4 +253,104 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 5));
   });
+
+  test('fenêtre de mise à jour : tout de suite, puis selon l’importance', () {
+    final now = DateTime(2026, 10, 17, 10);
+    String mark(String version, String importance, DateTime at) =>
+        '$version|$importance|${at.millisecondsSinceEpoch}';
+    const minor = UpdateInfo(required: false, version: '1.4.0');
+    const recommended = UpdateInfo(
+      required: false,
+      version: '1.4.0',
+      importance: UpdateImportance.recommended,
+    );
+    // Jamais proposée : tout de suite.
+    expect(UpdatePrompt.due(minor, null, now), isTrue);
+    // Mineure : une fois par jour.
+    final earlier = now.subtract(const Duration(hours: 2));
+    expect(
+      UpdatePrompt.due(minor, mark('1.4.0', 'minor', earlier), now),
+      isFalse,
+    );
+    expect(
+      UpdatePrompt.due(
+        minor,
+        mark('1.4.0', 'minor', now.subtract(const Duration(days: 1))),
+        now,
+      ),
+      isTrue,
+    );
+    // Recommandée : toutes les heures.
+    expect(
+      UpdatePrompt.due(
+        recommended,
+        mark('1.4.0', 'recommended', now.subtract(const Duration(minutes: 30))),
+        now,
+      ),
+      isFalse,
+    );
+    expect(
+      UpdatePrompt.due(recommended, mark('1.4.0', 'recommended', earlier), now),
+      isTrue,
+    );
+    // L'éditeur change la version ou l'importance : tout de suite.
+    expect(
+      UpdatePrompt.due(recommended, mark('1.4.0', 'minor', now), now),
+      isTrue,
+    );
+    expect(UpdatePrompt.due(minor, mark('1.3.0', 'minor', now), now), isTrue);
+  });
+
+  testWidgets('couleur changée par la structure : appliquée sans redémarrer', (
+    tester,
+  ) async {
+    _phone(tester);
+    final repo = _BrandingRepository();
+    await tester.pumpWidget(
+      testApp(auth: () => SignedInAuth(fakeMe()), repo: repo),
+    );
+    await _settle(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SuiviAgentApp)),
+    );
+    Color primary() =>
+        Theme.of(tester.element(find.byType(AppNavBar))).colorScheme.primary;
+    final before = primary();
+
+    // Annonce « branding » : l'app relit l'apparence et change de thème.
+    repo.color = '#B42318';
+    await container.read(authProvider.notifier).reloadBranding();
+    await _settle(tester);
+    expect(container.read(brandingProvider).primary, const Color(0xFFB42318));
+    expect(primary(), isNot(before));
+
+    // Relecture de contrôle sans changement : même apparence, rien n'est reconstruit.
+    final same = container.read(brandingProvider);
+    await container.read(authProvider.notifier).reloadBranding();
+    expect(identical(container.read(brandingProvider), same), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+  });
+}
+
+/// Apparence servie par la structure, modifiable pendant le test.
+class _BrandingRepository extends FakeRepository {
+  String color = '#0F766E';
+  int version = 1;
+  String? _last;
+
+  @override
+  Future<Map<String, dynamic>> branding() async {
+    if (_last != null && _last != color) version++;
+    _last = color;
+    return {
+      'displayName': 'Démo Abidjan',
+      'primaryColor': color,
+      'onPrimaryColor': '#FFFFFF',
+      'welcomeMessage': 'Bonne journée sur le terrain !',
+      'supportPhone': null,
+      'logoUrl': null,
+      'version': version,
+    };
+  }
 }
