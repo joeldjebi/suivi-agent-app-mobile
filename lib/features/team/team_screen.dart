@@ -52,59 +52,47 @@ class TeamScreen extends ConsumerWidget {
             data: (t) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
+                AdaptiveRow(
+                  minChildWidth: 84,
+                  equalHeight: true,
                   children: [
-                    Expanded(
-                      child: _Stat(
-                        label: 'En journée',
-                        value: t.active,
-                        tone: Tone.success,
-                      ),
+                    _Stat(
+                      label: 'En journée',
+                      value: t.active,
+                      tone: Tone.success,
                     ),
-                    const SizedBox(width: Space.sm),
-                    Expanded(
-                      child: _Stat(
-                        label: 'En pause',
-                        value: t.paused,
-                        tone: Tone.warning,
-                      ),
+                    _Stat(
+                      label: 'En pause',
+                      value: t.paused,
+                      tone: Tone.warning,
                     ),
-                    const SizedBox(width: Space.sm),
-                    Expanded(
-                      child: _Stat(
-                        label: 'Alertes',
-                        // Centre d'alertes (dont « journée pas démarrée ») ; à défaut, l'équipe.
-                        value: openAlerts ?? t.alerts.length,
-                        tone: (openAlerts ?? t.alerts.length) == 0
-                            ? Tone.neutral
-                            : Tone.danger,
-                        onTap: () => context.push('/alerts'),
-                      ),
+                    _Stat(
+                      label: 'Alertes',
+                      // Centre d'alertes (dont « journée pas démarrée ») ; à défaut, l'équipe.
+                      value: openAlerts ?? t.alerts.length,
+                      tone: (openAlerts ?? t.alerts.length) == 0
+                          ? Tone.neutral
+                          : Tone.danger,
+                      onTap: () => context.push('/alerts'),
                     ),
                   ],
                 ),
                 const SizedBox(height: Space.sm),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _Shortcut(
-                          icon: Icons.insights_rounded,
-                          label: 'Bilan du jour',
-                          onTap: () => context.push('/report'),
-                        ),
-                      ),
-                      const SizedBox(width: Space.sm),
-                      Expanded(
-                        child: _Shortcut(
-                          icon: Icons.campaign_outlined,
-                          label: 'Message à l’équipe',
-                          onTap: () => showTeamMessageSheet(context),
-                        ),
-                      ),
-                    ],
-                  ),
+                AdaptiveRow(
+                  minChildWidth: 120,
+                  equalHeight: true,
+                  children: [
+                    _Shortcut(
+                      icon: Icons.insights_rounded,
+                      label: 'Bilan du jour',
+                      onTap: () => context.push('/report'),
+                    ),
+                    _Shortcut(
+                      icon: Icons.campaign_outlined,
+                      label: 'Message à l’équipe',
+                      onTap: () => showTeamMessageSheet(context),
+                    ),
+                  ],
                 ),
                 // Demandes de zone : toujours là (l'onglet a laissé sa place aux points
                 // de vente), avec le nombre à valider.
@@ -324,6 +312,12 @@ class _AgentRow extends StatelessWidget {
         ? scheme.error
         : toneColor(context, paused ? Tone.warning : Tone.success);
     final status = alert ?? (paused ? 'En pause' : 'En cours');
+    // Grande police : le statut passe sous le nom au lieu de l'écraser à droite.
+    final stacked = largeText(context);
+    final statusText = Text(
+      status,
+      style: text.labelMedium?.copyWith(color: color),
+    );
 
     return InkWell(
       onTap: () => showAgentSheet(context, agent: agent, team: team),
@@ -354,11 +348,14 @@ class _AgentRow extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (stacked) statusText,
                 ],
               ),
             ),
-            const SizedBox(width: Space.sm),
-            Text(status, style: text.labelMedium?.copyWith(color: color)),
+            if (!stacked) ...[
+              const SizedBox(width: Space.sm),
+              RightText(child: statusText),
+            ],
           ],
         ),
       ),
@@ -460,7 +457,8 @@ class _AgentSheetState extends ConsumerState<_AgentSheet> {
         context,
         '${widget.agent.name} est affecté(e) à ${zone.name}. L’agent a été prévenu.',
       );
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _sending = null);
@@ -479,170 +477,172 @@ class _AgentSheetState extends ConsumerState<_AgentSheet> {
         ? scheme.error
         : toneColor(context, paused ? Tone.warning : Tone.success);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xxl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              StatusAvatar(
-                initials: widget.team.members[a.agentId]?.initials ?? '?',
-                ringColor: color,
-                size: 48,
-              ),
-              const SizedBox(width: Space.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(a.name, style: text.titleLarge),
-                    Text(
-                      paused
-                          ? 'En pause'
-                          : 'En journée depuis ${formatTime(a.startedAt)}',
-                      style: text.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.lg),
-          if (alert != null) ...[
-            InfoBanner(
-              icon: Icons.warning_amber_rounded,
-              tone: Tone.danger,
-              message: switch (alert) {
-                'Signal perdu' =>
-                  'Aucune position récente : GPS coupé, application fermée ou réseau absent.',
-                'Position simulée' =>
-                  'Le téléphone signale une position simulée (application de faux GPS).',
-                _ => 'La dernière position est en dehors de sa zone.',
-              },
-            ),
-            const SizedBox(height: Space.sm),
-          ],
-          InfoRow(
-            icon: Icons.place_outlined,
-            label: 'Zone',
-            value: widget.team.zoneName(a.zoneId),
-          ),
-          InfoRow(
-            icon: Icons.my_location_outlined,
-            label: 'Dernière position',
-            value: a.lastPositionAt == null
-                ? '—'
-                : formatAgo(a.lastPositionAt!),
-          ),
-          if (a.batteryLevel != null)
-            InfoRow(
-              icon: a.batteryLevel! < 0.2
-                  ? Icons.battery_alert_outlined
-                  : Icons.battery_5_bar_outlined,
-              label: 'Batterie',
-              value: '${(a.batteryLevel! * 100).round()} %',
-              tone: a.batteryLevel! < 0.2 ? Tone.danger : null,
-            ),
-          const SizedBox(height: Space.lg),
-          if (!_reassigning && a.position != null) ...[
-            PillButton(
-              label: 'Voir sur la carte',
-              icon: Icons.map_rounded,
-              style: PillStyle.tonal,
-              onPressed: () {
-                Navigator.pop(context);
-                context.go('/map?agent=${a.agentId}');
-              },
-            ),
-            const SizedBox(height: Space.sm),
-          ],
-          if (!_reassigning)
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Row(
               children: [
-                if (phone != null) ...[
-                  Expanded(
-                    child: PillButton(
-                      label: 'Appeler',
-                      icon: Icons.call_outlined,
-                      onPressed: () => _call(phone),
-                    ),
-                  ),
-                  const SizedBox(width: Space.sm),
-                ],
+                StatusAvatar(
+                  initials: widget.team.members[a.agentId]?.initials ?? '?',
+                  ringColor: color,
+                  size: 48,
+                ),
+                const SizedBox(width: Space.md),
                 Expanded(
-                  child: PillButton(
-                    label: 'Changer de zone',
-                    style: PillStyle.outline,
-                    onPressed: () => setState(() => _reassigning = true),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.name, style: text.titleLarge),
+                      Text(
+                        paused
+                            ? 'En pause'
+                            : 'En journée depuis ${formatTime(a.startedAt)}',
+                        style: text.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
-            )
-          else ...[
-            Text('Nouvelle zone', style: text.titleSmall),
-            const SizedBox(height: Space.sm),
-            GroupedList(
-              children: [
-                for (final z in widget.team.zones.where(
-                  (z) => z.id != a.zoneId,
-                ))
-                  InkWell(
-                    onTap: z.isFull || _sending != null
-                        ? null
-                        : () => _reassign(z),
-                    child: Opacity(
-                      opacity: z.isFull ? 0.5 : 1,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Space.lg,
-                          vertical: Space.md,
-                        ),
-                        child: Row(
-                          children: [
-                            const IconSquircle(
-                              icon: Icons.place_outlined,
-                              size: 32,
-                            ),
-                            const SizedBox(width: Space.md),
-                            Expanded(
-                              child: Text(z.name, style: text.titleSmall),
-                            ),
-                            if (_sending == z.id)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            else
-                              Text(
-                                z.isFull
-                                    ? 'Complète'
-                                    : z.capacity == null
-                                    ? 'Illimitée'
-                                    : '${z.placesLeft} place(s)',
-                                style: text.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+            ),
+            const SizedBox(height: Space.lg),
+            if (alert != null) ...[
+              InfoBanner(
+                icon: Icons.warning_amber_rounded,
+                tone: Tone.danger,
+                message: switch (alert) {
+                  'Signal perdu' =>
+                    'Aucune position récente : GPS coupé, application fermée ou réseau absent.',
+                  'Position simulée' =>
+                    'Le téléphone signale une position simulée (application de faux GPS).',
+                  _ => 'La dernière position est en dehors de sa zone.',
+                },
+              ),
+              const SizedBox(height: Space.sm),
+            ],
+            InfoRow(
+              icon: Icons.place_outlined,
+              label: 'Zone',
+              value: widget.team.zoneName(a.zoneId),
+            ),
+            InfoRow(
+              icon: Icons.my_location_outlined,
+              label: 'Dernière position',
+              value: a.lastPositionAt == null
+                  ? '—'
+                  : formatAgo(a.lastPositionAt!),
+            ),
+            if (a.batteryLevel != null)
+              InfoRow(
+                icon: a.batteryLevel! < 0.2
+                    ? Icons.battery_alert_outlined
+                    : Icons.battery_5_bar_outlined,
+                label: 'Batterie',
+                value: '${(a.batteryLevel! * 100).round()} %',
+                tone: a.batteryLevel! < 0.2 ? Tone.danger : null,
+              ),
+            const SizedBox(height: Space.lg),
+            if (!_reassigning && a.position != null) ...[
+              PillButton(
+                label: 'Voir sur la carte',
+                icon: Icons.map_rounded,
+                style: PillStyle.tonal,
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.go('/map?agent=${a.agentId}');
+                },
+              ),
+              const SizedBox(height: Space.sm),
+            ],
+            if (!_reassigning)
+              Row(
+                children: [
+                  if (phone != null) ...[
+                    Expanded(
+                      child: PillButton(
+                        label: 'Appeler',
+                        icon: Icons.call_outlined,
+                        onPressed: () => _call(phone),
+                      ),
+                    ),
+                    const SizedBox(width: Space.sm),
+                  ],
+                  Expanded(
+                    child: PillButton(
+                      label: 'Changer de zone',
+                      style: PillStyle.outline,
+                      onPressed: () => setState(() => _reassigning = true),
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              Text('Nouvelle zone', style: text.titleSmall),
+              const SizedBox(height: Space.sm),
+              GroupedList(
+                children: [
+                  for (final z in widget.team.zones.where(
+                    (z) => z.id != a.zoneId,
+                  ))
+                    InkWell(
+                      onTap: z.isFull || _sending != null
+                          ? null
+                          : () => _reassign(z),
+                      child: Opacity(
+                        opacity: z.isFull ? 0.5 : 1,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Space.lg,
+                            vertical: Space.md,
+                          ),
+                          child: Row(
+                            children: [
+                              const IconSquircle(
+                                icon: Icons.place_outlined,
+                                size: 32,
                               ),
-                          ],
+                              const SizedBox(width: Space.md),
+                              Expanded(
+                                child: Text(z.name, style: text.titleSmall),
+                              ),
+                              if (_sending == z.id)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  z.isFull
+                                      ? 'Complète'
+                                      : z.capacity == null
+                                      ? 'Illimitée'
+                                      : '${z.placesLeft} place(s)',
+                                  style: text.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            TextButton(
-              onPressed: () => setState(() => _reassigning = false),
-              child: const Text('Annuler'),
-            ),
+                ],
+              ),
+              TextButton(
+                onPressed: () => setState(() => _reassigning = false),
+                child: const Text('Annuler'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

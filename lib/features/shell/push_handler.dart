@@ -93,7 +93,8 @@ class _PushHandlerState extends ConsumerState<PushHandler> {
           .read(requestsProvider.notifier)
           .decide(requestId, approve: true);
       if (mounted) showMessage(context, 'Demande de zone approuvée.');
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
       unawaited(ref.read(requestsProvider.notifier).refresh());
     }
@@ -134,56 +135,58 @@ Future<bool> _explain(BuildContext context, bool leader) async {
           ],
         ),
       );
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: IconSquircle(
-                icon: Icons.notifications_active_outlined,
-                size: 40,
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: IconSquircle(
+                  icon: Icons.notifications_active_outlined,
+                  size: 40,
+                ),
               ),
-            ),
-            const SizedBox(height: Space.lg),
-            Text('Restez informé', style: text.headlineSmall),
-            const SizedBox(height: 16),
-            if (leader) ...[
+              const SizedBox(height: Space.lg),
+              Text('Restez informé', style: text.headlineSmall),
+              const SizedBox(height: 16),
+              if (leader) ...[
+                point(
+                  Icons.pending_actions_outlined,
+                  'Les demandes de zone de votre équipe, à approuver directement depuis la notification.',
+                ),
+                point(
+                  Icons.warning_amber_rounded,
+                  'Les alertes : retard, sortie de zone, GPS coupé.',
+                ),
+              ] else ...[
+                point(
+                  Icons.check_circle_outline_rounded,
+                  'La réponse à vos demandes de zone.',
+                ),
+                point(
+                  Icons.flag_outlined,
+                  'Les nouvelles missions et les formulaires à corriger.',
+                ),
+              ],
               point(
-                Icons.pending_actions_outlined,
-                'Les demandes de zone de votre équipe, à approuver directement depuis la notification.',
+                Icons.chat_bubble_outline_rounded,
+                'Les messages et les paiements, même application fermée.',
               ),
-              point(
-                Icons.warning_amber_rounded,
-                'Les alertes : retard, sortie de zone, GPS coupé.',
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Activer les notifications'),
               ),
-            ] else ...[
-              point(
-                Icons.check_circle_outline_rounded,
-                'La réponse à vos demandes de zone.',
-              ),
-              point(
-                Icons.flag_outlined,
-                'Les nouvelles missions et les formulaires à corriger.',
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Plus tard'),
               ),
             ],
-            point(
-              Icons.chat_bubble_outline_rounded,
-              'Les messages et les paiements, même application fermée.',
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Activer les notifications'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Plus tard'),
-            ),
-          ],
+          ),
         ),
       );
     },

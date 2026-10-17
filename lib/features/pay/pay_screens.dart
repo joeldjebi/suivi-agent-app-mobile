@@ -145,9 +145,14 @@ class _HeroAmount extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Space.sm),
-              Text(
-                formatRange(period.start, period.end),
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              Flexible(
+                child: Text(
+                  formatRange(period.start, period.end),
+                  textAlign: TextAlign.end,
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),
@@ -647,7 +652,8 @@ class _AdjustmentSheetState extends ConsumerState<_AdjustmentSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(context, 'Proposition envoyée à l’administrateur');
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -662,97 +668,99 @@ class _AdjustmentSheetState extends ConsumerState<_AdjustmentSheet> {
         .where((a) => a.userId == widget.userId)
         .toList();
     final ready = _value > 0 && _reason.text.trim().length >= 3;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        Space.page,
-        0,
-        Space.page,
-        MediaQuery.viewInsetsOf(context).bottom + Space.xxl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(widget.name, style: text.headlineSmall),
-          Text(
-            'Paie de ${widget.run.label}',
-            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: Space.lg),
-          AppSegmented<bool>(
-            segments: const {true: 'Prime', false: 'Retenue'},
-            selected: _bonus,
-            onChanged: (v) => setState(() => _bonus = v),
-          ),
-          const SizedBox(height: Space.md),
-          SurfaceCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.lg,
-              vertical: Space.xs,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          Space.page,
+          0,
+          Space.page,
+          MediaQuery.viewInsetsOf(context).bottom + Space.xxl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(widget.name, style: text.headlineSmall),
+            Text(
+              'Paie de ${widget.run.label}',
+              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: 'Montant',
-                    suffixText: widget.run.currency == 'XOF'
-                        ? 'FCFA'
-                        : widget.run.currency,
-                    border: InputBorder.none,
-                    filled: false,
-                  ),
-                ),
-                const Divider(height: 1),
-                TextField(
-                  controller: _reason,
-                  textCapitalization: TextCapitalization.sentences,
-                  maxLength: 300,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'Motif (vu par l’agent)',
-                    hintText: 'Ex. Meilleur résultat de l’équipe',
-                    border: InputBorder.none,
-                    filled: false,
-                    counterText: '',
-                  ),
-                ),
-              ],
+            const SizedBox(height: Space.lg),
+            AppSegmented<bool>(
+              segments: const {true: 'Prime', false: 'Retenue'},
+              selected: _bonus,
+              onChanged: (v) => setState(() => _bonus = v),
             ),
-          ),
-          const SizedBox(height: Space.lg),
-          PillButton(
-            label: _bonus ? 'Proposer la prime' : 'Proposer la retenue',
-            loading: _sending,
-            onPressed: ready && !_sending ? _send : null,
-          ),
-          if (history.isNotEmpty) ...[
-            GroupedList(
-              header: 'Déjà proposé',
-              indent: Space.lg,
-              children: [
-                for (final a in history)
-                  ListRow(
-                    title: a.reason,
-                    subtitle: switch (a.status) {
-                      'approved' => 'Approuvé',
-                      'rejected' => 'Refusé',
-                      _ => 'En attente de l’administrateur',
-                    },
-                    trailing: Text(
-                      formatMoney(a.amount, widget.run.currency),
-                      style: text.bodyMedium?.medium.copyWith(
-                        color: a.amount < 0 ? scheme.error : null,
-                      ),
+            const SizedBox(height: Space.md),
+            SurfaceCard(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.lg,
+                vertical: Space.xs,
+              ),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _amount,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Montant',
+                      suffixText: widget.run.currency == 'XOF'
+                          ? 'FCFA'
+                          : widget.run.currency,
+                      border: InputBorder.none,
+                      filled: false,
                     ),
                   ),
-              ],
+                  const Divider(height: 1),
+                  TextField(
+                    controller: _reason,
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 300,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Motif (vu par l’agent)',
+                      hintText: 'Ex. Meilleur résultat de l’équipe',
+                      border: InputBorder.none,
+                      filled: false,
+                      counterText: '',
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: Space.lg),
+            PillButton(
+              label: _bonus ? 'Proposer la prime' : 'Proposer la retenue',
+              loading: _sending,
+              onPressed: ready && !_sending ? _send : null,
+            ),
+            if (history.isNotEmpty) ...[
+              GroupedList(
+                header: 'Déjà proposé',
+                indent: Space.lg,
+                children: [
+                  for (final a in history)
+                    ListRow(
+                      title: a.reason,
+                      subtitle: switch (a.status) {
+                        'approved' => 'Approuvé',
+                        'rejected' => 'Refusé',
+                        _ => 'En attente de l’administrateur',
+                      },
+                      trailing: Text(
+                        formatMoney(a.amount, widget.run.currency),
+                        style: text.bodyMedium?.medium.copyWith(
+                          color: a.amount < 0 ? scheme.error : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

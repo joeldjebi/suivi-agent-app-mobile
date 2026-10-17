@@ -84,7 +84,8 @@ Future<void> startVisit(
   final List<VisitForm> forms;
   try {
     forms = await ref.refresh(visitFormsProvider.future);
-  } on ApiException catch (e) {
+  } catch (error) {
+    final e = ApiException.from(error);
     if (context.mounted) showMessage(context, e.message, error: true);
     return;
   }

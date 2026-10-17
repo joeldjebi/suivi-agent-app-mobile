@@ -48,7 +48,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (!mounted) return;
       showMessage(context, 'Profil mis à jour');
       Navigator.pop(context);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -161,7 +162,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         'Mot de passe modifié. Vos autres appareils ont été déconnectés.',
       );
       Navigator.pop(context);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) {
         showMessage(
           context,

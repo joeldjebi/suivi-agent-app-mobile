@@ -64,7 +64,8 @@ class SyncService extends ChangeNotifier {
       await _flushOutlets();
       lastSyncAt = DateTime.now();
       online = true;
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (e.isNetwork) online = false;
     }
     notifyListeners();
@@ -93,7 +94,8 @@ class SyncService extends ChangeNotifier {
               'recordedAt': r.recordedAt.toUtc().toIso8601String(),
             },
         ]);
-      } on ApiException catch (e) {
+      } catch (error) {
+        final e = ApiException.from(error);
         // Journée inconnue ou lot refusé : ces points ne pourront jamais être acceptés.
         if (e.isNetwork || (e.status ?? 500) >= 500 || e.status == 401) rethrow;
       }
@@ -111,7 +113,8 @@ class SyncService extends ChangeNotifier {
     for (final row in rows) {
       try {
         await _send(row);
-      } on ApiException catch (e) {
+      } catch (error) {
+        final e = ApiException.from(error);
         if (_retryable(e)) rethrow;
         // Refus définitif : conservé avec son motif, l'agent corrige ou supprime.
         await _markRejected(row.clientId, e);
@@ -131,7 +134,7 @@ class SyncService extends ChangeNotifier {
       if (photo == null) continue;
       if (!photo.file.existsSync()) {
         throw ApiException(
-          'La photo « ${entry.key} » n’est plus sur le téléphone : reprenez-la.',
+          'Une photo n’est plus sur le téléphone : reprenez-la.',
           code: 'PHOTO_MISSING',
           status: 400,
         );
@@ -173,7 +176,8 @@ class SyncService extends ChangeNotifier {
     for (final row in rows) {
       try {
         await _sendOutlet(row);
-      } on ApiException catch (e) {
+      } catch (error) {
+        final e = ApiException.from(error);
         if (_retryable(e)) rethrow;
         await (db.update(
           db.pendingOutlets,
@@ -248,7 +252,8 @@ class SyncService extends ChangeNotifier {
     if (row == null) return (SubmitOutcome.sent, null);
     try {
       return (SubmitOutcome.sent, await _sendOutlet(row));
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (_retryable(e)) {
         if (e.isNetwork) {
           online = false;
@@ -287,7 +292,8 @@ class SyncService extends ChangeNotifier {
     try {
       await _send(row);
       return SubmitOutcome.sent;
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (_retryable(e)) {
         if (e.isNetwork) {
           online = false;

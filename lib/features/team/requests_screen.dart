@@ -139,7 +139,8 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
               : 'Demande refusée',
         );
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
       unawaited(ref.read(requestsProvider.notifier).refresh());
     } finally {
@@ -161,6 +162,18 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
         .join()
         .toUpperCase();
 
+    // Grande police : l'échéance passe sous le nom au lieu de l'écraser à droite.
+    final stacked = largeText(context);
+    final expiry = remaining == null
+        ? null
+        : Text(
+            remaining.isNegative
+                ? 'Expire'
+                : 'Expire dans ${remaining.inMinutes + 1} min',
+            style: text.labelMedium?.copyWith(
+              color: urgent ? scheme.error : toneColor(context, Tone.warning),
+            ),
+          );
     return SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,20 +199,11 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
+                    if (stacked && expiry != null) expiry,
                   ],
                 ),
               ),
-              if (remaining != null)
-                Text(
-                  remaining.isNegative
-                      ? 'Expire'
-                      : 'Expire dans ${remaining.inMinutes + 1} min',
-                  style: text.labelMedium?.copyWith(
-                    color: urgent
-                        ? scheme.error
-                        : toneColor(context, Tone.warning),
-                  ),
-                ),
+              if (!stacked && expiry != null) RightText(child: expiry),
             ],
           ),
           const SizedBox(height: Space.md),

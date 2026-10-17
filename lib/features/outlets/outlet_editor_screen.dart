@@ -139,7 +139,8 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
         context.pushReplacement('/outlets/${saved.outlet!.id}?added=1');
         showMessage(context, 'Point de vente ajouté.');
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (!mounted) return;
       HapticFeedback.heavyImpact();
       if (e.code == 'OUTLET_DUPLICATE') {
@@ -164,42 +165,44 @@ class _OutletEditorScreenState extends ConsumerState<OutletEditorScreen> {
       showDragHandle: true,
       builder: (context) {
         final text = Theme.of(context).textTheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.page,
-            0,
-            Space.page,
-            Space.xxl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Est-ce l’un de ceux-ci ?', style: text.titleLarge),
-              const SizedBox(height: Space.xs),
-              Text(
-                'Un point de vente semblable existe déjà tout près.',
-                style: text.bodyMedium,
-              ),
-              const SizedBox(height: Space.md),
-              for (final c in candidates)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: OutletAvatar(category: null, status: c.status),
-                  title: Text(c.name),
-                  subtitle: Text(
-                    '${c.status.label} · à ${formatDistance(c.distance)}',
-                  ),
-                  trailing: const Text('C’est lui'),
-                  onTap: () => Navigator.pop(context, c.id),
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.page,
+              0,
+              Space.page,
+              Space.xxl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Est-ce l’un de ceux-ci ?', style: text.titleLarge),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Un point de vente semblable existe déjà tout près.',
+                  style: text.bodyMedium,
                 ),
-              const SizedBox(height: Space.md),
-              PillButton(
-                label: 'Non, c’est un autre commerce',
-                style: PillStyle.tonal,
-                onPressed: () => Navigator.pop(context, ''),
-              ),
-            ],
+                const SizedBox(height: Space.md),
+                for (final c in candidates)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: OutletAvatar(category: null, status: c.status),
+                    title: Text(c.name),
+                    subtitle: Text(
+                      '${c.status.label} · à ${formatDistance(c.distance)}',
+                    ),
+                    trailing: const Text('C’est lui'),
+                    onTap: () => Navigator.pop(context, c.id),
+                  ),
+                const SizedBox(height: Space.md),
+                PillButton(
+                  label: 'Non, c’est un autre commerce',
+                  style: PillStyle.tonal,
+                  onPressed: () => Navigator.pop(context, ''),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -697,13 +700,17 @@ class _CategoryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom =
         other || (selected.isNotEmpty && !categories.contains(selected));
+    // Quatre types par ligne ; avec une grande police, moins de colonnes et des cases plus
+    // hautes, pour que les libellés restent lisibles en entier.
+    final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+    final columns = scale > 1.6 ? 2 : (scale > 1.2 ? 3 : 4);
     return GridView.count(
-      crossAxisCount: 4,
+      crossAxisCount: columns,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: Space.sm,
       crossAxisSpacing: Space.sm,
-      childAspectRatio: 0.95,
+      childAspectRatio: scale > 1.2 ? 0.95 * 4 / columns / scale : 0.95,
       children: [
         for (final c in categories)
           _CategoryTile(

@@ -29,63 +29,65 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(Space.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              const Center(
-                child: IconSquircle(
-                  icon: Icons.system_update_rounded,
-                  size: 72,
+        child: FillScroll(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.xl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Spacer(),
+                const Center(
+                  child: IconSquircle(
+                    icon: Icons.system_update_rounded,
+                    size: 72,
+                  ),
                 ),
-              ),
-              const SizedBox(height: Space.lg),
-              Text(
-                'Mise à jour nécessaire',
-                textAlign: TextAlign.center,
-                style: text.headlineSmall,
-              ),
-              const SizedBox(height: Space.sm),
-              Text(
-                'Cette version de l’application (${AppVersion.current}) n’est plus prise en charge'
-                '${update?.version == null ? '' : ' : installez la version ${update!.version} ou plus récente'}.',
-                textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: muted),
-              ),
-              const SizedBox(height: Space.xs),
-              Text(
-                'Vos journées et formulaires enregistrés sur le téléphone seront envoyés après la mise à jour.',
-                textAlign: TextAlign.center,
-                style: text.bodyMedium?.copyWith(color: muted),
-              ),
-              const Spacer(),
-              if (url != null)
-                PillButton(
-                  label: 'Télécharger la mise à jour',
-                  icon: Icons.download_rounded,
-                  onPressed: () => openStore(url),
-                )
-              else
-                const InfoBanner(
-                  icon: Icons.info_outline_rounded,
-                  tone: Tone.info,
-                  message:
-                      'Demandez le lien de la nouvelle version à votre structure.',
+                const SizedBox(height: Space.lg),
+                Text(
+                  'Mise à jour nécessaire',
+                  textAlign: TextAlign.center,
+                  style: text.headlineSmall,
                 ),
-              const SizedBox(height: Space.sm),
-              TextButton(
-                onPressed: _checking
-                    ? null
-                    : () async {
-                        setState(() => _checking = true);
-                        await ref.read(updateProvider.notifier).check();
-                        if (mounted) setState(() => _checking = false);
-                      },
-                child: const Text('Réessayer'),
-              ),
-            ],
+                const SizedBox(height: Space.sm),
+                Text(
+                  'Cette version de l’application (${AppVersion.current}) n’est plus prise en charge'
+                  '${update?.version == null ? '' : ' : installez la version ${update!.version} ou plus récente'}.',
+                  textAlign: TextAlign.center,
+                  style: text.bodyLarge?.copyWith(color: muted),
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Vos journées et formulaires enregistrés sur le téléphone seront envoyés après la mise à jour.',
+                  textAlign: TextAlign.center,
+                  style: text.bodyMedium?.copyWith(color: muted),
+                ),
+                const Spacer(),
+                if (url != null)
+                  PillButton(
+                    label: 'Télécharger la mise à jour',
+                    icon: Icons.download_rounded,
+                    onPressed: () => openStore(url),
+                  )
+                else
+                  const InfoBanner(
+                    icon: Icons.info_outline_rounded,
+                    tone: Tone.info,
+                    message:
+                        'Demandez le lien de la nouvelle version à votre structure.',
+                  ),
+                const SizedBox(height: Space.sm),
+                TextButton(
+                  onPressed: _checking
+                      ? null
+                      : () async {
+                          setState(() => _checking = true);
+                          await ref.read(updateProvider.notifier).check();
+                          if (mounted) setState(() => _checking = false);
+                        },
+                  child: const Text('Réessayer'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

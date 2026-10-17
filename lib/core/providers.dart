@@ -173,7 +173,8 @@ class AuthController extends Notifier<AuthState> {
       final me = await _repo.me();
       state = SignedIn(me, cachedBranding ?? Branding.defaults);
       await _refreshBranding(cachedBranding);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (e.isNetwork && cachedMe != null) {
         state = SignedIn(
           Me.fromJson(jsonDecode(cachedMe) as Map<String, dynamic>),

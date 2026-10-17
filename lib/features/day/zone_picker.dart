@@ -49,7 +49,8 @@ class _ZonePickerState extends ConsumerState<_ZonePicker> {
             ? 'Zone ${zone.name} confirmée'
             : 'Demande envoyée : votre responsable doit valider la zone ${zone.name}',
       );
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (!mounted) return;
       showMessage(context, e.message, error: true);
       ref.invalidate(availableZonesProvider);

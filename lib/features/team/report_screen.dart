@@ -451,7 +451,8 @@ class _TeamMessageSheetState extends ConsumerState<_TeamMessageSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(context, 'Message envoyé à $n agent${n > 1 ? 's' : ''}');
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) {
         setState(() => _sending = false);
         showMessage(context, e.message, error: true);

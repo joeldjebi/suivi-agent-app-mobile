@@ -75,7 +75,8 @@ class SosController extends Notifier<SosState> {
       _retry?.cancel();
       _retry = null;
       state = SosState(alert: alert, message: text);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (!e.isNetwork && e.status != null && e.status! < 500) {
         state = SosState(alert: state.alert, message: text);
         rethrow;
@@ -144,7 +145,8 @@ class _SosButtonState extends ConsumerState<SosButton>
     unawaited(context.push('/sos'));
     try {
       await ref.read(sosProvider.notifier).raise();
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     }
   }
@@ -422,7 +424,8 @@ class SosScreen extends ConsumerWidget {
                           if (context.mounted) {
                             showMessage(context, 'Position envoyée');
                           }
-                        } on ApiException catch (e) {
+                        } catch (error) {
+                          final e = ApiException.from(error);
                           if (context.mounted) {
                             showMessage(context, e.message, error: true);
                           }
@@ -447,7 +450,8 @@ class SosScreen extends ConsumerWidget {
                       showMessage(context, 'Alerte annulée');
                       context.pop();
                     }
-                  } on ApiException catch (e) {
+                  } catch (error) {
+                    final e = ApiException.from(error);
                     if (context.mounted) {
                       showMessage(context, e.message, error: true);
                     }

@@ -200,7 +200,8 @@ class _MissionEditorScreenState extends ConsumerState<MissionEditorScreen> {
       if (!mounted) return;
       showMessage(context, 'Mission mise à jour');
       Navigator.pop(context);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _saving = false);

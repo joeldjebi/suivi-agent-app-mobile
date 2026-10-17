@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -39,6 +40,21 @@ Future<void> main() async {
 Future<void> _run() async {
   await initializeDateFormatting('fr_FR');
   final container = ProviderContainer();
+  // Élément impossible à afficher (version publiée) : un message clair, pas un bloc gris.
+  if (kReleaseMode) {
+    ErrorWidget.builder = (_) => const Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: Text(
+            'Affichage impossible pour le moment. Revenez en arrière puis réessayez.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
   // Erreurs inattendues : journal de la console éditeur.
   ErrorReporter(container).install();
   // Reprise de session (et de l'apparence de la structure) avant le premier écran utile.

@@ -123,10 +123,21 @@ final outletProvider = FutureProvider.autoDispose.family<OutletDetail, String>(
       OutletDetail.fromJson(await ref.read(repositoryProvider).outlet(id)),
 );
 
-/// Photo envoyée, gardée en mémoire le temps de la session.
-final photoBytesProvider = FutureProvider.family<List<int>?, String>(
-  (ref, id) => ref.read(repositoryProvider).photoBytes(id),
-);
+/// Photo envoyée, gardée en mémoire le temps de la session. Un échec (réseau coupé,
+/// session renouvelée…) n'est pas gardé : la photo est redemandée au prochain affichage.
+final photoBytesProvider = FutureProvider.family<List<int>?, String>((
+  ref,
+  id,
+) async {
+  try {
+    return await ref.read(repositoryProvider).photoBytes(id);
+  } catch (_) {
+    // Nouvel essai automatique après un court délai, puis à chaque nouvel affichage.
+    final timer = Timer(const Duration(seconds: 5), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+    rethrow;
+  }
+});
 
 /// Ajouts et mises à jour en attente d'envoi (ou refusés).
 final pendingOutletsProvider = StreamProvider<List<PendingOutlet>>(

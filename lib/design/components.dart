@@ -121,8 +121,10 @@ class PillButton extends StatelessWidget {
         scheme.onSurface,
       ),
     };
-    return SizedBox(
-      height: height,
+    // Hauteur minimale : avec une grande police, le bouton grandit (deux lignes) au lieu de
+    // couper son libellé.
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: height),
       child: TextButton(
         onPressed: enabled
             ? () {
@@ -138,7 +140,12 @@ class PillButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(Radii.button),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Space.lg,
+            vertical: Space.xs,
+          ),
+          minimumSize: Size(0, height),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           textStyle: Theme.of(
             context,
           ).textTheme.labelLarge?.copyWith(fontSize: 15),
@@ -155,7 +162,14 @@ class PillButton extends StatelessWidget {
             else if (icon != null)
               Icon(icon, size: 19),
             if (loading || icon != null) const SizedBox(width: Space.sm),
-            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
@@ -362,11 +376,15 @@ class StatusPill extends StatelessWidget {
       children: [
         LiveDot(color: color, size: 6),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: color),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: color),
+          ),
         ),
       ],
     ),
@@ -400,7 +418,7 @@ class SectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          if (trailing != null) Flexible(child: trailing!),
         ],
       ),
     );
@@ -498,6 +516,20 @@ class ListRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final titleStyle = text.bodyLarge?.medium.copyWith(color: titleColor);
     final showChevron = chevron ?? (onTap != null && !centered);
+    // Grande police : la valeur (et un texte à droite) passe sous le titre au lieu de
+    // l'écraser ; à taille normale, elle reste à droite et va à la ligne si elle est longue.
+    final stacked = largeText(context);
+    final valueText = value == null
+        ? null
+        : Text(
+            value!,
+            textAlign: stacked ? TextAlign.start : TextAlign.end,
+            style: text.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          );
+    final trailingBelow = stacked && trailing is Text;
 
     return InkWell(
       onTap: onTap == null
@@ -543,22 +575,34 @@ class ListRow extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
+                          if (stacked && valueText != null) ...[
+                            const SizedBox(height: 2),
+                            valueText,
+                          ],
+                          if (trailingBelow) ...[
+                            const SizedBox(height: 2),
+                            trailing!,
+                          ],
                         ],
                       ),
                     ),
-                    if (value != null) ...[
+                    if (!stacked && valueText != null) ...[
                       const SizedBox(width: Space.sm),
-                      Text(
-                        value!,
-                        style: text.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      // Sa largeur naturelle, au plus 45 % de la ligne (au-delà : à la ligne).
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.sizeOf(context).width * 0.45,
                         ),
+                        child: valueText,
                       ),
                     ],
-                    if (trailing != null) ...[
+                    if (trailing != null && !trailingBelow) ...[
                       const SizedBox(width: Space.sm),
-                      trailing!,
+                      // Un texte à droite passe à la ligne plutôt que de déborder.
+                      if (trailing is Text)
+                        RightText(child: trailing!)
+                      else
+                        trailing!,
                     ],
                     if (showChevron) ...[
                       const SizedBox(width: Space.xs),
@@ -594,53 +638,69 @@ class AppSegmented<T> extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      height: 33,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: const Color(0xFF767680).withValues(alpha: dark ? 0.24 : 0.12),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          for (final entry in segments.entries)
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: entry.key == selected,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (entry.key == selected) return;
-                    HapticFeedback.selectionClick();
-                    onChanged(entry.key);
-                  },
-                  child: AnimatedContainer(
-                    duration: Motion.of(context, Motion.fast),
-                    curve: Motion.curve,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: entry.key == selected
-                          ? (dark
-                                ? const Color(0xFF636366)
-                                : scheme.surfaceContainerLowest)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      entry.value,
-                      style: entry.key == selected
-                          ? text.labelMedium?.copyWith(fontSize: 13)
-                          : text.labelMedium?.copyWith(
-                              fontSize: 13,
-                              color: scheme.onSurfaceVariant,
-                            ),
+    // Comme les sélecteurs du système : libellés agrandis jusqu'à ×1,3 (sur deux lignes si
+    // besoin), pour garder la place au contenu de l'écran.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 33),
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF767680).withValues(alpha: dark ? 0.24 : 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        // Hauteur de la ligne : celle du plus haut des choix (libellé sur deux lignes).
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final entry in segments.entries)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: entry.key == selected,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (entry.key == selected) return;
+                        HapticFeedback.selectionClick();
+                        onChanged(entry.key);
+                      },
+                      child: AnimatedContainer(
+                        duration: Motion.of(context, Motion.fast),
+                        curve: Motion.curve,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: entry.key == selected
+                              ? (dark
+                                    ? const Color(0xFF636366)
+                                    : scheme.surfaceContainerLowest)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          entry.value,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: entry.key == selected
+                              ? text.labelMedium?.copyWith(fontSize: 13)
+                              : text.labelMedium?.copyWith(
+                                  fontSize: 13,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -687,13 +747,19 @@ class AppNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 50,
-          child: Row(
-            children: [
-              for (var i = 0; i < items.length; i++)
-                Expanded(child: _tab(context, items[i], i, scheme, text)),
-            ],
+        // Comme les barres d'onglets du système : les libellés grossissent avec la police du
+        // téléphone, jusqu'à ×1,3, pour tenir dans la barre ; le contenu des écrans, lui, suit
+        // la taille choisie sans limite.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: SizedBox(
+            height: 50,
+            child: Row(
+              children: [
+                for (var i = 0; i < items.length; i++)
+                  Expanded(child: _tab(context, items[i], i, scheme, text)),
+              ],
+            ),
           ),
         ),
       ),
@@ -753,4 +819,79 @@ class AppNavBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Éléments côte à côte, à parts égales ; empilés quand la place manque (petit écran ou
+/// grande police) : chacun garde au moins [minChildWidth] (agrandi avec la police).
+class AdaptiveRow extends StatelessWidget {
+  const AdaptiveRow({
+    super.key,
+    required this.children,
+    required this.minChildWidth,
+    this.spacing = Space.sm,
+    this.equalHeight = false,
+  });
+
+  final List<Widget> children;
+  final double minChildWidth;
+  final double spacing;
+
+  /// Côte à côte : même hauteur pour tous (la plus grande).
+  final bool equalHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final needed =
+            minChildWidth * scale * children.length +
+            spacing * (children.length - 1);
+        if (box.maxWidth >= needed) {
+          final row = Row(
+            crossAxisAlignment: equalHeight
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.center,
+            children: [
+              for (final (i, c) in children.indexed) ...[
+                if (i > 0) SizedBox(width: spacing),
+                Expanded(child: c),
+              ],
+            ],
+          );
+          return equalHeight ? IntrinsicHeight(child: row) : row;
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, c) in children.indexed) ...[
+              if (i > 0) SizedBox(height: spacing),
+              c,
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Police du téléphone agrandie (au-delà de ×1,2) : les textes à droite d'une ligne passent
+/// dessous, les blocs côte à côte s'empilent.
+bool largeText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(10) > 12;
+
+/// Texte à droite d'une ligne : sa largeur naturelle, au plus 40 % de l'écran (au-delà, il
+/// passe à la ligne au lieu de déborder ou d'écraser le titre).
+class RightText extends StatelessWidget {
+  const RightText({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxWidth: MediaQuery.sizeOf(context).width * 0.4,
+    ),
+    child: child,
+  );
 }

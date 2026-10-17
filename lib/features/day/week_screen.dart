@@ -402,67 +402,76 @@ class _WeekChart extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: _height + 26,
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: objectiveY,
-                    child: Container(
-                      height: 1.5,
-                      color: scheme.onSurfaceVariant.withValues(alpha: 0.45),
+            // Graphique de hauteur fixe : ses étiquettes grossissent jusqu'à ×1,2 seulement.
+            MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: SizedBox(
+                height: _height + 26,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: objectiveY,
+                      child: Container(
+                        height: 1.5,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.45),
+                      ),
                     ),
-                  ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (final d in week.days)
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 5),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                if (d.worked > Duration.zero)
-                                  Text(
-                                    d.worked.inMinutes >= 60
-                                        ? '${d.worked.inHours}h${(d.worked.inMinutes % 60).toString().padLeft(2, '0')}'
-                                        : '${d.worked.inMinutes}m',
-                                    style: text.labelSmall?.copyWith(
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final d in week.days)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  if (d.worked > Duration.zero)
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        d.worked.inMinutes >= 60
+                                            ? '${d.worked.inHours}h${(d.worked.inMinutes % 60).toString().padLeft(2, '0')}'
+                                            : '${d.worked.inMinutes}m',
+                                        style: text.labelSmall?.copyWith(
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    height: d.worked == Duration.zero
+                                        ? 4
+                                        : (_height * d.worked.inSeconds / top)
+                                              .clamp(6, _height),
+                                    decoration: BoxDecoration(
+                                      color: d.worked == Duration.zero
+                                          ? scheme.outlineVariant.withValues(
+                                              alpha: d.future ? 0.3 : 0.6,
+                                            )
+                                          : d.worked.inSeconds >= objective
+                                          ? toneColor(context, Tone.success)
+                                          : scheme.primary,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(6),
+                                        bottom: Radius.circular(2),
+                                      ),
                                     ),
                                   ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  height: d.worked == Duration.zero
-                                      ? 4
-                                      : (_height * d.worked.inSeconds / top)
-                                            .clamp(6, _height),
-                                  decoration: BoxDecoration(
-                                    color: d.worked == Duration.zero
-                                        ? scheme.outlineVariant.withValues(
-                                            alpha: d.future ? 0.3 : 0.6,
-                                          )
-                                        : d.worked.inSeconds >= objective
-                                        ? toneColor(context, Tone.success)
-                                        : scheme.primary,
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(6),
-                                      bottom: Radius.circular(2),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 6),

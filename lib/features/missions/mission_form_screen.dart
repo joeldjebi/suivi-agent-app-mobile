@@ -226,7 +226,8 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
             ? 'Formulaire envoyé.'
             : 'Formulaire enregistré sur le téléphone. Il sera envoyé dès le retour du réseau.',
       );
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       // Refusé par le serveur : les valeurs restent à l'écran, le motif s'affiche en tête
       // (pas de message flottant : il masquerait le bouton d'envoi).
       if (mounted) {

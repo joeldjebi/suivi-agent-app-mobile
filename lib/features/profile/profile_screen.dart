@@ -71,8 +71,6 @@ class ProfileScreen extends ConsumerWidget {
       if (picked == null) return;
       await auth.setAvatar(await picked.readAsBytes());
       if (context.mounted) showMessage(context, 'Photo mise à jour');
-    } on ApiException catch (e) {
-      if (context.mounted) showMessage(context, e.message, error: true);
     } on PlatformException {
       if (context.mounted) {
         showMessage(
@@ -81,6 +79,9 @@ class ProfileScreen extends ConsumerWidget {
           error: true,
         );
       }
+    } catch (error) {
+      final e = ApiException.from(error);
+      if (context.mounted) showMessage(context, e.message, error: true);
     }
   }
 

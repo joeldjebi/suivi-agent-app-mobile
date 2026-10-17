@@ -25,7 +25,8 @@ final missionsProvider = FutureProvider.autoDispose<List<Mission>>((ref) async {
     final cache = await MissionCache.read();
     await MissionCache.write({...cache, 'list': items});
     return items.map(Mission.fromJson).toList();
-  } on ApiException catch (e) {
+  } catch (error) {
+    final e = ApiException.from(error);
     final cached = (await MissionCache.read())['list'] as List?;
     if (e.isNetwork && cached != null) {
       return cached
@@ -47,7 +48,8 @@ final missionProvider = FutureProvider.autoDispose.family<Mission, String>((
     final cache = await MissionCache.read();
     await MissionCache.write({...cache, 'mission:$id': json});
     return Mission.fromJson(json);
-  } on ApiException catch (e) {
+  } catch (error) {
+    final e = ApiException.from(error);
     final cached = (await MissionCache.read())['mission:$id'];
     if (e.isNetwork && cached != null) {
       return Mission.fromJson(cached as Map<String, dynamic>);

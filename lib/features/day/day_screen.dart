@@ -62,7 +62,8 @@ class _DayScreenState extends ConsumerState<DayScreen>
     try {
       await action();
       if (mounted && success != null) showMessage(context, success);
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -295,78 +296,96 @@ class _StatusCardState extends State<_StatusCard> {
                   ? Duration.zero
                   : now.difference(day.currentPauseStartedAt!));
     final tabular = const [FontFeature.tabularFigures()];
+    // Police agrandie (au-delà de ×1,3) : l'anneau grandit avec le texte qu'il contient et
+    // passe au-dessus des informations.
+    final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+    final stacked = scale > 1.3;
+    final ringSize = 118 * scale.clamp(1.0, 1.7);
 
     return SurfaceCard(
       padding: const EdgeInsets.all(Space.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // Statut à gauche, zone à droite ; la zone passe dessous si la place manque.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: Space.md,
+            runSpacing: Space.sm,
             children: [
               StatusPill(label: label, color: color),
-              const SizedBox(width: Space.md),
               if (widget.zoneName != null)
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        Icons.place_rounded,
-                        size: 16,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          widget.zoneName!,
-                          style: text.labelLarge?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.place_rounded,
+                      size: 16,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        widget.zoneName!,
+                        style: text.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
             ],
           ),
           const SizedBox(height: Space.xl),
-          Row(
+          // Grande police : l'anneau passe au-dessus des informations au lieu d'être à côté.
+          Flex(
+            direction: stacked ? Axis.vertical : Axis.horizontal,
+            crossAxisAlignment: stacked
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.center,
             children: [
               Semantics(
                 label:
                     'Temps travaillé : ${formatShortDuration(worked)} sur ${formatWorkday(widget.target.inMinutes)}',
                 excludeSemantics: true,
-                child: ProgressRing(
-                  value: worked.inSeconds / widget.target.inSeconds,
-                  size: 118,
-                  stroke: 12,
-                  color: ringColor,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        day == null && resumable == null
-                            ? '0 h 00'
-                            : formatShortDuration(worked),
-                        style: text.headlineSmall?.copyWith(
-                          fontSize: 20,
-                          fontFeatures: tabular,
+                child: Center(
+                  widthFactor: 1,
+                  child: ProgressRing(
+                    value: worked.inSeconds / widget.target.inSeconds,
+                    size: ringSize,
+                    stroke: 12,
+                    color: ringColor,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          day == null && resumable == null
+                              ? '0 h 00'
+                              : formatShortDuration(worked),
+                          style: text.headlineSmall?.copyWith(
+                            fontSize: 20,
+                            fontFeatures: tabular,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'sur ${formatWorkday(widget.target.inMinutes)}',
-                        style: text.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                        Text(
+                          'sur ${formatWorkday(widget.target.inMinutes)}',
+                          style: text.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: Space.xl),
-              Expanded(
-                child: resumable != null
+              stacked
+                  ? const SizedBox(height: Space.lg)
+                  : const SizedBox(width: Space.xl),
+              _flexibleUnless(
+                stacked,
+                resumable != null
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -622,7 +641,8 @@ class _ZoneGroup extends ConsumerWidget {
             onTap: () async {
               try {
                 await ref.read(dayProvider.notifier).cancelPending(pending.id);
-              } on ApiException catch (e) {
+              } catch (error) {
+                final e = ApiException.from(error);
                 if (context.mounted) {
                   showMessage(context, e.message, error: true);
                 }
@@ -824,3 +844,7 @@ class _ActionBar extends StatelessWidget {
     );
   }
 }
+
+/// Côte à côte : le bloc prend la place restante ; empilé (grande police) : sa taille.
+Widget _flexibleUnless(bool stacked, Widget child) =>
+    stacked ? child : Expanded(child: child);

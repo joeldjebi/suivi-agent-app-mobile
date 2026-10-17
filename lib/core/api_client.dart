@@ -28,18 +28,26 @@ class ApiException implements Exception {
     if (error is DioException) {
       final response = error.response;
       if (response == null) {
+        // Sans réponse (réseau absent ou serveur trop lent) : l'action est gardée et
+        // renvoyée plus tard, comme hors ligne.
+        final slow =
+            error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.sendTimeout;
         return ApiException(
-          'Vous êtes hors ligne. Réessayez au retour du réseau.',
+          slow
+              ? 'Le serveur met trop de temps à répondre. Réessayez.'
+              : 'Vous êtes hors ligne. Réessayez au retour du réseau.',
         );
       }
       final data = response.data;
       final body = data is Map ? data : const {};
       final raw = body['message'];
-      final message = raw is String && response.statusCode! < 500
+      final status = response.statusCode ?? 500;
+      // Message du serveur seulement s'il accompagne un code métier (déjà en français).
+      final message = raw is String && status < 500 && body['code'] is String
           ? raw
-          : response.statusCode == 400
-          ? 'Certaines valeurs sont invalides.'
-          : 'Le serveur a rencontré un problème. Réessayez dans un instant.';
+          : statusMessage(status);
       return ApiException(
         message,
         code: body['code'] as String?,
@@ -50,6 +58,18 @@ class ApiException implements Exception {
     return ApiException('Une erreur inattendue est survenue.');
   }
 }
+
+/// Message en français selon le statut, quand le serveur n'en donne pas de lisible.
+String statusMessage(int status) => switch (status) {
+  400 => 'Certaines informations sont manquantes ou invalides.',
+  401 => 'Votre session a expiré. Reconnectez-vous.',
+  403 => 'Vous n’avez pas accès à cette action.',
+  404 => 'Élément introuvable.',
+  413 => 'Photo ou envoi trop volumineux.',
+  429 => 'Trop de tentatives. Réessayez dans quelques instants.',
+  >= 500 => 'Le serveur a rencontré un problème. Réessayez dans un instant.',
+  _ => 'La demande n’a pas pu aboutir.',
+};
 
 /// Mémoire des réponses (base locale du téléphone).
 abstract interface class ResponseCache {
@@ -92,7 +112,11 @@ class ApiClient {
             );
             return handler.next(error);
           }
-          final isAuthCall = request.path.startsWith('/auth/');
+          // Connexion, renouvellement, déconnexion : un 401 ne se rattrape pas ; le reste
+          // de /auth (profil, photo, mot de passe) renouvelle la session comme ailleurs.
+          final isAuthCall = RegExp(
+            r'^/auth/(login|refresh|logout|register)',
+          ).hasMatch(request.path);
           if (error.response?.statusCode != 401 ||
               isAuthCall ||
               request.extra['retried'] == true) {

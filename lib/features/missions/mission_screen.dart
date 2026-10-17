@@ -83,63 +83,65 @@ class _MissionScreenState extends ConsumerState<MissionScreen> {
             m.isActive &&
             m.status != MissionStatus.achieved &&
             m.status != MissionStatus.failed;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.page,
-            0,
-            Space.page,
-            Space.xxl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              GroupedList(
-                children: [
-                  row(
-                    'edit',
-                    Icons.edit_rounded,
-                    'Modifier',
-                    subtitle: 'Titre, consignes, cible, échéance',
-                  ),
-                  if (manualOpen) ...[
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.page,
+              0,
+              Space.page,
+              Space.xxl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GroupedList(
+                  children: [
                     row(
-                      'achieved',
-                      Icons.check_rounded,
-                      'Déclarer atteinte',
-                      color: const Color(0xFF34A853),
+                      'edit',
+                      Icons.edit_rounded,
+                      'Modifier',
+                      subtitle: 'Titre, consignes, cible, échéance',
                     ),
+                    if (manualOpen) ...[
+                      row(
+                        'achieved',
+                        Icons.check_rounded,
+                        'Déclarer atteinte',
+                        color: const Color(0xFF34A853),
+                      ),
+                      row(
+                        'failed',
+                        Icons.close_rounded,
+                        'Déclarer échouée',
+                        color: const Color(0xFFE5484D),
+                      ),
+                    ],
                     row(
-                      'failed',
-                      Icons.close_rounded,
-                      'Déclarer échouée',
-                      color: const Color(0xFFE5484D),
+                      m.isActive ? 'deactivate' : 'activate',
+                      m.isActive
+                          ? Icons.pause_circle_rounded
+                          : Icons.play_circle_rounded,
+                      m.isActive ? 'Désactiver' : 'Réactiver',
+                      subtitle: m.isActive
+                          ? 'Les agents ne la voient plus ; rien n’est perdu'
+                          : 'Les agents la voient à nouveau',
+                      color: const Color(0xFF6B7280),
                     ),
                   ],
-                  row(
-                    m.isActive ? 'deactivate' : 'activate',
-                    m.isActive
-                        ? Icons.pause_circle_rounded
-                        : Icons.play_circle_rounded,
-                    m.isActive ? 'Désactiver' : 'Réactiver',
-                    subtitle: m.isActive
-                        ? 'Les agents ne la voient plus ; rien n’est perdu'
-                        : 'Les agents la voient à nouveau',
-                    color: const Color(0xFF6B7280),
-                  ),
-                ],
-              ),
-              GroupedList(
-                children: [
-                  ListRow(
-                    title: 'Supprimer la mission',
-                    titleColor: scheme.error,
-                    centered: true,
-                    onTap: () => Navigator.pop(context, 'delete'),
-                  ),
-                ],
-              ),
-            ],
+                ),
+                GroupedList(
+                  children: [
+                    ListRow(
+                      title: 'Supprimer la mission',
+                      titleColor: scheme.error,
+                      centered: true,
+                      onTap: () => Navigator.pop(context, 'delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -195,7 +197,8 @@ class _MissionScreenState extends ConsumerState<MissionScreen> {
           _ => 'Mission réactivée',
         });
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (!mounted) return;
       showMessage(
         context,
@@ -259,25 +262,29 @@ class _MissionScreenState extends ConsumerState<MissionScreen> {
                   Space.page,
                   Space.md,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (overline.isNotEmpty)
-                      Text(
-                        overline.toUpperCase(),
-                        style: text.labelMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          letterSpacing: 0.4,
+                // Grand titre : agrandi avec la police jusqu'à ×1,4, comme ailleurs.
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (overline.isNotEmpty)
+                        Text(
+                          overline.toUpperCase(),
+                          style: text.labelMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            letterSpacing: 0.4,
+                          ),
                         ),
+                      const SizedBox(height: 2),
+                      Text(
+                        m.title,
+                        style: text.headlineMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    const SizedBox(height: 2),
-                    Text(
-                      m.title,
-                      style: text.headlineMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -381,7 +388,13 @@ class _Overview extends StatelessWidget {
               excludeSemantics: true,
               child: ProgressRing(
                 value: m.progress.percent / 100,
-                size: 150,
+                // L'anneau grandit avec le texte qu'il contient (police agrandie).
+                size:
+                    150 *
+                    (MediaQuery.textScalerOf(context).scale(10) / 10).clamp(
+                      1.0,
+                      1.8,
+                    ),
                 stroke: 16,
                 color: color,
                 child: Column(
@@ -709,7 +722,8 @@ class _FormsTabState extends ConsumerState<_FormsTab> {
       if (mounted) {
         showMessage(context, 'Formulaire rejeté, l’agent a été prévenu');
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) showMessage(context, e.message, error: true);
     }
   }

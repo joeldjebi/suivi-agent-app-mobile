@@ -318,7 +318,8 @@ class _SuggestionEditorScreenState
             ? 'Signalement enregistré sur le téléphone : envoyé au retour du réseau.'
             : 'Merci ! L’administrateur va l’examiner.',
       );
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = e.message);
     } finally {

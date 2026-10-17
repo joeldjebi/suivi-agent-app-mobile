@@ -63,45 +63,47 @@ Future<bool> ensureLocationConsent(
           ],
         ),
       );
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: IconSquircle(
-                icon: Icons.share_location_outlined,
-                size: 40,
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: IconSquircle(
+                  icon: Icons.share_location_outlined,
+                  size: 40,
+                ),
               ),
-            ),
-            const SizedBox(height: Space.lg),
-            Text('Partage de votre position', style: text.headlineSmall),
-            const SizedBox(height: 16),
-            point(
-              Icons.schedule_rounded,
-              'Votre position est partagée avec $structure uniquement pendant votre journée${trackDuringPause ? ', pauses comprises' : ', hors pauses'}.',
-            ),
-            point(
-              Icons.stop_circle_outlined,
-              'Le suivi s’arrête dès que vous terminez votre journée.',
-            ),
-            point(
-              Icons.notifications_active_outlined,
-              'Une notification reste visible tant que le suivi est actif.',
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Autoriser et continuer'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Plus tard'),
-            ),
-          ],
+              const SizedBox(height: Space.lg),
+              Text('Partage de votre position', style: text.headlineSmall),
+              const SizedBox(height: 16),
+              point(
+                Icons.schedule_rounded,
+                'Votre position est partagée avec $structure uniquement pendant votre journée${trackDuringPause ? ', pauses comprises' : ', hors pauses'}.',
+              ),
+              point(
+                Icons.stop_circle_outlined,
+                'Le suivi s’arrête dès que vous terminez votre journée.',
+              ),
+              point(
+                Icons.notifications_active_outlined,
+                'Une notification reste visible tant que le suivi est actif.',
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Autoriser et continuer'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Plus tard'),
+              ),
+            ],
+          ),
         ),
       );
     },

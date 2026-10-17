@@ -63,38 +63,42 @@ class _LockScreenState extends ConsumerState<_LockScreen> {
     return Material(
       color: scheme.surface,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(Space.xl),
-          child: Column(
-            children: [
-              const Spacer(),
-              const IconSquircle(icon: Icons.lock_rounded, size: 72),
-              const SizedBox(height: Space.lg),
-              Text(
-                branding.displayName,
-                textAlign: TextAlign.center,
-                style: text.headlineSmall,
-              ),
-              const SizedBox(height: Space.xs),
-              Text(
-                _failed
-                    ? 'Vérification annulée ou refusée.'
-                    : 'Application verrouillée',
-                textAlign: TextAlign.center,
-                style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              const Spacer(),
-              PillButton(
-                label: 'Déverrouiller avec $_method',
-                icon: Icons.fingerprint_rounded,
-                onPressed: _unlock,
-              ),
-              const SizedBox(height: Space.sm),
-              TextButton(
-                onPressed: () => ref.read(authProvider.notifier).logout(),
-                child: const Text('Se déconnecter'),
-              ),
-            ],
+        child: FillScroll(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.xl),
+            child: Column(
+              children: [
+                const Spacer(),
+                const IconSquircle(icon: Icons.lock_rounded, size: 72),
+                const SizedBox(height: Space.lg),
+                Text(
+                  branding.displayName,
+                  textAlign: TextAlign.center,
+                  style: text.headlineSmall,
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  _failed
+                      ? 'Vérification annulée ou refusée.'
+                      : 'Application verrouillée',
+                  textAlign: TextAlign.center,
+                  style: text.bodyLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                PillButton(
+                  label: 'Déverrouiller avec $_method',
+                  icon: Icons.fingerprint_rounded,
+                  onPressed: _unlock,
+                ),
+                const SizedBox(height: Space.sm),
+                TextButton(
+                  onPressed: () => ref.read(authProvider.notifier).logout(),
+                  child: const Text('Se déconnecter'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

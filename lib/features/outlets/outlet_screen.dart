@@ -389,7 +389,8 @@ class OutletScreen extends ConsumerWidget {
             ? 'Enregistré sur le téléphone : envoyé au retour du réseau.'
             : done,
       );
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       HapticFeedback.heavyImpact();
       if (context.mounted) showMessage(context, e.message, error: true);
     }
@@ -457,56 +458,70 @@ class _StatusSheetState extends State<_StatusSheet> {
     final text = Theme.of(context).textTheme;
     final changed =
         _status != widget.current || _comment.text.trim().isNotEmpty;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        Space.page,
-        0,
-        Space.page,
-        Space.xxl + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Changer le statut', style: text.titleLarge),
-          const SizedBox(height: Space.md),
-          for (final s in OutletStatus.values)
-            ListTile(
-              selected: _status == s,
-              onTap: () => setState(() => _status = s),
-              contentPadding: EdgeInsets.zero,
-              trailing: _status == s
-                  ? Icon(Icons.check_circle_rounded, color: s.color)
-                  : const Icon(Icons.circle_outlined),
-              title: Row(
-                children: [
-                  LucideIcon(s.icon, color: s.color, size: 20),
-                  const SizedBox(width: Space.sm),
-                  Text(s.label),
-                  if (s == widget.current)
-                    Text('  (actuel)', style: text.bodySmall),
-                ],
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          Space.page,
+          0,
+          Space.page,
+          Space.xxl + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Changer le statut', style: text.titleLarge),
+            const SizedBox(height: Space.md),
+            for (final s in OutletStatus.values)
+              ListTile(
+                selected: _status == s,
+                onTap: () => setState(() => _status = s),
+                contentPadding: EdgeInsets.zero,
+                trailing: _status == s
+                    ? Icon(Icons.check_circle_rounded, color: s.color)
+                    : const Icon(Icons.circle_outlined),
+                title: Row(
+                  children: [
+                    LucideIcon(s.icon, color: s.color, size: 20),
+                    const SizedBox(width: Space.sm),
+                    Flexible(
+                      child: Text.rich(
+                        TextSpan(
+                          text: s.label,
+                          children: [
+                            if (s == widget.current)
+                              TextSpan(
+                                text: '  (actuel)',
+                                style: text.bodySmall,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            const SizedBox(height: Space.sm),
+            TextField(
+              controller: _comment,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Commentaire (facultatif)',
+                hintText: 'Ex. : première commande passée',
+              ),
+              onChanged: (_) => setState(() {}),
             ),
-          const SizedBox(height: Space.sm),
-          TextField(
-            controller: _comment,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'Commentaire (facultatif)',
-              hintText: 'Ex. : première commande passée',
+            const SizedBox(height: Space.lg),
+            PillButton(
+              label: 'Enregistrer',
+              icon: Icons.check_rounded,
+              onPressed: changed
+                  ? () =>
+                        Navigator.pop(context, (_status, _comment.text.trim()))
+                  : null,
             ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: Space.lg),
-          PillButton(
-            label: 'Enregistrer',
-            icon: Icons.check_rounded,
-            onPressed: changed
-                ? () => Navigator.pop(context, (_status, _comment.text.trim()))
-                : null,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -541,7 +556,8 @@ class _VisitCard extends ConsumerWidget {
       if (context.mounted) {
         showMessage(context, 'Fréquence de visite enregistrée.');
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (context.mounted) showMessage(context, e.message, error: true);
     }
   }

@@ -232,8 +232,9 @@ class RemotePhoto extends ConsumerWidget {
       label: image != null ? '$label, ouvrir en grand' : label,
       excludeSemantics: true,
       child: GestureDetector(
+        // Photo pas encore chargée : un toucher relance le chargement.
         onTap: image == null
-            ? null
+            ? () => ref.invalidate(photoBytesProvider(id))
             : () => showPhoto(
                 context,
                 image: image,
@@ -257,10 +258,25 @@ class RemotePhoto extends ConsumerWidget {
               AsyncLoading() => const Center(
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              _ => Icon(
-                Icons.hide_image_outlined,
-                color: scheme.onSurfaceVariant,
-                semanticLabel: 'Photo indisponible',
+              _ => Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.refresh_rounded,
+                    color: scheme.onSurfaceVariant,
+                    semanticLabel: 'Photo non chargée, toucher pour réessayer',
+                  ),
+                  if (height >= 80) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Toucher pour réessayer',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             },
           ),

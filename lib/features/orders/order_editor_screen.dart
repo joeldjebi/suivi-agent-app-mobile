@@ -105,7 +105,8 @@ class _OrderEditorScreenState extends ConsumerState<OrderEditorScreen> {
         context.pushReplacement('/orders/${order.id}');
         showMessage(context, 'Commande ${order.reference} enregistrée.');
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       HapticFeedback.heavyImpact();
       if (mounted) setState(() => _error = e.message);
     } finally {

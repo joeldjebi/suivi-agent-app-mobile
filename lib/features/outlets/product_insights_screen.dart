@@ -324,13 +324,7 @@ class ProductInsightsScreen extends ConsumerWidget {
     final currency = s['currency'] as String? ?? 'XOF';
     final sold = countOf('delivered') + countOf('paid');
     return [
-      GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: Space.sm,
-        crossAxisSpacing: Space.sm,
-        childAspectRatio: 1.45,
+      _KpiGrid(
         children: [
           _Kpi(
             label: 'Vendu',
@@ -381,13 +375,7 @@ class ProductInsightsScreen extends ConsumerWidget {
     final danger = toneColor(context, Tone.danger);
 
     return [
-      GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: Space.sm,
-        crossAxisSpacing: Space.sm,
-        childAspectRatio: 1.45,
+      _KpiGrid(
         children: [
           _Kpi(
             label: 'Taux de rupture',
@@ -540,6 +528,41 @@ class ProductInsightsScreen extends ConsumerWidget {
   }
 }
 
+/// Chiffres clés, deux par ligne ; avec une grande police, les cases grandissent avec leur
+/// texte et passent une par ligne quand elles deviennent trop étroites.
+class _KpiGrid extends StatelessWidget {
+  const _KpiGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(10) / 10;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final twoWide = (box.maxWidth - Space.sm) / 2;
+        final columns = twoWide >= 80 * scale ? 2 : 1;
+        final width = columns == 2 ? twoWide : box.maxWidth;
+        // Hauteur d'origine (largeur / 1,45), ou celle qu'il faut au texte agrandi.
+        final extent = columns == 2
+            ? (twoWide / 1.45).clamp(24 + 78 * scale, double.infinity)
+            : 24 + 78 * scale;
+        return GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: Space.sm,
+            crossAxisSpacing: Space.sm,
+            mainAxisExtent: width > 0 ? extent : null,
+          ),
+          children: children,
+        );
+      },
+    );
+  }
+}
+
 class _Kpi extends StatelessWidget {
   const _Kpi({
     required this.label,
@@ -570,11 +593,16 @@ class _Kpi extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: text.headlineSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: text.headlineSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Text(
@@ -637,7 +665,7 @@ class _SalesCard extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: scheme.onSurfaceVariant),
               const SizedBox(width: Space.xs),
-              Text(title, style: text.titleSmall),
+              Flexible(child: Text(title, style: text.titleSmall)),
             ],
           ),
           const SizedBox(height: Space.sm),

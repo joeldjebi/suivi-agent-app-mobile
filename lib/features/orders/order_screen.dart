@@ -89,7 +89,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
       if (mounted) {
         showMessage(context, 'Commande ${next.label.toLowerCase()}.');
       }
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       HapticFeedback.heavyImpact();
       if (mounted) showMessage(context, e.message, error: true);
     } finally {

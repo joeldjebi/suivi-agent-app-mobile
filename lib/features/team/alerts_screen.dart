@@ -321,11 +321,15 @@ class _AlertChip extends StatelessWidget {
             color: color,
           ),
           const SizedBox(width: 4),
-          Text(
-            _chipLabel(alert),
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: color),
+          Flexible(
+            child: Text(
+              _chipLabel(alert),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: color),
+            ),
           ),
         ],
       ),
@@ -475,7 +479,8 @@ class _AgentAlertsSheetState extends ConsumerState<_AgentAlertsSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(context, 'Alertes prises en charge');
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) {
         setState(() => _saving = false);
         showMessage(context, e.message, error: true);
@@ -491,7 +496,8 @@ class _AgentAlertsSheetState extends ConsumerState<_AgentAlertsSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       showMessage(context, 'Alerte close : l’agent est informé');
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (mounted) {
         setState(() => _saving = false);
         showMessage(context, e.message, error: true);

@@ -44,21 +44,26 @@ class BrandHeader extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  (subtitle ?? formatDay(DateTime.now())).toUpperCase(),
-                  style: text.labelMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    letterSpacing: 0.4,
+            // Grand titre : il grossit avec la police du téléphone, jusqu'à ×1,4 (comme les
+            // grands titres du système), pour ne pas couper les mots.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    (subtitle ?? formatDay(DateTime.now())).toUpperCase(),
+                    style: text.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      letterSpacing: 0.4,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(title, style: text.displayMedium),
-              ],
+                  const SizedBox(height: 2),
+                  Text(title, style: text.displayMedium),
+                ],
+              ),
             ),
           ),
           if (actions) ...[

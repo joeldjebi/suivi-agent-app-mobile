@@ -36,6 +36,13 @@ Future<void> _loadFonts() async {
   await icons.load();
 }
 
+/// Variante d'écran (SCREEN_VARIANT=320x568@2.0) : taille de téléphone et taille de police
+/// choisie dans les réglages. Aucune capture n'est comparée : un texte ou un bloc qui déborde
+/// fait échouer le test.
+final _variant = RegExp(
+  r'^(\d+)x(\d+)@([\d.]+)$',
+).firstMatch(Platform.environment['SCREEN_VARIANT'] ?? '');
+
 Future<void> _capture(
   WidgetTester tester,
   Widget app,
@@ -45,6 +52,7 @@ Future<void> _capture(
   // Feuilles modales : elles s'affichent hors du Scaffold, on capture toute l'app.
   bool wholeApp = false,
 }) async {
+  final variant = _variant;
   tester.view.physicalSize = const Size(1170, 2532);
   tester.view.devicePixelRatio = 3;
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
@@ -60,10 +68,34 @@ Future<void> _capture(
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
-  await expectLater(
-    wholeApp ? find.byType(MaterialApp) : find.byType(Scaffold).first,
-    matchesGoldenFile('goldens/$name.png'),
-  );
+  if (variant != null) {
+    // Écran atteint au format standard, puis affiché au format et à la police choisis.
+    tester.view.physicalSize = Size(
+      double.parse(variant.group(1)!) * 3,
+      double.parse(variant.group(2)!) * 3,
+    );
+    tester.platformDispatcher.textScaleFactorTestValue = double.parse(
+      variant.group(3)!,
+    );
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+  if (variant != null) {
+    // Image de l'écran à ce format, pour relecture (build/variants/…).
+    await expectLater(
+      wholeApp ? find.byType(MaterialApp) : find.byType(Scaffold).first,
+      matchesGoldenFile(
+        '../../build/variants/${Platform.environment['SCREEN_VARIANT']}/$name.png',
+      ),
+    );
+  } else {
+    await expectLater(
+      wholeApp ? find.byType(MaterialApp) : find.byType(Scaffold).first,
+      matchesGoldenFile('goldens/$name.png'),
+    );
+  }
   await tester.pumpWidget(const SizedBox());
   // Laisse l'arrêt des services (minuteries) se terminer après le démontage.
   await tester.pump(const Duration(seconds: 1));

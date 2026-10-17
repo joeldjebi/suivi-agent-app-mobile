@@ -509,7 +509,8 @@ class Repository {
       return (await api.get<List<dynamic>>(
         '/groups',
       )).map((g) => TeamGroup.fromJson(g as Map<String, dynamic>)).toList();
-    } on ApiException catch (e) {
+    } catch (error) {
+      final e = ApiException.from(error);
       if (e.status == 402) return [];
       rethrow;
     }

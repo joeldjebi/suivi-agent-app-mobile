@@ -159,6 +159,8 @@ class InfoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = toneColor(context, tone);
+    // Grande police : le bouton passe sous le message au lieu de le réduire à un mot par ligne.
+    final stacked = largeText(context);
     return Semantics(
       liveRegion: true,
       child: Container(
@@ -170,17 +172,27 @@ class InfoBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(width: 12),
+            // Grande police : le texte prend toute la largeur (l'icône est masquée).
+            if (!stacked) ...[
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 12),
+            ],
             Expanded(
-              child: Text(
-                message,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: color),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: color),
+                  ),
+                  if (stacked && action != null) action!,
+                ],
               ),
             ),
-            if (action != null) action!,
+            if (!stacked && action != null) action!,
           ],
         ),
       ),
@@ -216,44 +228,51 @@ Future<bool> confirmSheet(
     useSafeArea: true,
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconSquircle(
-                icon: destructive
-                    ? Icons.warning_amber_rounded
-                    : Icons.help_outline_rounded,
-                color: destructive ? scheme.error : null,
-                size: 40,
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.xxl,
+            0,
+            Space.xxl,
+            Space.xxl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconSquircle(
+                  icon: destructive
+                      ? Icons.warning_amber_rounded
+                      : Icons.help_outline_rounded,
+                  color: destructive ? scheme.error : null,
+                  size: 40,
+                ),
               ),
-            ),
-            const SizedBox(height: Space.lg),
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: Space.sm),
-            Text(
-              message,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: Space.xxl),
-            PillButton(
-              label: confirmLabel,
-              style: destructive ? PillStyle.danger : PillStyle.primary,
-              onPressed: () => Navigator.pop(context, true),
-            ),
-            const SizedBox(height: Space.md),
-            PillButton(
-              label: 'Annuler',
-              style: PillStyle.outline,
-              onPressed: () => Navigator.pop(context, false),
-            ),
-          ],
+              const SizedBox(height: Space.lg),
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: Space.sm),
+              Text(
+                message,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: Space.xxl),
+              PillButton(
+                label: confirmLabel,
+                style: destructive ? PillStyle.danger : PillStyle.primary,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+              const SizedBox(height: Space.md),
+              PillButton(
+                label: 'Annuler',
+                style: PillStyle.outline,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+            ],
+          ),
         ),
       );
     },
@@ -305,3 +324,21 @@ Future<({T value})?> pickOption<T>(
     ),
   ),
 );
+
+/// Écran plein en colonne (avec des espaces extensibles) : il remplit la hauteur quand il
+/// tient, et défile quand il dépasse (petit écran, grande police).
+class FillScroll extends StatelessWidget {
+  const FillScroll({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) => SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: box.maxHeight),
+        child: IntrinsicHeight(child: child),
+      ),
+    ),
+  );
+}
