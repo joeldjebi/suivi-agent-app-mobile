@@ -58,16 +58,25 @@ Future<void> _pumps(WidgetTester tester) async {
   }
 }
 
+/// STORE_DEVICE=ipad : écrans iPad 13 pouces (2064 × 2752), dans build/store/ipad/.
+final _ipad = Platform.environment['STORE_DEVICE'] == 'ipad';
+final _whole = GlobalKey();
+
 Future<void> _shoot(
   WidgetTester tester,
   Widget app,
   String name,
   Future<void> Function() then,
 ) async {
-  tester.view.physicalSize = const Size(1170, 2532);
-  tester.view.devicePixelRatio = 3;
+  tester.view.physicalSize = _ipad
+      ? const Size(2064, 2752)
+      : const Size(1170, 2532);
+  tester.view.devicePixelRatio = _ipad ? 2 : 3;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(app);
+  // iPad : toute l'app (colonne centrée et côtés), pas seulement l'écran.
+  await tester.pumpWidget(
+    _ipad ? RepaintBoundary(key: _whole, child: app) : app,
+  );
   await _pumps(tester);
   await then();
   await _pumps(tester);
@@ -78,15 +87,17 @@ Future<void> _shoot(
     );
     await _pumps(tester);
   }
-  var render = tester.renderObject(find.byType(Scaffold).first);
+  var render = tester.renderObject(
+    _ipad ? find.byKey(_whole) : find.byType(Scaffold).first,
+  );
   while (render is! RenderRepaintBoundary) {
     render = render.parent!;
   }
   final boundary = render;
   await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 3);
+    final image = await boundary.toImage(pixelRatio: _ipad ? 2 : 3);
     final png = await image.toByteData(format: ui.ImageByteFormat.png);
-    File('build/store/$name.png')
+    File('build/store/${_ipad ? 'ipad/' : ''}$name.png')
       ..createSync(recursive: true)
       ..writeAsBytesSync(png!.buffer.asUint8List());
   });

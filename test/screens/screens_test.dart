@@ -83,9 +83,9 @@ Future<void> _capture(
     }
   }
   if (variant != null) {
-    // Image de l'écran à ce format, pour relecture (build/variants/…).
+    // Image de l'app entière à ce format, pour relecture (build/variants/…).
     await expectLater(
-      wholeApp ? find.byType(MaterialApp) : find.byType(Scaffold).first,
+      find.byType(MaterialApp),
       matchesGoldenFile(
         '../../build/variants/${Platform.environment['SCREEN_VARIANT']}/$name.png',
       ),

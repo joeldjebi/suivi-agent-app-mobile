@@ -46,6 +46,7 @@ import 'features/shell/suspended_screen.dart';
 import 'features/team/requests_screen.dart';
 import 'features/team/team_map_screen.dart';
 import 'features/team/team_screen.dart';
+import 'widgets/tablet_frame.dart';
 
 /// Rafraîchit le routeur quand la session change.
 class _AuthListenable extends ChangeNotifier {
@@ -442,7 +443,10 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark,
         // Face ID / empreinte : l'app reste masquée tant qu'elle est verrouillée.
-        child: LockGate(child: OfflineFrame(child: child!)),
+        // Tablette : colonne centrée plutôt qu'un écran de téléphone étiré.
+        child: TabletFrame(
+          child: LockGate(child: OfflineFrame(child: child!)),
+        ),
       ),
     );
   }

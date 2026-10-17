@@ -29,10 +29,13 @@ svg.route { position: absolute; left: 0; top: 0; z-index: 1; }
 </style></head>
 <body><div class="pano" id="pano"></div>
 <script>
-// Formats : App Store 6,9" (1320 × 2868) et Play Store (1080 × 1920).
+// Formats : App Store 6,9" (1320 × 2868), iPad 13" (2064 × 2752) et Play Store (1080 × 1920).
 const play = location.search.includes('play');
-const W = play ? 1080 : 1320, H = play ? 1920 : 2868;
-const L = play
+const ipad = location.search.includes('ipad');
+const W = play ? 1080 : ipad ? 2064 : 1320, H = play ? 1920 : ipad ? 2752 : 2868;
+const L = ipad
+  ? { logo: [80, 110], time: [200, 44, 15, 38], h1: [280, 200], sub: [770, 58, 180], card: [1010, 170, 1724], credit: [960, 30], line: 940, node: 130, nodeB: 32, badge: [50, 28, 50, 70] }
+  : play
   ? { logo: [60, 76], time: [150, 30, 10, 26], h1: [215, 112], sub: [500, 34, 70], card: [680, 70, 940], credit: [632, 20], line: 640, node: 84, nodeB: 21, badge: [30, 18, 36, 46] }
   : { logo: [90, 104], time: [215, 40, 14, 34], h1: [300, 160], sub: [720, 46, 100], card: [1090, 80, 1160], credit: [1010, 26], line: 1000, node: 120, nodeB: 30, badge: [44, 26, 46, 64] };
 const steps = [
@@ -64,7 +67,7 @@ for (let i = 0; i < N; i++) {
   d += ` C ${x + W * .3} ${L.line + a}, ${x + W * .7} ${L.line - a}, ${x + W} ${L.line}`;
 }
 html += `<svg class="route" width="${W * N}" height="${H}"><path d="${d}" fill="none" stroke="rgba(255,255,255,.55)"
-  stroke-width="${play ? 18 : 26}" stroke-linecap="round" stroke-dasharray="2 ${play ? 40 : 54}"/></svg>`;
+  stroke-width="${play ? 18 : ipad ? 30 : 26}" stroke-linecap="round" stroke-dasharray="2 ${play ? 40 : ipad ? 62 : 54}"/></svg>`;
 steps.forEach(([img, time, title, sub, credit], i) => {
   const [ct, cl, cw] = L.card;
   html += `<div class="panel" style="left:${i * W}px;width:${W}px;height:${H}px">
@@ -76,7 +79,7 @@ steps.forEach(([img, time, title, sub, credit], i) => {
     <h1 style="top:${L.h1[0]}px;font-size:${L.h1[1]}px;line-height:1.16">${title}</h1>
     <p class="sub" style="top:${L.sub[0]}px;font-size:${L.sub[1]}px;left:${L.sub[2]}px;right:${L.sub[2]}px;line-height:1.3">${sub}</p>
     ${credit ? `<div class="credit" style="top:${L.credit[0]}px;font-size:${L.credit[1]}px">Carte © les contributeurs d’OpenStreetMap</div>` : ''}
-    <div class="card" style="top:${ct}px;left:${cl}px;width:${cw}px;height:${H}px;border-radius:${play ? 56 : 80}px"><img src="${img}.png"></div>
+    <div class="card" style="top:${ct}px;left:${cl}px;width:${cw}px;height:${H}px;border-radius:${play ? 56 : ipad ? 64 : 80}px"><img src="${ipad ? 'ipad/' : ''}${img}.png"></div>
   </div>`;
 });
 joints.forEach(([kind, bg, fg, icon, label], i) => {
