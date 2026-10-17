@@ -6,6 +6,7 @@ import '../../design/components.dart';
 import '../team/team_controller.dart';
 import 'live_updates.dart';
 import 'push_handler.dart';
+import 'update_screen.dart';
 
 /// Points de vente (formule qui les inclut).
 const outletsTab = NavItem(
@@ -83,27 +84,30 @@ class AppShell extends ConsumerWidget {
     final pending = leader ? ref.watch(requestsProvider).value?.length ?? 0 : 0;
     return PushHandler(
       leader: leader,
-      child: Scaffold(
-        body: shell,
-        bottomNavigationBar: AppNavBar(
-          index: shell.currentIndex,
-          onSelect: (i) =>
-              shell.goBranch(i, initialLocation: i == shell.currentIndex),
-          items: [
-            for (final tab in tabs)
-              NavItem(
-                label: tab.label,
-                icon: tab.icon,
-                selectedIcon: tab.selectedIcon,
-                // Sans onglet « Demandes », leur nombre s'affiche sur « Équipe ».
-                badge:
-                    tab.label == 'Demandes' ||
-                        (tab.label == 'Équipe' &&
-                            !tabs.any((t) => t.label == 'Demandes'))
-                    ? pending
-                    : 0,
-              ),
-          ],
+      // Mise à jour recommandée : fenêtre à l'ouverture.
+      child: UpdatePrompt(
+        child: Scaffold(
+          body: shell,
+          bottomNavigationBar: AppNavBar(
+            index: shell.currentIndex,
+            onSelect: (i) =>
+                shell.goBranch(i, initialLocation: i == shell.currentIndex),
+            items: [
+              for (final tab in tabs)
+                NavItem(
+                  label: tab.label,
+                  icon: tab.icon,
+                  selectedIcon: tab.selectedIcon,
+                  // Sans onglet « Demandes », leur nombre s'affiche sur « Équipe ».
+                  badge:
+                      tab.label == 'Demandes' ||
+                          (tab.label == 'Équipe' &&
+                              !tabs.any((t) => t.label == 'Demandes'))
+                      ? pending
+                      : 0,
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_version.dart';
@@ -55,6 +56,10 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                   textAlign: TextAlign.center,
                   style: text.bodyLarge?.copyWith(color: muted),
                 ),
+                if (update?.releaseNotes case final notes?) ...[
+                  const SizedBox(height: Space.lg),
+                  _ReleaseNotes(notes),
+                ],
                 const SizedBox(height: Space.xs),
                 Text(
                   'Vos journées et formulaires enregistrés sur le téléphone seront envoyés après la mise à jour.',
@@ -116,6 +121,144 @@ class UpdateAvailableBanner extends ConsumerWidget {
           onPressed: () => openStore(url),
           child: const Text('Mettre à jour'),
         ),
+      ),
+    );
+  }
+}
+
+/// Nouveautés de la version, rédigées par l'éditeur.
+class _ReleaseNotes extends StatelessWidget {
+  const _ReleaseNotes(this.notes);
+
+  final String notes;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return SurfaceCard(
+      padding: const EdgeInsets.all(Space.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Nouveautés', style: text.titleSmall),
+          const SizedBox(height: Space.xs),
+          Text(notes, style: text.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
+/// Mise à jour recommandée : fenêtre à l'ouverture de l'espace connecté, avec « Plus tard ».
+/// Elle revient au plus une fois par jour tant que l'app n'est pas à jour.
+class UpdatePrompt extends ConsumerStatefulWidget {
+  const UpdatePrompt({super.key, required this.child});
+
+  final Widget child;
+
+  /// Dernière proposition : « version|jour ».
+  static const prefKey = 'update.prompted';
+
+  @override
+  ConsumerState<UpdatePrompt> createState() => _UpdatePromptState();
+}
+
+class _UpdatePromptState extends ConsumerState<UpdatePrompt> {
+  bool _showing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeShow(ref.read(updateProvider)),
+    );
+  }
+
+  Future<void> _maybeShow(UpdateInfo? update) async {
+    if (_showing || update == null || !update.prompt) return;
+    final now = DateTime.now();
+    final mark = '${update.version}|${now.year}-${now.month}-${now.day}';
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(UpdatePrompt.prefKey) == mark) return;
+    } catch (_) {
+      // Stockage indisponible : proposée à chaque ouverture.
+    }
+    if (!mounted || _showing) return;
+    _showing = true;
+    try {
+      await prefs?.setString(UpdatePrompt.prefKey, mark);
+    } catch (_) {}
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (_) => _UpdateSheet(update),
+    );
+    _showing = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(updateProvider, (_, next) => _maybeShow(next));
+    return widget.child;
+  }
+}
+
+class _UpdateSheet extends StatelessWidget {
+  const _UpdateSheet(this.update);
+
+  final UpdateInfo update;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final url = update.storeUrl;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xxl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: IconSquircle(icon: Icons.system_update_rounded, size: 40),
+          ),
+          const SizedBox(height: Space.lg),
+          Text(
+            'Nouvelle version ${update.version ?? ''}'.trim(),
+            style: text.headlineSmall,
+          ),
+          const SizedBox(height: Space.sm),
+          Text(
+            'Une mise à jour recommandée est disponible. Installez-la dès que possible.',
+            style: text.bodyLarge?.copyWith(color: muted),
+          ),
+          if (update.releaseNotes case final notes?) ...[
+            const SizedBox(height: Space.lg),
+            _ReleaseNotes(notes),
+          ],
+          const SizedBox(height: Space.xxl),
+          if (url != null) ...[
+            PillButton(
+              label: 'Mettre à jour',
+              icon: Icons.download_rounded,
+              onPressed: () {
+                Navigator.pop(context);
+                openStore(url);
+              },
+            ),
+            const SizedBox(height: Space.md),
+          ],
+          PillButton(
+            label: 'Plus tard',
+            style: PillStyle.outline,
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }

@@ -35,15 +35,43 @@ int compareVersions(String a, String b) {
   return 0;
 }
 
+/// Importance de la dernière version, choisie par l'éditeur.
+enum UpdateImportance {
+  /// Bandeau discret (profil).
+  minor,
+
+  /// Fenêtre à l'ouverture, avec « Plus tard » (une fois par jour).
+  recommended,
+
+  /// Obligatoire : l'app est bloquée jusqu'à la mise à jour.
+  critical;
+
+  static UpdateImportance parse(Object? value) => UpdateImportance.values
+      .firstWhere((i) => i.name == value, orElse: () => minor);
+}
+
 /// Mise à jour obligatoire (l'app est bloquée) ou simplement proposée.
 class UpdateInfo {
-  const UpdateInfo({required this.required, this.version, this.storeUrl});
+  const UpdateInfo({
+    required this.required,
+    this.version,
+    this.storeUrl,
+    this.importance = UpdateImportance.minor,
+    this.releaseNotes,
+  });
 
   final bool required;
 
   /// Version minimale (obligatoire) ou dernière version (proposée).
   final String? version;
   final String? storeUrl;
+  final UpdateImportance importance;
+
+  /// Nouveautés de la version, rédigées par l'éditeur.
+  final String? releaseNotes;
+
+  /// Proposée avec une fenêtre à l'ouverture de l'app.
+  bool get prompt => !required && importance == UpdateImportance.recommended;
 }
 
 class UpdateController extends Notifier<UpdateInfo?> {
@@ -52,7 +80,13 @@ class UpdateController extends Notifier<UpdateInfo?> {
 
   /// Refus du serveur (426) : l'app passe sur l'écran de mise à jour.
   void requireUpdate({String? storeUrl, String? version}) {
-    state = UpdateInfo(required: true, version: version, storeUrl: storeUrl);
+    state = UpdateInfo(
+      required: true,
+      version: version,
+      storeUrl: storeUrl,
+      importance: UpdateImportance.critical,
+      releaseNotes: state?.releaseNotes,
+    );
   }
 
   /// Au lancement : version minimale et dernière version publiées par l'éditeur.
@@ -62,21 +96,43 @@ class UpdateController extends Notifier<UpdateInfo?> {
           .read(repositoryProvider)
           .api
           .get<Map<String, dynamic>>('/app/version');
-      final min = info['minVersion'] as String?;
-      final latest = info['latestVersion'] as String?;
-      final url = info[Platform.isIOS ? 'iosUrl' : 'androidUrl'] as String?;
-      if (min != null && compareVersions(AppVersion.current, min) < 0) {
-        state = UpdateInfo(required: true, version: min, storeUrl: url);
-      } else if (latest != null &&
-          compareVersions(AppVersion.current, latest) < 0) {
-        state = UpdateInfo(required: false, version: latest, storeUrl: url);
-      } else {
-        state = null;
-      }
+      state = updateFor(AppVersion.current, info, ios: Platform.isIOS);
     } catch (_) {
       // Hors connexion : vérifié au prochain lancement.
     }
   }
+}
+
+/// Mise à jour à proposer (ou imposer) à cette version de l'app, d'après /app/version.
+UpdateInfo? updateFor(
+  String current,
+  Map<String, dynamic> info, {
+  required bool ios,
+}) {
+  final min = info['minVersion'] as String?;
+  final latest = info['latestVersion'] as String?;
+  final url = info[ios ? 'iosUrl' : 'androidUrl'] as String?;
+  final importance = UpdateImportance.parse(info['importance']);
+  final notes = (info['releaseNotes'] as String?)?.trim();
+  final releaseNotes = notes == null || notes.isEmpty ? null : notes;
+  final behind = latest != null && compareVersions(current, latest) < 0;
+  if (min != null && compareVersions(current, min) < 0) {
+    return UpdateInfo(
+      required: true,
+      version: behind ? latest : min,
+      storeUrl: url,
+      importance: UpdateImportance.critical,
+      releaseNotes: releaseNotes,
+    );
+  }
+  if (!behind) return null;
+  return UpdateInfo(
+    required: importance == UpdateImportance.critical,
+    version: latest,
+    storeUrl: url,
+    importance: importance,
+    releaseNotes: releaseNotes,
+  );
 }
 
 final updateProvider = NotifierProvider<UpdateController, UpdateInfo?>(
