@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
                 'assets/splash/logo.png',
                 width: 192,
                 height: 192,
-                semanticLabel: 'Suivi Agent',
+                semanticLabel: 'PerformX',
               ),
             ),
             Positioned(
@@ -94,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
                 child: Text(
-                  'Suivi Agent',
+                  'PerformX',
                   textAlign: TextAlign.center,
                   style: text.titleLarge?.bold.copyWith(color: Colors.white),
                 ),

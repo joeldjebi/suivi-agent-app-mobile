@@ -25,9 +25,9 @@ class Branding {
   final Uint8List? logo;
   final int version;
 
-  /// Apparence neutre « Suivi Agent ».
+  /// Apparence neutre « PerformX ».
   static const defaults = Branding(
-    displayName: 'Suivi Agent',
+    displayName: 'PerformX',
     primary: Color(0xFF2563EB),
     onPrimary: Colors.white,
   );

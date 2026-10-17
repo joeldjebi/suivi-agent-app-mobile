@@ -50,7 +50,7 @@ final class DayActivityBridge {
     }
     do {
       _ = try Activity.request(
-        attributes: DayActivityAttributes(structure: args["structure"] as? String ?? "Suivi Agent"),
+        attributes: DayActivityAttributes(structure: args["structure"] as? String ?? "PerformX"),
         content: content)
       return true
     } catch {

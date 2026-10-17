@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Symbole Suivi Agent (« le parcours ») : un trajet du départ à l'arrivée.
+/// Symbole PerformX (« le parcours ») : un trajet du départ à l'arrivée.
 /// Dessiné en vectoriel, net à toutes les tailles. [color] : trait et arrivée ;
 /// [background] : couleur du fond (intérieur des points).
 class AppMark extends StatelessWidget {
@@ -17,7 +17,7 @@ class AppMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Suivi Agent',
+    label: 'PerformX',
     image: true,
     child: CustomPaint(
       size: Size.square(size),

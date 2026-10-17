@@ -103,7 +103,7 @@ class AppLock extends Notifier<AppLockState> {
   /// Activation : une première vérification confirme que tout fonctionne.
   Future<bool> enable() async {
     if (!await _bio.available()) return false;
-    if (!await _bio.authenticate('Activer le déverrouillage de Suivi Agent')) {
+    if (!await _bio.authenticate('Activer le déverrouillage de PerformX')) {
       return false;
     }
     await (await SharedPreferences.getInstance()).setBool(key, true);
@@ -135,7 +135,7 @@ class AppLock extends Notifier<AppLockState> {
     if (_authenticating) return false;
     _authenticating = true;
     try {
-      final ok = await _bio.authenticate('Déverrouiller Suivi Agent');
+      final ok = await _bio.authenticate('Déverrouiller PerformX');
       if (ok) state = AppLockState(enabled: state.enabled);
       return ok;
     } finally {

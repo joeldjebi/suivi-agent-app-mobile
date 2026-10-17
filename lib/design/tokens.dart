@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Jetons du design « Suivi Agent » : inspiré d'iOS (listes groupées, grands titres,
+/// Jetons du design « PerformX » : inspiré d'iOS (listes groupées, grands titres,
 /// couleurs unies), grille de 4.
 abstract final class Space {
   static const xs = 4.0;

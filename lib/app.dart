@@ -426,7 +426,7 @@ class _SuiviAgentAppState extends ConsumerState<SuiviAgentApp>
     // Apparence de la structure une fois l'agent connecté, apparence neutre sinon.
     final branding = ref.watch(brandingProvider);
     return MaterialApp.router(
-      title: 'Suivi Agent',
+      title: 'PerformX',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(branding, Brightness.light),
       darkTheme: buildTheme(branding, Brightness.dark),
