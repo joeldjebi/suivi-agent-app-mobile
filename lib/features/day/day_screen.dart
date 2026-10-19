@@ -173,6 +173,8 @@ class _DayScreenState extends ConsumerState<DayScreen>
               state: day.requireValue,
               busy: _busy,
               zoneRequired: me.zoneRequired,
+              // Version web : la structure demande l'app mobile pour la journée suivie.
+              mobileOnly: AppPlatform.isWeb && me.requireMobileTracking,
               onChooseZone: () => showZonePicker(
                 context,
                 currentZoneId: day.requireValue.approved?.zoneId,
@@ -764,6 +766,7 @@ class _ActionBar extends StatelessWidget {
     required this.state,
     required this.busy,
     required this.zoneRequired,
+    this.mobileOnly = false,
     required this.onChooseZone,
     required this.onStart,
     required this.onPause,
@@ -774,6 +777,7 @@ class _ActionBar extends StatelessWidget {
   final DayState state;
   final bool busy;
   final bool zoneRequired;
+  final bool mobileOnly;
   final VoidCallback onChooseZone;
   final VoidCallback onStart;
   final VoidCallback onPause;
@@ -840,6 +844,26 @@ class _ActionBar extends StatelessWidget {
         icon: Icons.place_rounded,
         loading: busy,
         onPressed: onChooseZone,
+      );
+    } else if (mobileOnly) {
+      actions = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Votre structure demande un suivi continu, même écran éteint : démarrez votre journée depuis l’app mobile PerformX.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: Space.sm),
+          const PillButton(
+            label: 'Journée à démarrer sur l’app mobile',
+            icon: Icons.smartphone_rounded,
+            onPressed: null,
+          ),
+        ],
       );
     } else {
       actions = PillButton(

@@ -29,6 +29,7 @@ class Me {
     required this.trackDuringPause,
     required this.allowZoneChangeBeforeStart,
     required this.zoneRequired,
+    this.requireMobileTracking = false,
     this.zoneExitToleranceMeters = 30,
     this.visitRadiusMeters = 50,
     this.zoneExitAlertMinutes = 5,
@@ -86,6 +87,9 @@ class Me {
   final bool allowZoneChangeBeforeStart;
   final bool zoneRequired;
 
+  /// Suivi continu obligatoire : journée démarrée seulement depuis l'app mobile.
+  final bool requireMobileTracking;
+
   /// Formulaires envoyés seulement pendant une journée dans une zone de la mission.
   final bool submissionRequiresDay;
 
@@ -122,6 +126,8 @@ class Me {
       allowZoneChangeBeforeStart:
           settings['allowZoneChangeBeforeStart'] as bool,
       zoneRequired: settings['zoneRequired'] as bool,
+      requireMobileTracking:
+          settings['requireMobileTracking'] as bool? ?? false,
       submissionRequiresDay: settings['submissionRequiresDay'] as bool? ?? true,
       workdayMinutes:
           ((json['workday'] as Map<String, dynamic>?)?['minutes'] as num?)

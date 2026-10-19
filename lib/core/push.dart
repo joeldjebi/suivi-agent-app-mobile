@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'browser.dart';
 import 'firebase_config.dart';
 import 'local_notifications.dart';
 import 'models.dart';
@@ -116,9 +117,8 @@ class PushService {
 
   static const _actions = MethodChannel('suivi_agent/push_actions');
   static const _laterKey = 'push.prompt.later';
-  // Version web : notifications du navigateur à brancher (service worker Firebase).
   static bool get _disabled =>
-      AppPlatform.isTest || AppPlatform.isWeb || FirebaseConfig.current == null;
+      AppPlatform.isTest || FirebaseConfig.current == null;
 
   bool get available => _started;
 
@@ -134,6 +134,15 @@ class PushService {
       _started = true;
     } catch (e) {
       debugPrint('Notifications push indisponibles : $e');
+      return;
+    }
+    // Version web : notifications reçues page fermée affichées par le service worker
+    // (web/firebase-messaging-sw.js) ; pas de notifications locales ni de boutons natifs.
+    if (AppPlatform.isWeb) {
+      FirebaseMessaging.onMessage.listen(_onForeground);
+      FirebaseMessaging.onMessageOpenedApp.listen(
+        (m) => _open(_strings(m.data), id: m.messageId),
+      );
       return;
     }
     FirebaseMessaging.onBackgroundMessage(pushBackgroundHandler);
@@ -166,6 +175,17 @@ class PushService {
     final notification = message.notification;
     // Les écrans se mettent à jour par la connexion en direct ; seul l'affichage manque.
     if (AppPlatform.isIOS && notification != null) return;
+    if (AppPlatform.isWeb) {
+      final title = notification?.title ?? message.data['title'] as String?;
+      if (title != null) {
+        browserNotify(
+          message.messageId ?? title,
+          title,
+          notification?.body ?? message.data['body'] as String? ?? '',
+        );
+      }
+      return;
+    }
     unawaited(
       LocalNotifications.showPush(
         _strings(message.data),
@@ -285,7 +305,9 @@ class PushService {
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
       }
-      final token = await _messaging.getToken();
+      final token = await _messaging.getToken(
+        vapidKey: AppPlatform.isWeb ? FirebaseConfig.webVapidKey : null,
+      );
       if (token != null) await _send(token);
       _refresh ??= _messaging.onTokenRefresh.listen((t) => unawaited(_send(t)));
     } catch (e) {

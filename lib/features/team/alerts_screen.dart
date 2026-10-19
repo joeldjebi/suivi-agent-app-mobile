@@ -106,7 +106,10 @@ String alertDetail(AgentAlert a) {
     'immobile' =>
       'Dans un rayon de ${d['radiusM']} m depuis ${formatTime(DateTime.parse(d['since'] as String).toLocal())}',
     'low_battery' => 'Batterie à ${d['percent']} %',
-    'mocked' => 'Application de fausse position GPS',
+    'mocked' =>
+      d['reason'] == 'teleport'
+          ? 'Déplacement impossible : ${((d['distanceM'] as num? ?? 0) / 1000).toStringAsFixed(1).replaceAll('.', ',')} km en ${d['seconds']} s'
+          : 'Application de fausse position GPS',
     'out_of_zone' =>
       'Hors de ${d['zoneName'] ?? 'sa zone'}, jusqu’à ${formatMeters((d['maxDistanceM'] as num? ?? 0).toDouble())}',
     'late_start' => 'Début attendu à ${d['expectedAt']}',
