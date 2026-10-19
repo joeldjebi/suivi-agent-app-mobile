@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -14,6 +13,7 @@ import 'firebase_config.dart';
 import 'local_notifications.dart';
 import 'models.dart';
 import 'providers.dart';
+import 'platform.dart';
 
 /// Fonctionnalité de la formule : sans elle, rien n'est envoyé au téléphone.
 const pushFeature = 'push_notifications';
@@ -116,9 +116,9 @@ class PushService {
 
   static const _actions = MethodChannel('suivi_agent/push_actions');
   static const _laterKey = 'push.prompt.later';
+  // Version web : notifications du navigateur à brancher (service worker Firebase).
   static bool get _disabled =>
-      Platform.environment.containsKey('FLUTTER_TEST') ||
-      FirebaseConfig.current == null;
+      AppPlatform.isTest || AppPlatform.isWeb || FirebaseConfig.current == null;
 
   bool get available => _started;
 
@@ -165,7 +165,7 @@ class PushService {
     _ref.read(refreshRequestProvider.notifier).request();
     final notification = message.notification;
     // Les écrans se mettent à jour par la connexion en direct ; seul l'affichage manque.
-    if (Platform.isIOS && notification != null) return;
+    if (AppPlatform.isIOS && notification != null) return;
     unawaited(
       LocalNotifications.showPush(
         _strings(message.data),
@@ -192,7 +192,7 @@ class PushService {
 
   /// Boutons touchés sur une notification push de l'iPhone (transmis par l'app native).
   Future<void> _takeNativeActions() async {
-    if (!Platform.isIOS) return;
+    if (!AppPlatform.isIOS) return;
     try {
       final pending = await _actions.invokeListMethod<Map>('takePending');
       for (final item in pending ?? const <Map>[]) {
@@ -275,7 +275,7 @@ class PushService {
   Future<void> register() async {
     if (!_started) return;
     try {
-      if (Platform.isIOS) {
+      if (AppPlatform.isIOS) {
         // Le jeton Firebase attend celui d'Apple, attribué peu après le lancement.
         for (
           var i = 0;
@@ -297,7 +297,7 @@ class PushService {
     try {
       await _ref.read(repositoryProvider).api.post<void>('/devices', {
         'token': token,
-        'platform': Platform.isIOS ? 'ios' : 'android',
+        'platform': AppPlatform.name,
       });
       _token = token;
     } catch (_) {

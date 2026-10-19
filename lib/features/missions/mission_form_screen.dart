@@ -694,7 +694,7 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             widget.label,
-            if (photo != null && photo.file.existsSync()) ...[
+            if (photo != null && photo.exists) ...[
               // Un toucher l'ouvre en grand, pour vérifier qu'elle est nette.
               Semantics(
                 container: true,
@@ -704,7 +704,7 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
                 child: GestureDetector(
                   onTap: () => showPhoto(
                     context,
-                    image: FileImage(photo.file),
+                    image: photo.image,
                     title: 'Photo prise',
                     caption: 'Prise à ${formatTime(photo.takenAt)}',
                   ),
@@ -715,7 +715,7 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.file(photo.file, fit: BoxFit.cover),
+                          Image(image: photo.image, fit: BoxFit.cover),
                           const ExpandBadge(),
                         ],
                       ),

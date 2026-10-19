@@ -1,9 +1,9 @@
-import 'dart:io';
-
+import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+
+import 'photo_files.dart';
 
 /// Photo d'un champ de formulaire, gardée sur le téléphone jusqu'à l'envoi : le fichier,
 /// la position et l'heure de la prise. Dans les données du formulaire, elle est remplacée
@@ -29,7 +29,11 @@ class FieldPhoto {
 
   bool get located => lat != null && lng != null;
 
-  File get file => File(path);
+  /// Encore sur l'appareil (pas encore envoyée ni retirée).
+  bool get exists => photoExists(path);
+
+  /// Aperçu de la photo.
+  ImageProvider get image => photoImage(path);
 
   /// Valeur d'un champ photo encore sur le téléphone ?
   static bool isLocal(Object? value) =>
@@ -62,36 +66,17 @@ class FieldPhoto {
       data.values.map(tryParse).whereType<FieldPhoto>().toList();
 }
 
-/// Dossier des photos en attente d'envoi.
+/// Photos en attente d'envoi (fichiers sur le téléphone, navigateur sur le web).
 class PhotoStore {
-  static Future<Directory> dir() async {
-    final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/form-photos');
-    if (!dir.existsSync()) await dir.create(recursive: true);
-    return dir;
-  }
-
-  /// Retire les fichiers (envoyés, brouillon abandonné). Petits fichiers : suppression
-  /// immédiate.
+  /// Retire les photos (envoyées, brouillon abandonné).
   static Future<void> delete(Iterable<FieldPhoto> photos) async {
     for (final p in photos) {
-      try {
-        if (p.file.existsSync()) p.file.deleteSync();
-      } catch (_) {
-        // Déjà retiré.
-      }
+      await deletePhotoFile(p.path);
     }
   }
 
-  /// Déconnexion : plus aucune photo de l'agent sur le téléphone.
-  static Future<void> clear() async {
-    try {
-      final d = await dir();
-      if (d.existsSync()) d.deleteSync(recursive: true);
-    } catch (_) {
-      // Rien à retirer.
-    }
-  }
+  /// Déconnexion : plus aucune photo de l'agent sur l'appareil.
+  static Future<void> clear() => clearPhotoFiles();
 }
 
 /// Prise de photo (remplacée dans les tests).
@@ -115,13 +100,7 @@ class CameraPhotoCapture implements PhotoCapture {
     final takenAt = DateTime.now();
     final position = await _position();
     final clientId = const Uuid().v4();
-    final target = '${(await PhotoStore.dir()).path}/$clientId.jpg';
-    await File(picked.path).copy(target);
-    try {
-      await File(picked.path).delete();
-    } catch (_) {
-      // Fichier temporaire du système : retiré par lui.
-    }
+    final target = await storePickedPhoto(picked, clientId);
     return FieldPhoto(
       clientId: clientId,
       path: target,

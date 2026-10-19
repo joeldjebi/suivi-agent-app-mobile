@@ -132,7 +132,7 @@ class SyncService extends ChangeNotifier {
     for (final entry in data.entries.toList()) {
       final photo = FieldPhoto.tryParse(entry.value);
       if (photo == null) continue;
-      if (!photo.file.existsSync()) {
+      if (!photo.exists) {
         throw ApiException(
           'Une photo n’est plus sur le téléphone : reprenez-la.',
           code: 'PHOTO_MISSING',
@@ -196,7 +196,7 @@ class SyncService extends ChangeNotifier {
     final body = (jsonDecode(row.bodyJson) as Map<String, dynamic>);
     final photos = <FieldPhoto>[];
     Future<String> upload(FieldPhoto photo) async {
-      if (!photo.file.existsSync()) {
+      if (!photo.exists) {
         throw ApiException(
           'Une photo n’est plus sur le téléphone : reprenez-la.',
           code: 'PHOTO_MISSING',

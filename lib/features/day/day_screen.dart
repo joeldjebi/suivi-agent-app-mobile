@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/platform.dart';
 import '../../core/api_client.dart';
 import '../../core/branding.dart';
 import '../../core/format.dart';
@@ -559,6 +560,10 @@ class _LiveRows extends ConsumerWidget {
 
     return GroupedList(
       header: 'Suivi',
+      // Navigateur : pas de suivi écran éteint.
+      footer: AppPlatform.isWeb && tracker.isTracking
+          ? 'Version web : gardez cette page ouverte et l’écran allumé pendant votre journée. Pour le suivi écran éteint, utilisez l’app mobile.'
+          : null,
       children: [
         ListRow(
           leading: IconSquircle(

@@ -86,7 +86,17 @@ class PendingOutlets extends Table {
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'suivi_agent'));
+    : super(
+        executor ??
+            driftDatabase(
+              name: 'suivi_agent',
+              // Version web : SQLite compilé en WebAssembly, stocké dans le navigateur.
+              web: DriftWebOptions(
+                sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                driftWorker: Uri.parse('drift_worker.js'),
+              ),
+            ),
+      );
 
   @override
   int get schemaVersion => 6;

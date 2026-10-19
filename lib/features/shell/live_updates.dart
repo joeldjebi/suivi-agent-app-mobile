@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -19,6 +18,7 @@ import '../profile/notifications_screen.dart';
 import '../team/alerts_screen.dart';
 import '../team/report_screen.dart';
 import '../team/team_controller.dart';
+import '../../core/platform.dart';
 
 /// Écrans à relire, regroupés.
 enum LiveArea { profile, day, team, missions, pay, alerts, report }
@@ -223,7 +223,7 @@ class LiveUpdates {
 /// les tests automatisés.
 final liveUpdatesProvider = Provider.autoDispose<LiveUpdates>((ref) {
   final live = LiveUpdates(ref);
-  if (!Platform.environment.containsKey('FLUTTER_TEST')) live.start();
+  if (!AppPlatform.isTest) live.start();
   // Retour du réseau (téléphone ou serveur de nouveau joignable) : tout est relu en
   // arrière-plan, les données gardées hors ligne sont remplacées.
   ref.listen(networkProvider.select((n) => n.online), (was, online) {

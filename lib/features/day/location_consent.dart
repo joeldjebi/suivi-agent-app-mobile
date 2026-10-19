@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../core/platform.dart';
 import '../../core/tracking.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
@@ -20,6 +21,20 @@ Future<bool> ensureLocationConsent(
     return true;
   }
   if (!context.mounted) return false;
+
+  // Navigateur : pas de réglages à ouvrir depuis la page, on explique où autoriser.
+  if (AppPlatform.isWeb &&
+      (access == LocationAccess.serviceDisabled ||
+          access == LocationAccess.deniedForever)) {
+    await confirmSheet(
+      context,
+      title: 'Position bloquée par le navigateur',
+      message:
+          'Autorisez la position pour ce site : touchez le cadenas à gauche de l’adresse, puis « Position » → Autoriser. Rechargez ensuite la page.',
+      confirmLabel: 'J’ai compris',
+    );
+    return false;
+  }
 
   if (access == LocationAccess.serviceDisabled) {
     final open = await confirmSheet(
@@ -88,10 +103,16 @@ Future<bool> ensureLocationConsent(
                 Icons.stop_circle_outlined,
                 'Le suivi s’arrête dès que vous terminez votre journée.',
               ),
-              point(
-                Icons.notifications_active_outlined,
-                'Une notification reste visible tant que le suivi est actif.',
-              ),
+              if (AppPlatform.isWeb)
+                point(
+                  Icons.tab_rounded,
+                  'Version web : la position n’est partagée que tant que cette page reste ouverte et l’écran allumé. Pour le suivi écran éteint, utilisez l’app mobile.',
+                )
+              else
+                point(
+                  Icons.notifications_active_outlined,
+                  'Une notification reste visible tant que le suivi est actif.',
+                ),
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),

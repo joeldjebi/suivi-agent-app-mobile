@@ -3,7 +3,6 @@ import 'network_status.dart';
 import 'app_lock.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart' show ThemeMode;
@@ -25,6 +24,7 @@ import 'session.dart';
 import 'sync.dart';
 import 'tracking.dart';
 import 'zone_guard.dart';
+import 'platform.dart';
 
 final sessionProvider = Provider<SessionStore>((ref) => SessionStore());
 
@@ -83,7 +83,9 @@ final trackerProvider = ChangeNotifierProvider<LocationTracker>(
 );
 
 /// Alertes affichées sur le téléphone (remplacées dans les tests).
-final alertSinkProvider = Provider<AlertSink>((ref) => LocalAlerts());
+final alertSinkProvider = Provider<AlertSink>(
+  (ref) => AppPlatform.isWeb ? const SilentAlerts() : LocalAlerts(),
+);
 
 /// Surveillance de la zone du jour, sur le téléphone.
 final zoneGuardProvider = ChangeNotifierProvider<ZoneGuard>(
@@ -114,7 +116,7 @@ final photoCaptureProvider = Provider<PhotoCapture>(
 
 /// Chrono de la journée sur l'écran verrouillé (inactif pendant les tests automatisés).
 final dayTimerProvider = Provider<DayTimer>(
-  (ref) => Platform.environment.containsKey('FLUTTER_TEST')
+  (ref) => AppPlatform.isTest || AppPlatform.isWeb
       ? const NoDayTimer()
       : DeviceDayTimer(),
 );

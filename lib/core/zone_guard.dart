@@ -15,6 +15,21 @@ abstract interface class AlertSink {
   Future<void> cancel(int id);
 }
 
+/// Version web : pas de notification du système ; l'écran de la journée affiche l'état de
+/// la zone.
+class SilentAlerts implements AlertSink {
+  const SilentAlerts();
+
+  @override
+  Future<void> prepare() async {}
+
+  @override
+  Future<void> show(int id, String title, String body) async {}
+
+  @override
+  Future<void> cancel(int id) async {}
+}
+
 /// Imprécision maximale prise en compte : au-delà, le point ne fait pas sortir l'agent.
 const _maxAccuracy = 100.0;
 

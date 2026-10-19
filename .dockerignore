@@ -1,0 +1,11 @@
+build/
+.dart_tool/
+ios/Pods/
+ios/build/
+android/.gradle/
+android/app/build/
+android/key.properties
+**/*.jks
+**/*.keystore
+test/screens/goldens/
+store/

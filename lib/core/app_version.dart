@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'providers.dart';
+import 'platform.dart';
 
 /// Version installée, annoncée au serveur à chaque requête (X-App-Version).
 class AppVersion {
@@ -11,7 +10,7 @@ class AppVersion {
 
   static String current = '0.0.0';
 
-  static String get platform => Platform.isIOS ? 'ios' : 'android';
+  static String get platform => AppPlatform.name;
 
   static Future<void> load() async {
     try {
@@ -96,6 +95,8 @@ class UpdateController extends Notifier<UpdateInfo?> {
 
   /// Au lancement : version minimale et dernière version publiées par l'éditeur.
   Future<void> check() async {
+    // Version web : chaque ouverture charge la dernière version publiée.
+    if (AppPlatform.isWeb) return;
     try {
       final info = await ref
           .read(repositoryProvider)
@@ -109,7 +110,7 @@ class UpdateController extends Notifier<UpdateInfo?> {
 
   /// Réglages de version reçus (API, ou annonce en direct quand l'éditeur les change).
   void apply(Map<String, dynamic> info) {
-    state = updateFor(AppVersion.current, info, ios: Platform.isIOS);
+    state = updateFor(AppVersion.current, info, ios: AppPlatform.isIOS);
   }
 }
 

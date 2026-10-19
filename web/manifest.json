@@ -1,12 +1,12 @@
 {
-    "name": "suivi_agent",
-    "short_name": "suivi_agent",
-    "start_url": ".",
+    "name": "PerformX",
+    "short_name": "PerformX",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#2563EB",
+    "theme_color": "#2563EB",
+    "description": "Suivi des équipes terrain : journée, missions, points de vente et commandes.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
@@ -31,5 +31,7 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ]
+    ],
+    "lang": "fr",
+    "scope": "/"
 }

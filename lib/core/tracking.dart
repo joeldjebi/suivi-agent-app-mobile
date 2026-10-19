@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:drift/drift.dart' show Value;
 
 import 'database.dart';
+import 'platform.dart';
 
 /// Rythme du suivi, adapté à la situation pour ménager la batterie.
 enum PowerMode {
@@ -84,11 +84,16 @@ class LocationTracker extends ChangeNotifier {
       permission = await Geolocator.requestPermission();
     }
     // Le suivi écran éteint demande « Toujours » ; on le redemande après « Pendant l'utilisation ».
-    if (request && permission == LocationPermission.whileInUse) {
+    // Navigateur : « Toujours » n'existe pas, le suivi dure tant que la page est ouverte.
+    if (request &&
+        permission == LocationPermission.whileInUse &&
+        !AppPlatform.isWeb) {
       permission = await Geolocator.requestPermission();
     }
     return switch (permission) {
       LocationPermission.always => LocationAccess.granted,
+      LocationPermission.whileInUse when AppPlatform.isWeb =>
+        LocationAccess.granted,
       LocationPermission.whileInUse => LocationAccess.needsAlways,
       LocationPermission.deniedForever => LocationAccess.deniedForever,
       _ => LocationAccess.denied,
@@ -281,7 +286,7 @@ class LocationTracker extends ChangeNotifier {
         const Duration(seconds: 90),
       ),
     };
-    if (Platform.isAndroid) {
+    if (AppPlatform.isAndroid) {
       return AndroidSettings(
         accuracy: accuracy,
         distanceFilter: distance,
@@ -296,7 +301,7 @@ class LocationTracker extends ChangeNotifier {
         ),
       );
     }
-    if (Platform.isIOS) {
+    if (AppPlatform.isIOS) {
       return AppleSettings(
         accuracy: mode == PowerMode.normal ? LocationAccuracy.best : accuracy,
         distanceFilter: distance,

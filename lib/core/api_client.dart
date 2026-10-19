@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'app_version.dart';
+import 'platform.dart';
 import 'package:dio/dio.dart';
 
 import 'config.dart';
@@ -94,9 +95,12 @@ class ApiClient {
         onRequest: (options, handler) {
           final token = session.accessToken;
           if (token != null) options.headers['Authorization'] = 'Bearer $token';
-          // Version de l'app : le serveur peut exiger une mise à jour.
-          options.headers['X-App-Version'] = AppVersion.current;
-          options.headers['X-App-Platform'] = AppVersion.platform;
+          // Version de l'app : le serveur peut exiger une mise à jour. La version web est
+          // toujours la dernière (rechargée depuis le serveur) : jamais bloquée.
+          if (!AppPlatform.isWeb) {
+            options.headers['X-App-Version'] = AppVersion.current;
+            options.headers['X-App-Platform'] = AppVersion.platform;
+          }
           handler.next(options);
         },
         onError: (error, handler) async {

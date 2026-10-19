@@ -10,6 +10,7 @@ import 'app.dart';
 import 'core/app_lock.dart';
 import 'core/app_version.dart';
 import 'core/error_report.dart';
+import 'core/photo_files.dart';
 import 'core/providers.dart';
 import 'core/push.dart';
 import 'features/onboarding/onboarding_data.dart';
@@ -21,6 +22,8 @@ const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppVersion.load();
+  // Version web : photos en attente d'envoi relues depuis le navigateur.
+  await initPhotoFiles();
   if (_sentryDsn.isEmpty) return _run();
   await SentryFlutter.init((options) {
     options

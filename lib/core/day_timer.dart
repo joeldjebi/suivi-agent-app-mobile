@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'format.dart';
 import 'local_notifications.dart';
+import 'platform.dart';
 
 /// Journée affichée sur l'écran verrouillé.
 class DayTimerInfo {
@@ -83,7 +82,7 @@ class DeviceDayTimer implements DayTimer {
     _last = info;
     _fresh = false;
     try {
-      if (Platform.isIOS) {
+      if (AppPlatform.isIOS) {
         await _activity.invokeMethod<bool>('show', {
           'status': info.paused ? 'paused' : 'active',
           'workedSeconds': info.worked.inSeconds,
@@ -92,7 +91,7 @@ class DeviceDayTimer implements DayTimer {
           'zone': info.zone,
           'structure': info.structure,
         });
-      } else if (Platform.isAndroid) {
+      } else if (AppPlatform.isAndroid) {
         await _showAndroid(info);
       }
     } catch (e) {
@@ -151,9 +150,9 @@ class DeviceDayTimer implements DayTimer {
     _last = null;
     _fresh = false;
     try {
-      if (Platform.isIOS) {
+      if (AppPlatform.isIOS) {
         await _activity.invokeMethod<bool>('end');
-      } else if (Platform.isAndroid) {
+      } else if (AppPlatform.isAndroid) {
         await LocalNotifications.plugin.cancel(id: _id);
       }
     } catch (_) {

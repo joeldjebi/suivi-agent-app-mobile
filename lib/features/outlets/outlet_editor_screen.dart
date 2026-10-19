@@ -525,8 +525,8 @@ class _PhotoTileState extends ConsumerState<_PhotoTile> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           )
-        : taken != null && taken.file.existsSync()
-        ? Image.file(taken.file, fit: BoxFit.cover)
+        : taken != null && taken.exists
+        ? Image(image: taken.image, fit: BoxFit.cover)
         : sent != null
         ? RemotePhoto(id: sent, label: 'Devanture', height: size)
         : Column(

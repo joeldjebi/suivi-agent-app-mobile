@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'api_client.dart';
 import 'field_photo.dart';
 import 'models.dart';
+import 'photo_files.dart';
 
 /// Appels de l'API utilisés par l'app de l'agent.
 class Repository {
@@ -130,10 +131,7 @@ class Repository {
       (await api.post<Map<String, dynamic>>(
             '/photos',
             FormData.fromMap({
-              'file': await MultipartFile.fromFile(
-                photo.path,
-                filename: 'photo.jpg',
-              ),
+              'file': await photoUpload(photo.path),
               'clientId': photo.clientId,
               'takenAt': photo.takenAt.toUtc().toIso8601String(),
               if (photo.lat != null) 'lat': photo.lat,
