@@ -50,11 +50,31 @@ class _DayScreenState extends ConsumerState<DayScreen>
     super.dispose();
   }
 
+  /// Version web : page quittée pendant la journée (le navigateur coupe alors le GPS).
+  DateTime? _hiddenAt;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (AppPlatform.isWeb &&
+        (state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.paused) &&
+        ref.read(trackerProvider).isTracking) {
+      _hiddenAt ??= DateTime.now();
+    }
     if (state == AppLifecycleState.resumed) {
       unawaited(ref.read(dayProvider.notifier).refresh());
       unawaited(ref.read(syncProvider).flush());
+      final hiddenAt = _hiddenAt;
+      _hiddenAt = null;
+      if (hiddenAt != null && mounted) {
+        final gap = DateTime.now().difference(hiddenAt);
+        if (gap >= const Duration(minutes: 2)) {
+          showMessage(
+            context,
+            'Suivi interrompu pendant ${formatDuration(gap)} (page quittée ou écran éteint). Il a repris.',
+          );
+        }
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'browser.dart';
 import 'geo.dart';
 import 'models.dart';
 
@@ -15,16 +16,20 @@ abstract interface class AlertSink {
   Future<void> cancel(int id);
 }
 
-/// Version web : pas de notification du système ; l'écran de la journée affiche l'état de
-/// la zone.
-class SilentAlerts implements AlertSink {
-  const SilentAlerts();
+/// Version web : notification du navigateur, tant que la page est ouverte (l'écran de la
+/// journée affiche aussi l'état de la zone).
+class BrowserAlerts implements AlertSink {
+  const BrowserAlerts();
 
   @override
-  Future<void> prepare() async {}
+  Future<void> prepare() async {
+    await browserNotificationsAllowed();
+  }
 
   @override
-  Future<void> show(int id, String title, String body) async {}
+  Future<void> show(int id, String title, String body) async {
+    browserNotify('alert-$id', title, body);
+  }
 
   @override
   Future<void> cancel(int id) async {}

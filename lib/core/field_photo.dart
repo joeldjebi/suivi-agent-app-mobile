@@ -3,7 +3,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import 'browser.dart';
 import 'photo_files.dart';
+import 'platform.dart';
 
 /// Photo d'un champ de formulaire, gardée sur le téléphone jusqu'à l'envoi : le fichier,
 /// la position et l'heure de la prise. Dans les données du formulaire, elle est remplacée
@@ -79,6 +81,14 @@ class PhotoStore {
   static Future<void> clear() => clearPhotoFiles();
 }
 
+/// Photo impossible sur cet appareil (version web sur ordinateur).
+class PhotoUnavailable implements Exception {
+  const PhotoUnavailable();
+
+  String get message =>
+      'La photo se prend sur place, avec l’appareil photo du téléphone : ouvrez PerformX sur votre téléphone pour l’ajouter.';
+}
+
 /// Prise de photo (remplacée dans les tests).
 abstract interface class PhotoCapture {
   /// null si l'agent annule.
@@ -90,6 +100,8 @@ abstract interface class PhotoCapture {
 class CameraPhotoCapture implements PhotoCapture {
   @override
   Future<FieldPhoto?> take() async {
+    // Version web : appareil photo du téléphone seulement, jamais un fichier de l'ordinateur.
+    if (AppPlatform.isWeb && !browserIsMobile()) throw const PhotoUnavailable();
     final picked = await ImagePicker().pickImage(
       source: ImageSource.camera,
       maxWidth: 1600,

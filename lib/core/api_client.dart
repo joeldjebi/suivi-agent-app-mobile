@@ -97,7 +97,10 @@ class ApiClient {
           if (token != null) options.headers['Authorization'] = 'Bearer $token';
           // Version de l'app : le serveur peut exiger une mise à jour. La version web est
           // toujours la dernière (rechargée depuis le serveur) : jamais bloquée.
-          if (!AppPlatform.isWeb) {
+          if (AppPlatform.isWeb) {
+            // Version web : le serveur sait que le GPS s'arrête quand la page est quittée.
+            options.headers['X-App-Client'] = 'web';
+          } else {
             options.headers['X-App-Version'] = AppVersion.current;
             options.headers['X-App-Platform'] = AppVersion.platform;
           }

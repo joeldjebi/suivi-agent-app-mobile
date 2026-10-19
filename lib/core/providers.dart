@@ -84,7 +84,7 @@ final trackerProvider = ChangeNotifierProvider<LocationTracker>(
 
 /// Alertes affichées sur le téléphone (remplacées dans les tests).
 final alertSinkProvider = Provider<AlertSink>(
-  (ref) => AppPlatform.isWeb ? const SilentAlerts() : LocalAlerts(),
+  (ref) => AppPlatform.isWeb ? const BrowserAlerts() : LocalAlerts(),
 );
 
 /// Surveillance de la zone du jour, sur le téléphone.

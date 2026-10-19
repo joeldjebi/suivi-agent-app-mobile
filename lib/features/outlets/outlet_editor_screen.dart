@@ -498,6 +498,8 @@ class _PhotoTileState extends ConsumerState<_PhotoTile> {
       final previous = FieldPhoto.tryParse(widget.value);
       if (previous != null) await PhotoStore.delete([previous]);
       widget.onChanged(photo.toJson());
+    } on PhotoUnavailable catch (e) {
+      if (mounted) showMessage(context, e.message, error: true);
     } on PlatformException {
       if (mounted) {
         showMessage(

@@ -660,6 +660,8 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
       if (previous != null) await PhotoStore.delete([previous]);
       state.didChange(photo.toJson());
       widget.onChanged(photo.toJson());
+    } on PhotoUnavailable catch (e) {
+      if (mounted) showMessage(context, e.message, error: true);
     } on PlatformException {
       if (mounted) {
         showMessage(

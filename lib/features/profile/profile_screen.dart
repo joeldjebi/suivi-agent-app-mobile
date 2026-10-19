@@ -19,6 +19,7 @@ import '../safety/sos.dart';
 import '../../widgets/user_avatar.dart';
 import '../pay/pay_screens.dart';
 import 'my_team.dart';
+import '../../widgets/install_app.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -118,6 +119,8 @@ class ProfileScreen extends ConsumerWidget {
         ),
         children: [
           const UpdateAvailableBanner(),
+          // Version web : installation sur l'écran d'accueil.
+          const InstallAppCard(),
           // Fiche d'identité, centrée ; toucher la photo pour la changer.
           Center(
             child: Semantics(

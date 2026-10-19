@@ -101,9 +101,8 @@ String alertDetail(AgentAlert a) {
   final d = a.data;
   return switch (a.type) {
     'signal_lost' =>
-      d['lastPositionAt'] == null
-          ? 'Aucune position reçue'
-          : 'Dernière position à ${formatTime(DateTime.parse(d['lastPositionAt'] as String).toLocal())}',
+      '${d['lastPositionAt'] == null ? 'Aucune position reçue' : 'Dernière position à ${formatTime(DateTime.parse(d['lastPositionAt'] as String).toLocal())}'}'
+          '${d['web'] == true ? ' · version web quittée ou écran éteint' : ''}',
     'immobile' =>
       'Dans un rayon de ${d['radiusM']} m depuis ${formatTime(DateTime.parse(d['since'] as String).toLocal())}',
     'low_battery' => 'Batterie à ${d['percent']} %',

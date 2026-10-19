@@ -7,6 +7,7 @@ import '../../core/providers.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
+import '../../widgets/install_app.dart';
 
 /// Connexion avec le numéro et le mot de passe fournis par la structure.
 /// Pas de création de compte : c'est la structure qui crée les accès.
@@ -184,6 +185,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
+                      // Version web : installation sur l'écran d'accueil.
+                      const InstallAppLink(),
                     ],
                   ),
                 ),

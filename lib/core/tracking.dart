@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:drift/drift.dart' show Value;
 
+import 'browser.dart';
 import 'database.dart';
 import 'platform.dart';
 
@@ -113,6 +114,8 @@ class LocationTracker extends ChangeNotifier {
     _listen();
     _heartbeat = Timer.periodic(heartbeat, (_) => _checkIn());
     unawaited(_checkIn());
+    // Version web : l'écran reste allumé pendant la journée (GPS coupé écran éteint).
+    if (AppPlatform.isWeb) browserKeepAwake(true);
     notifyListeners();
   }
 
@@ -188,6 +191,7 @@ class LocationTracker extends ChangeNotifier {
     _heartbeat = null;
     _dayId = null;
     lastPosition = null;
+    if (AppPlatform.isWeb) browserKeepAwake(false);
     notifyListeners();
   }
 
