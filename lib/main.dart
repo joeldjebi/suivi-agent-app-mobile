@@ -15,9 +15,15 @@ import 'core/providers.dart';
 import 'core/push.dart';
 import 'features/onboarding/onboarding_data.dart';
 
-/// Supervision des erreurs (Sentry) : active seulement si l'app est compilée avec
-/// --dart-define=SENTRY_DSN=…
-const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
+/// Supervision des erreurs (Sentry, projet performx-mobile). Clé publique, intégrée aux
+/// versions publiées (release) ; aucune en développement ni pendant les tests.
+/// --dart-define=SENTRY_DSN=… la remplace (vide : désactivée).
+const _sentryDsnPubliee =
+    'https://24e3366afe1458343c8c62d5ced2b293@o4512291627663360.ingest.de.sentry.io/4512291664625744';
+const _sentryDsn = String.fromEnvironment(
+  'SENTRY_DSN',
+  defaultValue: kReleaseMode ? _sentryDsnPubliee : '',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
