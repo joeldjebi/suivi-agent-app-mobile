@@ -20,6 +20,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../fakes.dart';
 import '../outlet_fakes.dart';
+import '../van_fakes.dart';
 
 /// Rendus d'écrans à la taille d'un iPhone (390 × 844), police et icônes réelles.
 /// flutter test --tags screens --run-skipped --update-goldens  → test/screens/goldens/*.png
@@ -1115,6 +1116,80 @@ void main() {
           await tester.enterText(
             find.widgetWithText(TextField, 'bouteilles').first,
             '30',
+          );
+        },
+      ),
+    );
+    // Vente en camionnette : le camion de l'agent, une vente en partie à crédit, la fiche
+    // d'un client avec son crédit.
+    Future<void> pumpN(WidgetTester tester, [int n = 8]) async {
+      for (var i = 0; i < n; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    Widget vanApp(VanRepo repo) => testApp(
+      auth: () => SignedInAuth(fakeMe(features: vanFeatures)),
+      repo: repo,
+    );
+    testWidgets(
+      'mon camion',
+      (tester) => _capture(
+        tester,
+        vanApp(VanRepo()),
+        '60-agent-mon-camion',
+        then: () async {
+          await tester.tap(tab('Camion'));
+          await pumpN(tester);
+        },
+      ),
+    );
+    testWidgets(
+      'vente depuis le camion',
+      (tester) => _capture(
+        tester,
+        vanApp(VanRepo()..creditLimit = 20000),
+        '61-agent-vente-camion',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          await pumpN(tester);
+          await tester.tap(find.text('Boutique Awa'));
+          await pumpN(tester);
+          await tester.tap(find.text('Vendre'));
+          await pumpN(tester);
+          await tester.tap(find.text('Casier (12)').first);
+          await pumpN(tester);
+          await tester.enterText(
+            find.widgetWithText(TextField, 'Payé maintenant'),
+            '2000',
+          );
+          await pumpN(tester);
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -400),
+          );
+        },
+      ),
+    );
+    testWidgets(
+      'fiche client avec crédit',
+      (tester) => _capture(
+        tester,
+        vanApp(
+          VanRepo()
+            ..creditLimit = 20000
+            ..outstanding = 7800,
+        ),
+        '62-agent-fiche-credit',
+        then: () async {
+          await tester.tap(tab('Points de vente'));
+          await pumpN(tester);
+          await tester.tap(find.text('Boutique Awa'));
+          await pumpN(tester);
+          await tester.scrollUntilVisible(
+            find.text('Encaisser un paiement'),
+            200,
+            scrollable: find.byType(Scrollable).first,
           );
         },
       ),

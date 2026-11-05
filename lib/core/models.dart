@@ -68,6 +68,12 @@ class Me {
   /// Prise de commande chez les points de vente.
   bool get hasOrders => features.contains('orders');
 
+  /// Vente en camionnette : stock du camion, vente directe, crédit, caisse.
+  bool get hasVanSales => features.contains('van_sales');
+
+  /// IA photo : analyse des photos de rayon, relevé pré-rempli.
+  bool get hasPhotoAi => features.contains('photo_ai');
+
   /// Rémunération calculée par la plateforme (formule Entreprise).
   bool get hasPayroll => features.contains('payroll');
 
@@ -477,10 +483,14 @@ class MissionField {
     required this.required,
     this.options = const [],
     this.measures = const [],
+    this.shelf = false,
   });
 
   final String key;
   final String label;
+
+  /// Photo de rayon : analysée par l'IA photo (relevé des produits pré-rempli).
+  final bool shelf;
 
   /// Relevé par produit : ce que l'agent relève (presence, stock, price, sold, losses, ordered).
   final List<String> measures;
@@ -497,6 +507,7 @@ class MissionField {
     measures:
         ((json['products'] as Map?)?['measures'] as List?)?.cast<String>() ??
         const [],
+    shelf: json['shelf'] == true,
   );
 
   Map<String, dynamic> toJson() => {
@@ -506,6 +517,7 @@ class MissionField {
     'required': required,
     'options': options,
     if (type == FieldType.products) 'products': {'measures': measures},
+    if (shelf) 'shelf': true,
   };
 }
 
@@ -1742,4 +1754,61 @@ class WeekSummary {
       ],
     );
   }
+}
+
+/// Analyse d'une photo de rayon par l'IA (GET /photo-ai/photos/:id).
+class ShelfAnalysis {
+  const ShelfAnalysis({
+    required this.status,
+    this.skipLabel,
+    this.error,
+    this.score,
+    this.notes,
+    this.products = const [],
+  });
+
+  /// pending, running, done, failed, skipped
+  final String status;
+  final String? skipLabel;
+  final String? error;
+  final int? score;
+  final String? notes;
+  final List<ShelfProduct> products;
+
+  bool get waiting => status == 'pending' || status == 'running';
+  bool get done => status == 'done';
+
+  factory ShelfAnalysis.fromJson(Map<String, dynamic> json) {
+    final result = json['result'] as Map<String, dynamic>?;
+    return ShelfAnalysis(
+      status: json['status'] as String,
+      skipLabel: json['skipLabel'] as String?,
+      error: json['error'] as String?,
+      score: (result?['shelfScore'] as num?)?.toInt(),
+      notes: result?['notes'] as String?,
+      products: [
+        for (final p in (result?['products'] as List?) ?? const [])
+          ShelfProduct(
+            productId: (p as Map)['productId'] as String,
+            present: p['present'] as bool,
+            facings: (p['facings'] as num?)?.toInt(),
+            price: p['price'] as num?,
+          ),
+      ],
+    );
+  }
+}
+
+class ShelfProduct {
+  const ShelfProduct({
+    required this.productId,
+    required this.present,
+    this.facings,
+    this.price,
+  });
+
+  final String productId;
+  final bool present;
+  final int? facings;
+  final num? price;
 }

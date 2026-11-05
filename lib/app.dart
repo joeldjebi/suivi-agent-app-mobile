@@ -46,6 +46,8 @@ import 'features/shell/suspended_screen.dart';
 import 'features/team/requests_screen.dart';
 import 'features/team/team_map_screen.dart';
 import 'features/team/team_screen.dart';
+import 'features/van_sales/sale_editor_screen.dart';
+import 'features/van_sales/van_screen.dart';
 import 'widgets/tablet_frame.dart';
 
 /// Rafraîchit le routeur quand la session change.
@@ -148,6 +150,12 @@ final _outletRoutes = GoRoute(
           builder: (_, s) =>
               OrderEditorScreen(outletId: s.pathParameters['id']!),
         ),
+        // Vente directe depuis le camion.
+        GoRoute(
+          path: 'sell',
+          builder: (_, s) =>
+              SaleEditorScreen(outletId: s.pathParameters['id']!),
+        ),
         // Visite libre (sans mission) avec un formulaire de visite.
         GoRoute(
           path: 'visit',
@@ -158,6 +166,27 @@ final _outletRoutes = GoRoute(
           ),
         ),
       ],
+    ),
+  ],
+);
+
+/// Camion de l'agent : stock, chargements à confirmer, casse, retour au dépôt.
+final _vanRoute = GoRoute(
+  path: '/van',
+  builder: (_, _) => const VanScreen(),
+  routes: [
+    GoRoute(
+      path: 'load/:id',
+      builder: (_, s) => LoadConfirmScreen(movementId: s.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: 'loss',
+      builder: (_, _) => const VanDeclarationScreen(kind: VanDeclaration.loss),
+    ),
+    GoRoute(
+      path: 'unload',
+      builder: (_, _) =>
+          const VanDeclarationScreen(kind: VanDeclaration.unload),
     ),
   ],
 );
@@ -185,13 +214,15 @@ final _profileRoute = GoRoute(
 StatefulShellRoute _agentShell({
   required bool missions,
   required bool outlets,
+  required bool van,
 }) => StatefulShellRoute.indexedStack(
   builder: (_, _, shell) => AppShell(
     shell: shell,
     tabs: [
       for (final tab in agentTabs)
         if ((missions || tab.label != 'Missions') &&
-            (outlets || tab.label != outletsTab.label))
+            (outlets || tab.label != outletsTab.label) &&
+            (van || tab.label != vanTab.label))
           tab,
     ],
   ),
@@ -210,6 +241,7 @@ StatefulShellRoute _agentShell({
     ),
     if (missions) StatefulShellBranch(routes: [_missionRoutes]),
     if (outlets) StatefulShellBranch(routes: [_outletRoutes]),
+    if (van) StatefulShellBranch(routes: [_vanRoute]),
     StatefulShellBranch(routes: [_profileRoute]),
   ],
 );
@@ -285,6 +317,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   final outlets = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.hasOutlets),
   );
+  final van = ref.watch(
+    authProvider.select((a) => a is SignedIn && a.me.hasVanSales),
+  );
   final suspended = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.suspended),
   );
@@ -350,7 +385,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (role != null)
         leader
             ? _leaderShell(missions: missions, outlets: outlets)
-            : _agentShell(missions: missions, outlets: outlets),
+            : _agentShell(missions: missions, outlets: outlets, van: van),
       // Chef avec les points de vente : les demandes s'ouvrent hors des onglets.
       if (leader && outlets)
         GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),

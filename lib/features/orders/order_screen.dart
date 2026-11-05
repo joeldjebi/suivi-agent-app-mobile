@@ -12,6 +12,7 @@ import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart' show formatQuantity;
 import '../outlets/outlet_widgets.dart' show FicheSection, openOutlet;
 import '../outlets/outlets_controller.dart' show outletProvider;
+import '../van_sales/van_sales.dart' show shareReceipt;
 import 'order_editor_screen.dart';
 import 'orders.dart';
 
@@ -71,6 +72,27 @@ class OrderScreen extends ConsumerStatefulWidget {
 
 class _OrderScreenState extends ConsumerState<OrderScreen> {
   OrderStatus? _busy;
+  bool _sharing = false;
+
+  /// Télécharge le reçu PDF et ouvre le partage du téléphone (il faut le réseau).
+  Future<void> _share(OrderDetail d) async {
+    tapFeedback();
+    setState(() => _sharing = true);
+    try {
+      await shareReceipt(
+        ref,
+        orderId: d.order.id,
+        reference: d.order.reference,
+        outletName: d.order.outletName,
+      );
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, ApiException.from(error).message, error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   Future<void> _advance(OrderDetail d, OrderStatus next) async {
     String? reason;
@@ -115,15 +137,28 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     final d = detail.value;
     // L'agent qui a pris la commande la fait avancer ; son chef aussi (le serveur ne lui montre
     // que les commandes de son équipe).
-    final next = d == null
-        ? const <OrderStatus>[]
-        : !me.isAgent
-        ? d.order.status.managerNext
-        : d.order.agentId == me.id
-        ? d.order.status.agentNext
-        : const <OrderStatus>[];
+    final next = [
+      for (final s
+          in d == null
+              ? const <OrderStatus>[]
+              : !me.isAgent
+              ? d.order.status.managerNext
+              : d.order.agentId == me.id
+              ? d.order.status.agentNext
+              : const <OrderStatus>[])
+        // Une vente directe s'annule depuis le back-office (marchandise rendue au camion).
+        if (!(d!.order.isSale && s == OrderStatus.cancelled)) s,
+    ];
     return Scaffold(
-      appBar: AppBar(title: Text(d?.order.reference ?? 'Commande')),
+      appBar: AppBar(
+        title: Text(
+          d == null
+              ? 'Commande'
+              : d.order.isSale
+              ? 'Vente ${d.order.reference}'
+              : d.order.reference,
+        ),
+      ),
       body: switch (detail) {
         AsyncError(:final error) when d == null => Padding(
           padding: const EdgeInsets.all(Space.page),
@@ -208,9 +243,39 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                         ),
                       ),
                     ),
+                    if (d.order.paidAmount > 0 &&
+                        d.order.due > 0 &&
+                        d.order.status != OrderStatus.cancelled) ...[
+                      ListTile(
+                        dense: true,
+                        title: const Text('Déjà payé'),
+                        trailing: Text(
+                          formatMoney(d.order.paidAmount, d.order.currency),
+                        ),
+                      ),
+                      ListTile(
+                        dense: true,
+                        title: const Text('Reste à payer'),
+                        trailing: Text(
+                          formatMoney(d.order.due, d.order.currency),
+                          style: text.titleSmall?.copyWith(
+                            color: toneColor(context, Tone.warning),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              if (d.order.isSale) ...[
+                const SizedBox(height: Space.sm),
+                Text(
+                  'Vente directe depuis ${d.order.vanName ?? 'le camion'} : livrée sur place.',
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               if (d.order.note != null) ...[
                 const SizedBox(height: Space.md),
                 SurfaceCard(
@@ -249,8 +314,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   onPressed: _busy == null ? () => _advance(d, s) : null,
                 ),
               ],
+              // Reçu PDF à envoyer au client (WhatsApp, SMS…).
+              if (me.hasVanSales) ...[
+                const SizedBox(height: Space.sm),
+                PillButton(
+                  label: 'Partager le reçu',
+                  icon: Icons.ios_share_rounded,
+                  style: PillStyle.tonal,
+                  loading: _sharing,
+                  onPressed: _sharing ? null : () => _share(d),
+                ),
+              ],
               // Gain de temps : l'agent repart de cette commande, quel que soit son statut.
-              if (me.isAgent) ...[
+              if (me.isAgent && !d.order.isSale) ...[
                 const SizedBox(height: Space.sm),
                 PillButton(
                   label: 'Commander à nouveau',

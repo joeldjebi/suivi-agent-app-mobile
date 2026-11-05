@@ -87,6 +87,58 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
   /// Change à l'effacement du brouillon : les champs repartent vides.
   int _generation = 0;
 
+  /// Relevés pré-remplis par l'IA photo : produits proposés (par champ), pas encore revus
+  /// par l'agent ; le compteur reconstruit les relevés à chaque pré-remplissage.
+  final _suggested = <String, Set<String>>{};
+  int _aiGeneration = 0;
+
+  /// Photo de rayon analysée : présence et prix lus pré-remplissent les relevés de produits.
+  /// Une saisie de l'agent n'est jamais remplacée ; une proposition précédente de l'IA l'est.
+  void _prefill(
+    ShelfAnalysis a,
+    List<MissionField> fields,
+    Map<String, List<CatalogProduct>> products,
+  ) {
+    var filled = 0;
+    for (final f in fields.where((f) => f.type == FieldType.products)) {
+      final allowed = {for (final p in products[f.key] ?? const []) p.id};
+      final current = <String, Map<String, Object>>{
+        if (_values[f.key] is Map)
+          for (final e in (_values[f.key] as Map).entries)
+            if (e.value is Map)
+              e.key as String: (e.value as Map).cast<String, Object>(),
+      };
+      final suggested = {...?_suggested[f.key]};
+      for (final r in a.products) {
+        if (!allowed.contains(r.productId)) continue;
+        final existing = current[r.productId];
+        if (existing != null &&
+            existing.isNotEmpty &&
+            !suggested.contains(r.productId)) {
+          continue;
+        }
+        final row = <String, Object>{
+          if (f.measures.contains('presence')) 'presence': r.present,
+          if (r.present && r.price != null && f.measures.contains('price'))
+            'price': r.price!,
+        };
+        if (row.isEmpty) continue;
+        current[r.productId] = row;
+        suggested.add(r.productId);
+        filled++;
+      }
+      _suggested[f.key] = suggested;
+      _change(f.key, current.isEmpty ? null : current);
+    }
+    setState(() => _aiGeneration++);
+    if (filled > 0 && mounted) {
+      showMessage(
+        context,
+        '$filled produit${filled > 1 ? 's' : ''} pré-rempli${filled > 1 ? 's' : ''} par l’IA : vérifiez le relevé.',
+      );
+    }
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -351,12 +403,19 @@ class _MissionFormScreenState extends ConsumerState<MissionFormScreen> {
                       ),
                     for (final f in m.fields) ...[
                       FieldInput(
-                        // Clé stable : le champ garde sa saisie quand un bandeau s'insère au-dessus.
-                        key: ValueKey('field-${f.key}-$_generation'),
+                        // Clé stable : le champ garde sa saisie quand un bandeau s'insère au-dessus
+                        // (le relevé repart des valeurs quand l'IA le pré-remplit).
+                        key: ValueKey(
+                          'field-${f.key}-$_generation${f.type == FieldType.products ? '-$_aiGeneration' : ''}',
+                        ),
                         field: f,
                         value: _values[f.key],
                         onChanged: (v) => _change(f.key, v),
                         products: m.products[f.key] ?? const [],
+                        onAnalysis: (a) => _prefill(a, m.fields, m.products),
+                        suggested: _suggested[f.key] ?? const {},
+                        onReviewed: (productId) =>
+                            _suggested[f.key]?.remove(productId),
                       ),
                       const SizedBox(height: 18),
                     ],
@@ -409,10 +468,22 @@ class FieldInput extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.products = const [],
+    this.onAnalysis,
+    this.suggested = const {},
+    this.onReviewed,
   });
 
   /// Relevé par produit : les produits du champ.
   final List<CatalogProduct> products;
+
+  /// Photo de rayon analysée : l'écran pré-remplit le relevé des produits.
+  final ValueChanged<ShelfAnalysis>? onAnalysis;
+
+  /// Relevé par produit : produits pré-remplis par l'IA, à vérifier.
+  final Set<String> suggested;
+
+  /// Relevé par produit : l'agent a revu (modifié) une proposition de l'IA.
+  final ValueChanged<String>? onReviewed;
 
   final MissionField field;
   final Object? value;
@@ -550,6 +621,8 @@ class FieldInput extends StatelessWidget {
           products: products,
           value: value,
           onChanged: onChanged,
+          suggested: suggested,
+          onReviewed: onReviewed,
         );
       case FieldType.photo:
         return PhotoInput(
@@ -557,6 +630,8 @@ class FieldInput extends StatelessWidget {
           value: value,
           required: field.required,
           onChanged: onChanged,
+          shelf: field.shelf,
+          onAnalysis: onAnalysis,
         );
       case FieldType.unsupported:
         return InfoBanner(
@@ -637,6 +712,8 @@ class PhotoInput extends ConsumerStatefulWidget {
     required this.value,
     required this.required,
     required this.onChanged,
+    this.shelf = false,
+    this.onAnalysis,
   });
 
   final Widget label;
@@ -644,12 +721,73 @@ class PhotoInput extends ConsumerStatefulWidget {
   final bool required;
   final ValueChanged<Object?> onChanged;
 
+  /// Photo de rayon : l'IA peut l'analyser tout de suite (avec du réseau).
+  final bool shelf;
+  final ValueChanged<ShelfAnalysis>? onAnalysis;
+
+  /// Attente entre deux lectures de l'analyse (raccourcie dans les tests).
+  static Duration pollInterval = const Duration(seconds: 3);
+
+  /// Au-delà, on n'attend plus : la photo sera analysée après l'envoi.
+  static const maxPolls = 60;
+
   @override
   ConsumerState<PhotoInput> createState() => PhotoInputState();
 }
 
 class PhotoInputState extends ConsumerState<PhotoInput> {
   bool _busy = false;
+
+  /// Analyse par l'IA de la photo prise : en cours, terminée, ou message d'échec.
+  bool _analyzing = false;
+  ShelfAnalysis? _analysis;
+  String? _analysisError;
+
+  /// Envoie la photo tout de suite (marquée « rayon ») puis attend le résultat de l'IA.
+  /// L'envoi du formulaire réutilisera la même photo (même identifiant d'envoi).
+  Future<void> _analyze(FieldPhoto photo) async {
+    setState(() {
+      _analyzing = true;
+      _analysis = null;
+      _analysisError = null;
+    });
+    final repo = ref.read(repositoryProvider);
+    try {
+      final id = await repo.uploadPhoto(photo, kind: 'shelf');
+      for (var i = 0; i < PhotoInput.maxPolls; i++) {
+        if (!mounted) return;
+        final current = FieldPhoto.tryParse(widget.value);
+        // Photo reprise entre-temps : cette analyse ne la concerne plus.
+        if (current?.clientId != photo.clientId) {
+          return;
+        }
+        final a = await repo.shelfAnalysis(id);
+        if (a != null && !a.waiting) {
+          if (!mounted) return;
+          setState(() => _analysis = a);
+          if (a.done) widget.onAnalysis?.call(a);
+          return;
+        }
+        await Future<void>.delayed(PhotoInput.pollInterval);
+      }
+      if (mounted) {
+        setState(
+          () => _analysisError =
+              'L’analyse prend du temps : la photo sera analysée après l’envoi de la visite.',
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(
+          () => _analysisError = e.isNetwork
+              ? 'Pas de réseau : la photo sera analysée après l’envoi de la visite.'
+              : e.message,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+  }
 
   Future<void> _take(FormFieldState<Object?> state) async {
     setState(() => _busy = true);
@@ -660,6 +798,10 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
       if (previous != null) await PhotoStore.delete([previous]);
       state.didChange(photo.toJson());
       widget.onChanged(photo.toJson());
+      setState(() {
+        _analysis = null;
+        _analysisError = null;
+      });
     } on PhotoUnavailable catch (e) {
       if (mounted) showMessage(context, e.message, error: true);
     } on PlatformException {
@@ -680,6 +822,10 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
     if (previous != null) await PhotoStore.delete([previous]);
     state.didChange(null);
     widget.onChanged(null);
+    setState(() {
+      _analysis = null;
+      _analysisError = null;
+    });
   }
 
   @override
@@ -764,6 +910,13 @@ class PhotoInputState extends ConsumerState<PhotoInput> {
                   ),
                 ],
               ),
+              if (widget.shelf && ref.watch(meProvider).hasPhotoAi)
+                _ShelfAnalysisPanel(
+                  analyzing: _analyzing,
+                  analysis: _analysis,
+                  error: _analysisError,
+                  onAnalyze: _busy || _analyzing ? null : () => _analyze(photo),
+                ),
             ] else
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -961,6 +1114,131 @@ class _OutletStatusField extends ConsumerWidget {
           decoration: const InputDecoration(
             labelText: 'Commentaire sur le point de vente (facultatif)',
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Sous une photo de rayon : lancer l'analyse par l'IA, attendre, puis le score et la
+/// remarque de l'IA ; le relevé des produits est pré-rempli plus bas.
+class _ShelfAnalysisPanel extends StatelessWidget {
+  const _ShelfAnalysisPanel({
+    required this.analyzing,
+    required this.analysis,
+    required this.error,
+    required this.onAnalyze,
+  });
+
+  final bool analyzing;
+  final ShelfAnalysis? analysis;
+  final String? error;
+  final VoidCallback? onAnalyze;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final a = analysis;
+    if (analyzing) {
+      return Semantics(
+        liveRegion: true,
+        child: SurfaceCard(
+          padding: const EdgeInsets.all(Space.md),
+          child: Row(
+            children: [
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Text(
+                  'L’IA analyse le rayon… Vous pouvez continuer à remplir la visite.',
+                  style: text.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (a != null && a.done) {
+      final score = a.score ?? 0;
+      final tone = score >= 70
+          ? Tone.success
+          : score >= 40
+          ? Tone.warning
+          : Tone.danger;
+      return Semantics(
+        liveRegion: true,
+        child: SurfaceCard(
+          padding: const EdgeInsets.all(Space.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: toneColor(context, tone),
+                  ),
+                  const SizedBox(width: Space.sm),
+                  Expanded(
+                    child: Text(
+                      'Score du rayon : $score / 100',
+                      style: text.titleSmall?.copyWith(
+                        color: toneColor(context, tone),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if ((a.notes ?? '').isNotEmpty) ...[
+                const SizedBox(height: Space.xs),
+                Text(a.notes!, style: text.bodyMedium),
+              ],
+              const SizedBox(height: Space.xs),
+              Text(
+                'Relevé des produits pré-rempli par l’IA : vérifiez-le avant d’enregistrer.',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final message =
+        error ??
+        (a == null
+            ? null
+            : a.status == 'skipped'
+            ? 'Pas d’analyse : ${a.skipLabel ?? 'IA indisponible'}.'
+            : 'L’analyse a échoué : remplissez le relevé vous-même.');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (message != null) ...[
+          InfoBanner(
+            icon: Icons.info_outline_rounded,
+            tone: Tone.info,
+            message: message,
+          ),
+          const SizedBox(height: Space.sm),
+        ],
+        FilledButton.tonalIcon(
+          onPressed: onAnalyze,
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: Text(
+            a == null && error == null
+                ? 'Analyser le rayon avec l’IA'
+                : 'Relancer l’analyse',
+          ),
+        ),
+        const SizedBox(height: Space.xs),
+        Text(
+          'L’IA repère les produits, compte les faces et lit les prix : le relevé est pré-rempli.',
+          style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );

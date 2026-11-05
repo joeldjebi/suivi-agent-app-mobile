@@ -17,6 +17,7 @@ import '../../design/tokens.dart';
 import '../../widgets/common.dart';
 import '../orders/order_screen.dart' show OutletOrdersSection;
 import '../orders/orders.dart' show outletOrdersProvider;
+import '../van_sales/outlet_credit.dart';
 import 'outlet_activity.dart';
 import 'outlet_models.dart';
 import 'outlet_widgets.dart';
@@ -106,6 +107,9 @@ class OutletScreen extends ConsumerWidget {
     final fields = form?.fields ?? const <MissionField>[];
     final me = ref.watch(meProvider);
     final canOrder = me.hasOrders && !me.isTeamLead;
+    // Vente directe depuis le camion : remplace la commande (livrée plus tard) comme action
+    // principale ; la commande reste possible.
+    final canSell = me.hasVanSales && !me.isTeamLead;
     return [
       if (o.photoId != null) ...[
         RemotePhoto(id: o.photoId!, label: 'Devanture de ${o.name}'),
@@ -155,6 +159,14 @@ class OutletScreen extends ConsumerWidget {
       ],
       const SizedBox(height: Space.lg),
       // Ce que l'agent vient faire : visiter, commander.
+      if (canSell) ...[
+        PillButton(
+          label: 'Vendre',
+          icon: Icons.point_of_sale_rounded,
+          onPressed: () => context.push('/outlets/${o.id}/sell'),
+        ),
+        const SizedBox(height: Space.sm),
+      ],
       if (canVisitFreely(ref) || canOrder) ...[
         Row(
           children: [
@@ -163,6 +175,7 @@ class OutletScreen extends ConsumerWidget {
                 child: PillButton(
                   label: 'Visiter',
                   icon: Icons.login_rounded,
+                  style: canSell ? PillStyle.tonal : PillStyle.primary,
                   onPressed: () => startVisit(context, ref, o.id),
                 ),
               ),
@@ -173,7 +186,7 @@ class OutletScreen extends ConsumerWidget {
                 child: PillButton(
                   label: 'Commander',
                   icon: Icons.add_shopping_cart_rounded,
-                  style: canVisitFreely(ref)
+                  style: canVisitFreely(ref) || canSell
                       ? PillStyle.tonal
                       : PillStyle.primary,
                   onPressed: () => context.push('/outlets/${o.id}/order'),
@@ -239,6 +252,10 @@ class OutletScreen extends ConsumerWidget {
       if (ref.watch(meProvider).hasOrders) ...[
         const SizedBox(height: Space.lg),
         OutletOrdersSection(outletId: o.id),
+      ],
+      if (me.hasVanSales) ...[
+        const SizedBox(height: Space.lg),
+        OutletCreditSection(outletId: o.id, outletName: o.name),
       ],
       const SizedBox(height: Space.lg),
       OutletVisitsSection(outletId: o.id, visits: detail.visits),

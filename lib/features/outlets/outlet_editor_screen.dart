@@ -531,16 +531,20 @@ class _PhotoTileState extends ConsumerState<_PhotoTile> {
         ? Image(image: taken.image, fit: BoxFit.cover)
         : sent != null
         ? RemotePhoto(id: sent, label: 'Devanture', height: size)
-        : Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.photo_camera_outlined, color: scheme.primary),
-              const SizedBox(height: 2),
-              Text(
-                'Photo',
-                style: text.labelSmall?.copyWith(color: scheme.primary),
-              ),
-            ],
+        // Case de 76 points : le libellé reste lisible, plafonné à ×1,3 comme les sélecteurs.
+        : MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.3,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.photo_camera_outlined, color: scheme.primary),
+                const SizedBox(height: 2),
+                Text(
+                  'Photo',
+                  style: text.labelSmall?.copyWith(color: scheme.primary),
+                ),
+              ],
+            ),
           );
     final has = taken != null || sent != null;
     return Semantics(

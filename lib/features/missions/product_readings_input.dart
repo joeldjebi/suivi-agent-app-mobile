@@ -202,12 +202,18 @@ class ProductReadingsInput extends StatefulWidget {
     required this.products,
     required this.value,
     required this.onChanged,
+    this.suggested = const {},
+    this.onReviewed,
   });
 
   final MissionField field;
   final List<CatalogProduct> products;
   final Object? value;
   final ValueChanged<Object?> onChanged;
+
+  /// Produits pré-remplis par l'IA photo, pas encore revus par l'agent.
+  final Set<String> suggested;
+  final ValueChanged<String>? onReviewed;
 
   @override
   State<ProductReadingsInput> createState() => _ProductReadingsInputState();
@@ -221,6 +227,7 @@ class _ProductReadingsInputState extends State<ProductReadingsInput> {
           e.key as String: (e.value as Map).cast<String, Object>(),
   };
   String _search = '';
+  late final Set<String> _suggested = {...widget.suggested};
 
   void _set(
     FormFieldState<Object?> state,
@@ -228,6 +235,7 @@ class _ProductReadingsInputState extends State<ProductReadingsInput> {
     String measure,
     Object? v,
   ) {
+    if (_suggested.remove(productId)) widget.onReviewed?.call(productId);
     setState(() {
       final row = {...?_readings[productId]};
       if (v == null) {
@@ -306,6 +314,7 @@ class _ProductReadingsInputState extends State<ProductReadingsInput> {
               product: p,
               measures: widget.field.measures,
               reading: _readings[p.id] ?? const {},
+              suggested: _suggested.contains(p.id),
               onSet: (measure, v) => _set(state, p.id, measure, v),
             ),
             const SizedBox(height: Space.sm),
@@ -330,11 +339,15 @@ class _ProductCard extends StatelessWidget {
     required this.measures,
     required this.reading,
     required this.onSet,
+    this.suggested = false,
   });
 
   final CatalogProduct product;
   final List<String> measures;
   final Map<String, Object> reading;
+
+  /// Valeurs proposées par l'IA photo, à vérifier.
+  final bool suggested;
   final void Function(String measure, Object? value) onSet;
 
   @override
@@ -392,6 +405,25 @@ class _ProductCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (suggested) ...[
+            const SizedBox(height: Space.xs),
+            Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: Space.xs),
+                Expanded(
+                  child: Text(
+                    'Proposé par l’IA, à vérifier',
+                    style: text.bodySmall?.copyWith(color: scheme.primary),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (measures.contains('presence')) ...[
             const SizedBox(height: Space.sm),
             Row(

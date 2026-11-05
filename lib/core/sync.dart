@@ -227,6 +227,18 @@ class SyncService extends ChangeNotifier {
       }),
       // Commande prise chez le point de vente, même sans réseau.
       'order' => await repo.createOrder({...body, 'clientId': row.clientId}),
+      // Vente en camionnette : vente directe, paiement, casse, retour, réception.
+      // Le total ne sert qu'au crédit hors ligne : le serveur recalcule les prix.
+      'sale' => await repo.createSale(
+        {...body, 'clientId': row.clientId}..remove('total'),
+      ),
+      'payment' => await repo.createPayment({
+        ...body,
+        'clientId': row.clientId,
+      }),
+      'loss' => await repo.createLoss({...body, 'clientId': row.clientId}),
+      'unload' => await repo.createUnload({...body, 'clientId': row.clientId}),
+      'load_confirm' => await _confirmLoad(body),
       'status' => await repo.changeOutletStatus(
         row.outletId!,
         body['status'] as String,
@@ -239,6 +251,22 @@ class SyncService extends ChangeNotifier {
     )..where((o) => o.clientId.equals(row.clientId))).go();
     await PhotoStore.delete(photos);
     return result;
+  }
+
+  /// Réception d'un chargement. Déjà confirmé (réponse perdue lors d'un premier envoi) :
+  /// c'est fait, pas une erreur.
+  Future<Map<String, dynamic>> _confirmLoad(Map<String, dynamic> body) async {
+    try {
+      return await repo.confirmMovement(body['movementId'] as String, {
+        'lines': body['lines'],
+        'note': ?body['note'],
+      });
+    } catch (error) {
+      if (ApiException.from(error).code == 'MOVEMENT_NOT_PENDING') {
+        return const {};
+      }
+      rethrow;
+    }
   }
 
   /// Envoi immédiat d'un point de vente saisi. Sans réseau, il attend dans la file ;

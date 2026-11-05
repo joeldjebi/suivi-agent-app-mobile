@@ -103,6 +103,10 @@ class OrderItem {
     this.note,
     this.cancelReason,
     this.lineCount = 0,
+    this.isSale = false,
+    this.paidAmount = 0,
+    this.due = 0,
+    this.vanName,
   });
 
   final String id;
@@ -120,6 +124,16 @@ class OrderItem {
   final String? cancelReason;
   final int lineCount;
 
+  /// Vente directe depuis un camion (livrée sur place), sinon commande.
+  final bool isSale;
+
+  /// Déjà payé (acomptes compris) et reste à payer.
+  final num paidAmount;
+  final num due;
+
+  /// Camion de la vente directe.
+  final String? vanName;
+
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
     id: j['id'] as String,
     reference: j['reference'] as String,
@@ -135,6 +149,10 @@ class OrderItem {
     note: j['note'] as String?,
     cancelReason: j['cancelReason'] as String?,
     lineCount: j['lines'] is num ? (j['lines'] as num).toInt() : 0,
+    isSale: j['kind'] == 'sale',
+    paidAmount: j['paidAmount'] as num? ?? 0,
+    due: j['due'] as num? ?? 0,
+    vanName: j['locationName'] as String?,
   );
 }
 

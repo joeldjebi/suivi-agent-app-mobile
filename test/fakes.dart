@@ -495,13 +495,31 @@ class FakeRepository extends Repository {
   /// Champs ajoutés au type de la mission (photo, type inconnu…).
   List<Map<String, dynamic>> extraFields = [];
 
-  /// Photos envoyées ; chacune reçoit l’identifiant « photo-N ».
+  /// Photos envoyées ; chacune reçoit l’identifiant « photo-N » (un renvoi de la même
+  /// photo garde son identifiant, comme le serveur).
   final uploadedPhotos = <FieldPhoto>[];
 
+  /// Genre donné à l'envoi, par identifiant (« shelf » : photo de rayon).
+  final photoKinds = <String, String?>{};
+
   @override
-  Future<String> uploadPhoto(FieldPhoto photo) async {
+  Future<String> uploadPhoto(FieldPhoto photo, {String? kind}) async {
+    final i = uploadedPhotos.indexWhere((p) => p.clientId == photo.clientId);
+    if (i >= 0) return 'photo-${i + 1}';
     uploadedPhotos.add(photo);
-    return 'photo-${uploadedPhotos.length}';
+    final id = 'photo-${uploadedPhotos.length}';
+    photoKinds[id] = kind;
+    return id;
+  }
+
+  /// IA photo : réponses successives de l'analyse, par identifiant de photo.
+  final shelfAnalyses = <String, List<ShelfAnalysis?>>{};
+
+  @override
+  Future<ShelfAnalysis?> shelfAnalysis(String photoId) async {
+    final list = shelfAnalyses[photoId];
+    if (list == null || list.isEmpty) return null;
+    return list.length == 1 ? list.first : list.removeAt(0);
   }
 
   /// « Ma semaine » (/me/week).

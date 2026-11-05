@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Jeton Sentry pour l’envoi des symboles (scripts/build-apk.sh)
+.env.sentry

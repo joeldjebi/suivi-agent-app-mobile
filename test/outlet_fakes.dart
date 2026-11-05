@@ -241,6 +241,9 @@ class VisitsRepo extends OutletsRepo {
 
 /// Mission avec un relevé par produit (boissons : nos produits et un concurrent).
 class ReadingsRepo extends OutletsRepo {
+  /// Champs ajoutés après le relevé (photo de rayon…).
+  List<Map<String, dynamic>> moreFields = [];
+
   Map<String, dynamic> get _mission => {
     'id': 'r1',
     'title': 'Relevé des boissons',
@@ -264,6 +267,7 @@ class ReadingsRepo extends OutletsRepo {
             'measures': ['presence', 'stock', 'price'],
           },
         },
+        ...moreFields,
       ],
     },
     'products': {

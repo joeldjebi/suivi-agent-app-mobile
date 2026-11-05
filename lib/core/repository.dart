@@ -127,10 +127,11 @@ class Repository {
   )).map((s) => Submission.fromJson(s as Map<String, dynamic>)).toList();
 
   /// Photo d'un formulaire : renvoie son identifiant (un renvoi ne crée pas de doublon).
-  Future<String> uploadPhoto(FieldPhoto photo) async =>
+  Future<String> uploadPhoto(FieldPhoto photo, {String? kind}) async =>
       (await api.post<Map<String, dynamic>>(
             '/photos',
             FormData.fromMap({
+              'kind': ?kind,
               'file': await photoUpload(photo.path),
               'clientId': photo.clientId,
               'takenAt': photo.takenAt.toUtc().toIso8601String(),
@@ -181,6 +182,20 @@ class Repository {
       'limit': limit,
     },
   );
+
+  /// Analyse d'une photo de rayon par l'IA ; null si la photo n'est pas analysée. Jamais
+  /// lue depuis la mémoire : l'état change pendant l'attente.
+  Future<ShelfAnalysis?> shelfAnalysis(String photoId) async {
+    try {
+      final data = (await api.dio.get<Map<String, dynamic>>(
+        '/photo-ai/photos/$photoId',
+      )).data!;
+      return ShelfAnalysis.fromJson(data);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw ApiException.from(e);
+    }
+  }
 
   /// Photo envoyée (fiche d'un point de vente, formulaire) ; null si introuvable.
   Future<List<int>?> photoBytes(String id) async {
@@ -317,6 +332,46 @@ class Repository {
 
   Future<Map<String, dynamic>> order(String id) =>
       api.get<Map<String, dynamic>>('/orders/$id');
+
+  // Vente en camionnette.
+
+  /// « Mon camion » : stock, chargements à confirmer, journée, caisse (gardé hors ligne).
+  Future<Map<String, dynamic>> myVan() =>
+      api.get<Map<String, dynamic>>('/van-sales/me');
+
+  /// Vente directe depuis le camion (prix, stock et crédit vérifiés par le serveur) ;
+  /// idempotente sur clientId.
+  Future<Map<String, dynamic>> createSale(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/van-sales/sales', body);
+
+  /// Paiement reçu d'un client ; idempotent sur clientId.
+  Future<Map<String, dynamic>> createPayment(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/van-sales/payments', body);
+
+  /// Ce que doit un point de vente et le crédit encore possible (gardé hors ligne).
+  Future<Map<String, dynamic>> outletBalance(String outletId) =>
+      api.get<Map<String, dynamic>>('/van-sales/outlets/$outletId/balance');
+
+  /// Casse ou perte dans le camion ; idempotente sur clientId.
+  Future<Map<String, dynamic>> createLoss(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/stock/losses', body);
+
+  /// Retour au dépôt, confirmé ensuite par un responsable ; idempotent sur clientId.
+  Future<Map<String, dynamic>> createUnload(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/stock/unloads', body);
+
+  /// Réception d'un chargement, avec les quantités réellement reçues.
+  Future<Map<String, dynamic>> confirmMovement(
+    String id,
+    Map<String, dynamic> body,
+  ) => api.post<Map<String, dynamic>>('/stock/movements/$id/confirm', body);
+
+  /// Reçu PDF d'une vente ou d'une commande.
+  Future<List<int>> receiptPdf(String orderId) async =>
+      (await api.dio.get<List<int>>(
+        '/van-sales/orders/$orderId/receipt',
+        options: _bytes,
+      )).data!;
 
   /// Livrée, payée ou annulée (motif obligatoire).
   Future<Map<String, dynamic>> changeOrderStatus(

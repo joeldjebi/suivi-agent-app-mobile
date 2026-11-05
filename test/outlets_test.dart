@@ -230,7 +230,7 @@ void main() {
     expect(body, containsPair('force', true));
     // Photo renvoyée avec le même identifiant : le serveur ne la duplique pas.
     expect(repo.uploadedPhotos.map((p) => p.clientId).toSet(), {'c1'});
-    expect(body, containsPair('photoId', 'photo-2'));
+    expect(body, containsPair('photoId', 'photo-1'));
     expect(body['lat'], 5.32);
     expect(body['clientId'], isA<String>());
     // Fiche ouverte après l'ajout.

@@ -15,7 +15,14 @@ const outletsTab = NavItem(
   selectedIcon: Icons.storefront_rounded,
 );
 
-/// Agent : Journée, Missions, Points de vente, Profil.
+/// Camion de l'agent (vente en camionnette).
+const vanTab = NavItem(
+  label: 'Camion',
+  icon: Icons.local_shipping_outlined,
+  selectedIcon: Icons.local_shipping_rounded,
+);
+
+/// Agent : Journée, Missions, Points de vente, Camion, Profil.
 const agentTabs = [
   NavItem(
     label: 'Journée',
@@ -28,6 +35,7 @@ const agentTabs = [
     selectedIcon: Icons.flag_rounded,
   ),
   outletsTab,
+  vanTab,
   NavItem(
     label: 'Profil',
     icon: Icons.person_outline_rounded,
