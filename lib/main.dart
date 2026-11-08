@@ -31,19 +31,27 @@ Future<void> main() async {
   // Version web : photos en attente d'envoi relues depuis le navigateur.
   await initPhotoFiles();
   if (_sentryDsn.isEmpty) return _run();
-  await SentryFlutter.init((options) {
-    options
-      ..dsn = _sentryDsn
-      ..release = 'suivi-agent@${AppVersion.current}'
-      ..tracesSampleRate = 0
-      // Rien de personnel : ni capture d'écran, ni saisie, ni identité.
-      ..sendDefaultPii = false
-      ..attachScreenshot = false
-      ..beforeSend = (event, hint) {
-        event.user = null;
-        return event;
-      };
-  }, appRunner: _run);
+  // Web : l'app s'affiche d'abord ; Sentry (script téléchargé depuis son site) suit, sans
+  // retarder l'ouverture. Ses gestionnaires d'erreurs s'ajoutent à ceux déjà en place.
+  if (kIsWeb) {
+    await _run();
+    return SentryFlutter.init(_sentryOptions);
+  }
+  await SentryFlutter.init(_sentryOptions, appRunner: _run);
+}
+
+void _sentryOptions(SentryFlutterOptions options) {
+  options
+    ..dsn = _sentryDsn
+    ..release = 'suivi-agent@${AppVersion.current}'
+    ..tracesSampleRate = 0
+    // Rien de personnel : ni capture d'écran, ni saisie, ni identité.
+    ..sendDefaultPii = false
+    ..attachScreenshot = false
+    ..beforeSend = (event, hint) {
+      event.user = null;
+      return event;
+    };
 }
 
 Future<void> _run() async {

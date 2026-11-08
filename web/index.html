@@ -93,6 +93,10 @@
       right: 0;
     }
   </style>
+  <!-- Connexions préparées dès la page : moteur d'affichage et polices (Google), Sentry. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://browser.sentry-cdn.com" crossorigin>
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
       document.getElementById("splash")?.remove();
@@ -178,12 +182,26 @@
     // Données gardées sur l'appareil (formulaires, positions en attente) : stockage
     // persistant demandé au navigateur.
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-    // Ouverture hors connexion : la page d'accueil est mise en cache dès la première visite
-    // (le service worker de l'app ne la garde sinon qu'à la visite suivante).
+    // Ouverture hors connexion : le service worker de l'app est installé une fois l'app
+    // affichée (il ne retarde plus son démarrage, ni ne concurrence son téléchargement). Il
+    // garde alors la page d'accueil et les fichiers de l'app réellement utilisés par ce
+    // navigateur (WebAssembly ou JavaScript), déjà reçus : une simple vérification.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(function () {
-        setTimeout(function () { fetch('./', { cache: 'reload' }).catch(function () {}); }, 3000);
-      });
+      window.addEventListener('flutter-first-frame', function () {
+        setTimeout(function () {
+          var version = window.pxServiceWorkerVersion || '';
+          navigator.serviceWorker.register('flutter_service_worker.js?v=' + version).catch(function () {});
+          navigator.serviceWorker.ready.then(function () {
+            setTimeout(function () {
+              fetch('./', { cache: 'reload' }).catch(function () {});
+              performance.getEntriesByType('resource').forEach(function (e) {
+                var path = new URL(e.name).pathname;
+                if (/\/main\.dart\.(wasm|mjs|js)$/.test(path)) fetch(path).catch(function () {});
+              });
+            }, 1000);
+          });
+        }, 3000);
+      }, { once: true });
     }
     window.pxIsIOS = function () {
       return /iphone|ipad|ipod/i.test(navigator.userAgent) ||

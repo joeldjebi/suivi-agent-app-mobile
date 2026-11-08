@@ -9,12 +9,24 @@ ARG SENTRY_DSN=
 # Compilée en WebAssembly : démarrage environ 3 fois moins coûteux pour le processeur du
 # téléphone ; les navigateurs qui ne le gèrent pas reçoivent la version JavaScript (aussi
 # produite). Moteur d'affichage chargé depuis le réseau de Google, plus proche des agents.
-RUN flutter build web --release --wasm --dart-define=SENTRY_DSN=$SENTRY_DSN
-# Fichiers compressés une fois pour toutes au niveau maximal (nginx les sert tels quels).
-RUN find build/web -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.wasm' -o -name '*.json' -o -name '*.html' \
-      -o -name '*.otf' -o -name '*.ttf' -o -name '*.svg' -o -name '*.css' \) -exec gzip -9 -k -f {} \;
+# Numéro de version fixé à la compilation (sinon lu dans version.json avant l'affichage).
+RUN flutter build web --release --wasm --dart-define=SENTRY_DSN=$SENTRY_DSN \
+      --dart-define=FLUTTER_BUILD_NAME=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
+# Service worker : il ne précharge plus les deux versions de l'app (WebAssembly et
+# JavaScript, ~3,6 Mo) ; il garde celle que le navigateur utilise (voir index.html).
+RUN perl -0pi -e 's/const CORE = \[.*?\];/const CORE = ["index.html", "flutter_bootstrap.js", "assets\/AssetManifest.bin.json", "assets\/FontManifest.json"];/s' build/web/flutter_service_worker.js \
+ && grep -q 'const CORE = \["index.html"' build/web/flutter_service_worker.js
 
-FROM nginx:1.27-alpine
-COPY deploy/web-nginx.conf /etc/nginx/conf.d/default.conf
+# nginx d'Alpine : il a le module Brotli (compression ~25 % plus forte que gzip sur l'app).
+FROM alpine:3.22
+RUN apk add --no-cache nginx nginx-mod-http-brotli brotli \
+ && rm -f /etc/nginx/http.d/default.conf
+COPY deploy/web-nginx.conf /etc/nginx/http.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
+# Fichiers compressés une fois pour toutes au niveau maximal (Brotli, et gzip pour les
+# navigateurs qui ne connaissent pas Brotli) : nginx les sert tels quels.
+RUN find /usr/share/nginx/html -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.wasm' -o -name '*.json' \
+      -o -name '*.html' -o -name '*.otf' -o -name '*.ttf' -o -name '*.svg' -o -name '*.css' \) \
+      -exec gzip -9 -k -f {} \; -exec brotli -q 11 -k -f {} \;
 EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

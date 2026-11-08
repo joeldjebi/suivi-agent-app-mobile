@@ -13,6 +13,13 @@ class AppVersion {
   static String get platform => AppPlatform.name;
 
   static Future<void> load() async {
+    // Numéro fixé à la compilation (flutter build) : rien à lire, surtout pas sur le web où
+    // il faudrait télécharger version.json avant d'afficher l'app.
+    const built = String.fromEnvironment('FLUTTER_BUILD_NAME');
+    if (built.isNotEmpty) {
+      current = built;
+      return;
+    }
     try {
       current = (await PackageInfo.fromPlatform()).version;
     } catch (_) {
