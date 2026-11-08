@@ -25,22 +25,14 @@ Future<void> _settle(WidgetTester tester) async {
 /// Listes paresseuses : fait défiler jusqu'à l'élément s'il n'est pas encore construit.
 Future<void> _reveal(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _scrollTo(tester, finder);
     await _settle(tester);
   }
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _scrollTo(tester, finder);
   }
   await tester.tap(finder);
   await _settle(tester);
@@ -62,6 +54,28 @@ Widget _app(VanRepo repo, {FakeSharer? sharer}) => testApp(
   repo: repo,
   overrides: [fileSharerProvider.overrideWithValue(sharer ?? FakeSharer())],
 );
+
+/// Fait défiler jusqu'à l'élément, vers le bas puis vers le haut (police agrandie : il peut
+/// être au-dessus ou au-dessous de l'écran).
+Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isNotEmpty) return;
+  final list = find.byType(Scrollable).first;
+  try {
+    await tester.scrollUntilVisible(
+      finder,
+      200,
+      scrollable: list,
+      maxScrolls: 30,
+    );
+  } on StateError {
+    await tester.scrollUntilVisible(
+      finder,
+      -200,
+      scrollable: list,
+      maxScrolls: 60,
+    );
+  }
+}
 
 void main() {
   setUpAll(() async {
@@ -100,8 +114,10 @@ void main() {
     expect(find.text('Mon camion'), findsOneWidget);
     expect(find.text('CAMION 1 · AB 1234 CI'), findsOneWidget);
     expect(find.text('Chargement à confirmer'), findsOneWidget);
-    expect(find.text('24 bouteilles (2 casiers)'), findsOneWidget);
+    await _reveal(tester, find.textContaining('Remettez l’argent liquide'));
     expect(find.textContaining('Remettez l’argent liquide'), findsOneWidget);
+    await _reveal(tester, find.text('24 bouteilles (2 casiers)'));
+    expect(find.text('24 bouteilles (2 casiers)'), findsOneWidget);
 
     // Deux bouteilles cassées : l'agent corrige la quantité reçue.
     await _tap(tester, find.text('Vérifier et confirmer'));
@@ -118,9 +134,53 @@ void main() {
     ]);
     expect(find.textContaining('Chargement reçu'), findsOneWidget);
     expect(find.text('Chargement à confirmer'), findsNothing);
+    await _reveal(tester, find.text('46 bouteilles (3 casiers + 10)'));
     expect(find.text('46 bouteilles (3 casiers + 10)'), findsOneWidget);
     await _close(tester);
   });
+
+  testWidgets(
+    'camion : vendre à un client, bientôt vide, épuisés, argent à remettre',
+    (tester) async {
+      _phone(tester);
+      final repo = VanRepo()
+        ..loadPending = false
+        ..stock = {'p-coca': 24, 'p-fanta': 6, 'p-sprite': 0}
+        ..outToday = {'p-coca': 12, 'p-sprite': 24};
+      await tester.pumpWidget(_app(repo));
+      await _settle(tester);
+      await _tap(tester, _tab('Camion'));
+
+      // L'argent liquide à remettre ressort.
+      await _reveal(tester, find.textContaining('À remettre :'));
+      expect(find.textContaining('À remettre :'), findsOneWidget);
+      // Fanta : moins d'un casier ; Sprite : tout vendu, replié.
+      await _reveal(tester, find.text('Bientôt vide'));
+      expect(find.text('Bientôt vide'), findsOneWidget);
+      expect(find.text('Tout vendu aujourd’hui'), findsNothing);
+      await _tap(tester, find.text('Épuisés aujourd’hui (1)'));
+      await _reveal(tester, find.text('Tout vendu aujourd’hui'));
+      expect(find.text('Tout vendu aujourd’hui'), findsOneWidget);
+      // Coca : 24 restent sur 36 de la journée.
+      final bars = tester
+          .widgetList<LinearProgressIndicator>(
+            find.byType(LinearProgressIndicator),
+          )
+          .map((b) => b.value)
+          .toList();
+      expect(bars, contains(closeTo(24 / 36, 0.001)));
+
+      // Vendre : les clients proches, puis la vente du client choisi.
+      await _tap(tester, find.text('Vendre à un client'));
+      expect(find.text('LES PLUS PROCHES'), findsOneWidget);
+      await _tap(tester, find.text('Boutique Awa'));
+      expect(
+        find.textContaining('camion : 24 bouteilles (2 casiers)'),
+        findsOneWidget,
+      );
+      await _close(tester);
+    },
+  );
 
   testWidgets('vente payée sur place, puis reçu partagé', (tester) async {
     _phone(tester);

@@ -46,6 +46,7 @@ import 'features/shell/suspended_screen.dart';
 import 'features/team/requests_screen.dart';
 import 'features/team/team_map_screen.dart';
 import 'features/team/team_screen.dart';
+import 'features/van_sales/van_sell_screen.dart';
 import 'features/van_sales/sale_editor_screen.dart';
 import 'features/van_sales/van_screen.dart';
 import 'features/van_sales/transfer_screens.dart';
@@ -189,6 +190,12 @@ final _vanRoute = GoRoute(
       path: 'unload',
       builder: (_, _) =>
           const VanDeclarationScreen(kind: VanDeclaration.unload),
+    ),
+    // Vendre à un client : choix du client (les plus proches), puis la vente.
+    GoRoute(path: 'sell', builder: (_, _) => const VanSellScreen()),
+    GoRoute(
+      path: 'sell/:id',
+      builder: (_, s) => SaleEditorScreen(outletId: s.pathParameters['id']!),
     ),
     // Dépannage entre camions.
     GoRoute(

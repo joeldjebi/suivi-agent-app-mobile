@@ -38,13 +38,32 @@ class Van {
 
 /// Ligne de stock ou de mouvement : un produit et sa quantité (unités de base).
 class StockLine {
-  StockLine(this.product, this.quantity, {this.received});
+  StockLine(this.product, this.quantity, {this.received, this.outToday = 0});
 
   final CatalogProduct product;
   final num quantity;
 
   /// Quantité reçue à la confirmation (chargement).
   final num? received;
+
+  /// Sorti du camion aujourd'hui (ventes, dépannages donnés, casse, retours).
+  final num outToday;
+
+  /// Ce qu'il y avait dans le camion aujourd'hui : le reste plus ce qui est sorti.
+  num get available => quantity + outToday;
+
+  /// Épuisé dans la journée.
+  bool get soldOut => quantity == 0 && outToday > 0;
+
+  /// Bientôt vide : moins d'un conditionnement (le plus petit), ou à défaut moins d'un
+  /// dixième de ce qu'il y avait aujourd'hui.
+  bool get low {
+    if (quantity <= 0) return false;
+    if (product.packagings.isNotEmpty) {
+      return quantity < product.packagings.first.units;
+    }
+    return outToday > 0 && quantity <= available / 10;
+  }
 
   factory StockLine.fromJson(Map<String, dynamic> j) => StockLine(
     CatalogProduct.fromJson({
@@ -56,6 +75,7 @@ class StockLine {
     }),
     j['quantity'] as num,
     received: j['received'] as num?,
+    outToday: j['outToday'] as num? ?? 0,
   );
 }
 
@@ -194,6 +214,8 @@ class MyVan {
   /// Le même camion, une fois appliqué ce qui n'est pas encore envoyé.
   MyVan withQueue(List<PendingOutlet> queue) {
     final delta = <String, num>{};
+    // Ventes et casse pas encore envoyées : elles sortent déjà du camion aujourd'hui.
+    final out = <String, num>{};
     final confirmed = <String>{};
     var count = 0;
     for (final row in queue) {
@@ -218,6 +240,7 @@ class MyVan {
         final id = line['productId'] as String;
         final q = (line['received'] ?? line['quantity']) as num;
         delta[id] = (delta[id] ?? 0) + sign * q;
+        if (sign < 0) out[id] = (out[id] ?? 0) + q;
       }
     }
     if (count == 0) return this;
@@ -234,9 +257,13 @@ class MyVan {
       depots: depots,
       stock: [
         for (final s in stock)
-          StockLine(s.product, s.quantity + (delta[s.product.id] ?? 0)),
+          StockLine(
+            s.product,
+            s.quantity + (delta[s.product.id] ?? 0),
+            outToday: s.outToday + (out[s.product.id] ?? 0),
+          ),
         for (final p in {for (final p in loaded) p.id: p}.values)
-          StockLine(p, delta[p.id] ?? 0),
+          StockLine(p, delta[p.id] ?? 0, outToday: out[p.id] ?? 0),
       ],
       pending: [
         for (final m in pending)

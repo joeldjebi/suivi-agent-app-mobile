@@ -12,6 +12,12 @@ const vanFeatures = {...orderFeatures, 'product_audits', 'van_sales'};
 /// chargement à confirmer, une cliente (Boutique Awa) avec ou sans crédit.
 class VanRepo extends OrdersRepo {
   Map<String, num> stock = {'p-coca': 24, 'p-fanta': 6};
+
+  /// Sorti du camion aujourd'hui, par produit.
+  Map<String, num> outToday = {};
+
+  /// Journée (ventes, encaissements) à la place de celle par défaut.
+  Map<String, dynamic>? todayJson;
   bool loadPending = true;
   num? creditLimit;
   num outstanding = 0;
@@ -24,13 +30,14 @@ class VanRepo extends OrdersRepo {
 
   Map<String, dynamic> _line(String id, num quantity) => {
     'productId': id,
-    'name': id == 'p-coca' ? 'Coca-Cola' : 'Fanta',
+    'name': const {'p-coca': 'Coca-Cola', 'p-sprite': 'Sprite'}[id] ?? 'Fanta',
     'format': '33 cl',
     'unit': 'Bouteille',
     'packagings': [
       {'name': 'Casier', 'units': 12},
     ],
     'quantity': quantity,
+    'outToday': outToday[id] ?? 0,
   };
 
   @override
@@ -53,15 +60,17 @@ class VanRepo extends OrdersRepo {
           'lines': [_line('p-coca', 24)],
         },
     ],
-    'today': {
-      'salesCount': saleBodies.length,
-      'salesAmount': 0,
-      'cash': 0,
-      'mobileMoney': 0,
-      'bank': 0,
-      'dueOnSales': 0,
-      'cashBalance': 2500,
-    },
+    'today':
+        todayJson ??
+        {
+          'salesCount': saleBodies.length,
+          'salesAmount': 0,
+          'cash': 0,
+          'mobileMoney': 0,
+          'bank': 0,
+          'dueOnSales': 0,
+          'cashBalance': 2500,
+        },
   };
 
   @override

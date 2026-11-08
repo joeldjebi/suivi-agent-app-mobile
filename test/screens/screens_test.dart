@@ -1132,14 +1132,61 @@ void main() {
       auth: () => SignedInAuth(fakeMe(features: vanFeatures)),
       repo: repo,
     );
+    // Camion en pleine tournée : un chargement à confirmer, 8 ventes, de l'argent liquide à
+    // remettre, un produit bientôt vide et un épuisé.
+    VanRepo busyVan() => VanRepo()
+      ..stock = {'p-coca': 24, 'p-fanta': 6, 'p-sprite': 0}
+      ..outToday = {'p-coca': 12, 'p-sprite': 24}
+      ..todayJson = {
+        'salesCount': 8,
+        'salesAmount': 125000,
+        'cash': 80000,
+        'mobileMoney': 30000,
+        'bank': 0,
+        'dueOnSales': 15000,
+        'cashBalance': 80000,
+      };
     testWidgets(
       'mon camion',
       (tester) => _capture(
         tester,
-        vanApp(VanRepo()),
+        vanApp(busyVan()),
         '60-agent-mon-camion',
         then: () async {
           await tester.tap(tab('Camion'));
+          await pumpN(tester);
+        },
+      ),
+    );
+    testWidgets(
+      'mon camion : le stock',
+      (tester) => _capture(
+        tester,
+        vanApp(busyVan()..loadPending = false),
+        '60b-agent-camion-stock',
+        then: () async {
+          await tester.tap(tab('Camion'));
+          await pumpN(tester);
+          await tester.tap(find.text('Épuisés aujourd’hui (1)'));
+          await pumpN(tester);
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -400),
+          );
+          await pumpN(tester);
+        },
+      ),
+    );
+    testWidgets(
+      'vendre à un client',
+      (tester) => _capture(
+        tester,
+        vanApp(busyVan()..loadPending = false),
+        '60c-agent-vendre-client',
+        then: () async {
+          await tester.tap(tab('Camion'));
+          await pumpN(tester);
+          await tester.tap(find.text('Vendre à un client'));
           await pumpN(tester);
         },
       ),

@@ -94,61 +94,6 @@ class DayTransfersCard extends ConsumerWidget {
   }
 }
 
-/// Dans « Mon camion » : mes demandes de dépannage (code à montrer), mes parts à remettre,
-/// les demandes de collègues que je peux aider, et la vente d'urgence hors zone.
-class TransfersSection extends ConsumerWidget {
-  const TransfersSection({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final text = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    final x = _myTransfers(ref);
-    final (:requests, :shares, :help, :offline) = x;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionHeader('Dépannages'),
-        if (offline)
-          Text(
-            'Les dépannages demandent du réseau.',
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ..._transferCards(x),
-        if (requests.isEmpty && shares.isEmpty && help.isEmpty && !offline)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Space.sm),
-            child: Text(
-              'Un produit vous manque ? Vos collègues proches qui l’ont sont prévenus et viennent vous le remettre.',
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ),
-        Row(
-          children: [
-            Expanded(
-              child: PillButton(
-                label: 'Demander un dépannage',
-                icon: Icons.handshake_outlined,
-                style: PillStyle.tonal,
-                onPressed: () => context.push('/van/transfer/new'),
-              ),
-            ),
-            const SizedBox(width: Space.sm),
-            Expanded(
-              child: PillButton(
-                label: 'Vente hors zone',
-                icon: Icons.wrong_location_outlined,
-                style: PillStyle.tonal,
-                onPressed: () => context.push('/van/out-of-zone'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _MyRequestCard extends ConsumerWidget {
   const _MyRequestCard({required this.transfer});
 

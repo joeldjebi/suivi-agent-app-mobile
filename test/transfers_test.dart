@@ -25,11 +25,7 @@ Future<void> _settle(WidgetTester tester) async {
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _scrollTo(tester, finder);
   }
   // Au milieu de l'écran : jamais caché par la barre d'onglets.
   await Scrollable.ensureVisible(tester.element(finder.first), alignment: 0.5);
@@ -40,11 +36,7 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 
 Future<void> _see(WidgetTester tester, Finder finder) async {
   if (finder.evaluate().isEmpty) {
-    await tester.scrollUntilVisible(
-      finder,
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await _scrollTo(tester, finder);
     await _settle(tester);
   }
 }
@@ -92,6 +84,28 @@ const _coca = {
     {'name': 'Casier', 'units': 12},
   ],
 };
+
+/// Fait défiler jusqu'à l'élément, vers le bas puis vers le haut (police agrandie : il peut
+/// être au-dessus ou au-dessous de l'écran).
+Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isNotEmpty) return;
+  final list = find.byType(Scrollable).first;
+  try {
+    await tester.scrollUntilVisible(
+      finder,
+      200,
+      scrollable: list,
+      maxScrolls: 30,
+    );
+  } on StateError {
+    await tester.scrollUntilVisible(
+      finder,
+      -200,
+      scrollable: list,
+      maxScrolls: 60,
+    );
+  }
+}
 
 void main() {
   setUpAll(() async {
