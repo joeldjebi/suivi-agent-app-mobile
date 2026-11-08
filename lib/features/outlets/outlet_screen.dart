@@ -296,6 +296,10 @@ class OutletScreen extends ConsumerWidget {
               _Info('Repère', o.landmark),
               for (final f in fields.where((f) => f.type != FieldType.photo))
                 _Info(f.label, _value(f, o.data[f.key])),
+              _Info(
+                'Suivi par',
+                o.agentName ?? 'Sans responsable (agents de la zone)',
+              ),
               _Info('Ajouté par', o.createdBy),
               for (final f in fields.where(
                 (f) => f.type == FieldType.photo && o.data[f.key] is String,

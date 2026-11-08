@@ -263,6 +263,13 @@ final myVanProvider = Provider.autoDispose<AsyncValue<MyVan>>((ref) {
 /// Recharge « Mon camion » depuis le serveur.
 void refreshVan(WidgetRef ref) => ref.invalidate(_myVanServerProvider);
 
+/// Données du camion à relire quand le serveur annonce un changement (chargement validé,
+/// camion affecté, vente, dépannage…).
+void invalidateVanData(Ref ref) {
+  ref.invalidate(_myVanServerProvider);
+  ref.invalidate(_balanceServerProvider);
+}
+
 /// Ce que doit un point de vente et le crédit encore possible.
 class OutletBalance {
   OutletBalance({

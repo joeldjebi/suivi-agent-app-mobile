@@ -164,7 +164,7 @@ class _Route extends ConsumerWidget {
           icon: Icons.check_circle_outline_rounded,
           tone: Tone.success,
           message: missionId == null
-              ? 'Aucun point de vente en retard de visite dans vos zones. Bravo !'
+              ? 'Aucun de vos points de vente n’est en retard de visite. Bravo !'
               : 'Tous les points de vente de cette mission ont été visités.',
         ),
       );

@@ -71,6 +71,7 @@ class Outlet {
     this.data = const {},
     this.zoneName,
     this.createdBy,
+    this.agentName,
     this.distance,
     this.lastVisitAt,
     this.daysSinceVisit,
@@ -119,6 +120,9 @@ class Outlet {
   final String? zoneName;
   final String? createdBy;
 
+  /// Agent responsable (commercial attitré) ; null : les agents de la zone.
+  final String? agentName;
+
   /// Distance en mètres (liste autour de l'agent).
   final int? distance;
 
@@ -141,6 +145,7 @@ class Outlet {
       data: (j['data'] as Map?)?.cast<String, dynamic>() ?? const {},
       zoneName: (j['zone'] as Map?)?['name'] as String?,
       createdBy: (j['createdBy'] as Map?)?['name'] as String?,
+      agentName: (j['agent'] as Map?)?['name'] as String?,
       distance: (j['distance'] as num?)?.round(),
       lastVisitAt: j['lastVisitAt'] == null
           ? null

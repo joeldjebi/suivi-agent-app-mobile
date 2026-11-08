@@ -23,6 +23,7 @@ import 'zone_map.dart';
 import 'zone_picker.dart';
 import '../profile/my_team.dart';
 import '../missions/rejected_submissions.dart';
+import '../van_sales/transfer_screens.dart' show DayTransfersCard;
 
 /// Durée de référence d'une journée, pour la barre de progression.
 
@@ -227,6 +228,8 @@ class _DayContent extends ConsumerWidget {
           zoneName: zone,
           target: Duration(minutes: me.workdayMinutes),
         ),
+        // Vente en camionnette : un collègue proche en rupture, ma demande, ma part à remettre.
+        if (me.isAgent && me.hasVanSales) const DayTransfersCard(),
         if (state.isWorking) const ZoneCard(),
         if (state.isWorking) const _LiveRows(),
         if (state.pending != null ||

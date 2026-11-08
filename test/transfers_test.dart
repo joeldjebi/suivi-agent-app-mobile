@@ -5,6 +5,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:suivi_agent/design/components.dart';
 import 'package:suivi_agent/features/van_sales/transfers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suivi_agent/features/shell/live_updates.dart';
 import 'package:suivi_agent/features/van_sales/van_sales.dart';
 
 import 'fakes.dart';
@@ -250,6 +252,51 @@ void main() {
     expect(find.textContaining('Remis à Aminata Diallo'), findsOneWidget);
     await _close(tester);
   });
+
+  testWidgets(
+    'page Journée : la demande d’un collègue proche apparaît en direct',
+    (tester) async {
+      _phone(tester);
+      final repo = VanRepo()..loadPending = false;
+      await tester.pumpWidget(_app(repo));
+      await _settle(tester);
+      expect(find.text('DÉPANNAGES EN COURS'), findsNothing);
+
+      // Un collègue demande un dépannage : le serveur l'annonce, la journée se relit seule.
+      repo.nearbyJson = [
+        transferJson(
+          id: 't-awa',
+          requesterId: 'u-awa',
+          requesterName: 'Aminata Diallo',
+          distanceM: 300,
+          myStock: {'p-coca': 24},
+          lines: [
+            {
+              'productId': 'p-coca',
+              'name': 'Coca-Cola 33 cl',
+              'requested': 30,
+              'reserved': 0,
+              'given': 0,
+              'remaining': 30,
+            },
+          ],
+        ),
+      ];
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppNavBar)),
+      );
+      container
+          .read(liveUpdatesProvider)
+          .refresh(areasForNotification('transfer.requested'));
+      await _settle(tester);
+      await _see(tester, find.text('DÉPANNAGES EN COURS'));
+      await _see(tester, find.textContaining('Aminata Diallo (à 300 m)'));
+      expect(find.textContaining('vous en avez 24'), findsOneWidget);
+      await _tap(tester, find.text('Prendre une part'));
+      expect(find.text('Prendre cette part'), findsOneWidget);
+      await _close(tester);
+    },
+  );
 
   testWidgets(
     'vente hors zone : client trouvé, motif obligatoire, vente marquée',

@@ -20,6 +20,80 @@ import 'van_sales.dart';
 
 // ------------------------------------------------------------ « Mon camion »
 
+/// Dépannages qui me concernent : mes demandes en cours, mes parts à remettre, et les
+/// demandes de collègues proches que je peux aider.
+({
+  List<Transfer> requests,
+  List<({Transfer t, TransferLeg leg})> shares,
+  List<Transfer> help,
+  bool offline,
+})
+_myTransfers(WidgetRef ref) {
+  final me = ref.watch(meProvider).id;
+  final mine = ref.watch(myTransfersProvider);
+  final list = mine.value ?? const <Transfer>[];
+  return (
+    requests: [
+      for (final t in list)
+        if (t.requesterId == me && t.isOpen) t,
+    ],
+    shares: [
+      for (final t in list)
+        for (final l in t.legs)
+          if (l.giverId == me && l.isActive) (t: t, leg: l),
+    ],
+    help: ref.watch(nearbyTransfersProvider).value ?? const <Transfer>[],
+    offline: mine.hasError && mine.value == null,
+  );
+}
+
+List<Widget> _transferCards(
+  ({
+    List<Transfer> requests,
+    List<({Transfer t, TransferLeg leg})> shares,
+    List<Transfer> help,
+    bool offline,
+  })
+  x,
+) => [
+  for (final t in x.requests) ...[
+    _MyRequestCard(transfer: t),
+    const SizedBox(height: Space.sm),
+  ],
+  for (final s in x.shares) ...[
+    _MyShareCard(transfer: s.t, leg: s.leg),
+    const SizedBox(height: Space.sm),
+  ],
+  for (final t in x.help) ...[
+    _HelpCard(transfer: t),
+    const SizedBox(height: Space.sm),
+  ],
+];
+
+/// Page Journée : les dépannages en cours (demande d'un collègue proche, ma demande, ma part
+/// à remettre), mis à jour en direct. Rien quand il n'y en a pas.
+class DayTransfersCard extends ConsumerWidget {
+  const DayTransfersCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final x = _myTransfers(ref);
+    if (x.requests.isEmpty && x.shares.isEmpty && x.help.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionHeader('Dépannages en cours'),
+          ..._transferCards(x),
+        ],
+      ),
+    );
+  }
+}
+
 /// Dans « Mon camion » : mes demandes de dépannage (code à montrer), mes parts à remettre,
 /// les demandes de collègues que je peux aider, et la vente d'urgence hors zone.
 class TransfersSection extends ConsumerWidget {
@@ -29,18 +103,8 @@ class TransfersSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final me = ref.watch(meProvider).id;
-    final mine = ref.watch(myTransfersProvider);
-    final nearby = ref.watch(nearbyTransfersProvider);
-    final list = mine.value ?? const <Transfer>[];
-    final requests = list.where((t) => t.requesterId == me && t.isOpen);
-    final shares = [
-      for (final t in list)
-        for (final l in t.legs)
-          if (l.giverId == me && l.isActive) (t: t, leg: l),
-    ];
-    final help = nearby.value ?? const <Transfer>[];
-    final offline = mine.hasError && mine.value == null;
+    final x = _myTransfers(ref);
+    final (:requests, :shares, :help, :offline) = x;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -50,18 +114,7 @@ class TransfersSection extends ConsumerWidget {
             'Les dépannages demandent du réseau.',
             style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-        for (final t in requests) ...[
-          _MyRequestCard(transfer: t),
-          const SizedBox(height: Space.sm),
-        ],
-        for (final s in shares) ...[
-          _MyShareCard(transfer: s.t, leg: s.leg),
-          const SizedBox(height: Space.sm),
-        ],
-        for (final t in help) ...[
-          _HelpCard(transfer: t),
-          const SizedBox(height: Space.sm),
-        ],
+        ..._transferCards(x),
         if (requests.isEmpty && shares.isEmpty && help.isEmpty && !offline)
           Padding(
             padding: const EdgeInsets.only(bottom: Space.sm),
