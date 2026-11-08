@@ -352,6 +352,59 @@ class Repository {
   Future<Map<String, dynamic>> outletBalance(String outletId) =>
       api.get<Map<String, dynamic>>('/van-sales/outlets/$outletId/balance');
 
+  // Dépannage entre camions (réseau nécessaire).
+
+  /// Mes demandes et mes parts en cours (ou des 30 derniers jours).
+  Future<List<dynamic>> transfers({String state = 'open'}) =>
+      api.get<List<dynamic>>('/van-sales/transfers', query: {'state': state});
+
+  /// Demandes de collègues que je peux aider, les plus proches d'abord.
+  Future<List<dynamic>> nearbyTransfers() =>
+      api.get<List<dynamic>>('/van-sales/transfers/nearby');
+
+  Future<Map<String, dynamic>> transfer(String id) =>
+      api.get<Map<String, dynamic>>('/van-sales/transfers/$id');
+
+  /// Demande de dépannage ; idempotente sur clientId.
+  Future<Map<String, dynamic>> createTransfer(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/van-sales/transfers', body);
+
+  /// Je prends une part de la demande.
+  Future<Map<String, dynamic>> acceptTransfer(
+    String id,
+    List<Map<String, dynamic>> lines,
+  ) => api.post<Map<String, dynamic>>('/van-sales/transfers/$id/accept', {
+    'lines': lines,
+  });
+
+  /// Le demandeur clôt sa demande.
+  Future<Map<String, dynamic>> closeTransfer(String id) =>
+      api.post<Map<String, dynamic>>('/van-sales/transfers/$id/close');
+
+  /// J'abandonne ma part.
+  Future<Map<String, dynamic>> releaseTransferLeg(String legId) =>
+      api.post<Map<String, dynamic>>(
+        '/van-sales/transfers/legs/$legId/release',
+        {},
+      );
+
+  /// Remise sur place (code scanné) ; idempotente sur clientId.
+  Future<Map<String, dynamic>> handoverTransfer(Map<String, dynamic> body) =>
+      api.post<Map<String, dynamic>>('/van-sales/transfers/handover', body);
+
+  // Vente d'urgence hors zone.
+
+  /// Clients de toute la structure, par nom ou les plus proches d'une position.
+  Future<List<dynamic>> searchOutlets({String? q, double? lat, double? lng}) =>
+      api.get<List<dynamic>>(
+        '/van-sales/outlets/search',
+        query: {'q': ?q, 'lat': ?lat, 'lng': ?lng},
+      );
+
+  /// Client hors zone choisi : ses informations, ses prix et son crédit.
+  Future<Map<String, dynamic>> outOfZoneContext(String outletId) =>
+      api.get<Map<String, dynamic>>('/van-sales/outlets/$outletId/out-of-zone');
+
   /// Casse ou perte dans le camion ; idempotente sur clientId.
   Future<Map<String, dynamic>> createLoss(Map<String, dynamic> body) =>
       api.post<Map<String, dynamic>>('/stock/losses', body);

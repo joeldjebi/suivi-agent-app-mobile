@@ -12,6 +12,7 @@ import '../../widgets/brand_header.dart';
 import '../../widgets/common.dart';
 import '../missions/product_readings_input.dart'
     show UnitQuantityField, formatQuantity;
+import 'transfer_screens.dart';
 import 'van_sales.dart';
 
 /// « Mon camion » : le stock du camion (ventes faites sans réseau déjà déduites), les
@@ -189,6 +190,8 @@ class VanScreen extends ConsumerWidget {
           ),
         ],
       ),
+      const SizedBox(height: Space.lg),
+      const TransfersSection(),
     ];
   }
 }

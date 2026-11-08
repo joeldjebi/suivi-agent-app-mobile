@@ -123,7 +123,155 @@ class VanRepo extends OrdersRepo {
 
   @override
   Future<List<int>> receiptPdf(String orderId) async => [37, 80, 68, 70];
+
+  // Dépannage entre camions.
+  List<Map<String, dynamic>> myTransfersJson = [];
+  List<Map<String, dynamic>> nearbyJson = [];
+  final transferBodies = <Map<String, dynamic>>[];
+  final acceptBodies = <(String, List<Map<String, dynamic>>)>[];
+  final handoverBodies = <Map<String, dynamic>>[];
+  final closed = <String>[];
+
+  @override
+  Future<List<dynamic>> transfers({String state = 'open'}) async =>
+      myTransfersJson;
+
+  @override
+  Future<List<dynamic>> nearbyTransfers() async => nearbyJson;
+
+  @override
+  Future<Map<String, dynamic>> createTransfer(Map<String, dynamic> body) async {
+    transferBodies.add(body);
+    final t = transferJson(
+      id: 't-mine',
+      requesterId: 'u1',
+      requesterName: 'Koffi Brou',
+      token: 'CODE-KOFFI',
+      lines: [
+        for (final l in body['lines'] as List)
+          {
+            'productId': (l as Map)['productId'],
+            'name': l['productId'] == 'p-coca'
+                ? 'Coca-Cola 33 cl'
+                : 'Fanta 33 cl',
+            'requested': l['quantity'],
+            'reserved': 0,
+            'given': 0,
+            'remaining': l['quantity'],
+          },
+      ],
+    );
+    myTransfersJson = [t];
+    return t;
+  }
+
+  @override
+  Future<Map<String, dynamic>> acceptTransfer(
+    String id,
+    List<Map<String, dynamic>> lines,
+  ) async {
+    acceptBodies.add((id, lines));
+    final t = nearbyJson.firstWhere((x) => x['id'] == id);
+    nearbyJson = [];
+    final accepted = {
+      ...t,
+      'legs': [
+        {
+          'id': 'leg-1',
+          'giverId': 'u1',
+          'giverName': 'Koffi Brou',
+          'status': 'accepted',
+          'statusLabel': 'Réservée',
+          'crossTeam': false,
+          'expiresAt': '2026-11-07T15:30:00.000Z',
+          'lines': [
+            for (final l in lines)
+              {
+                'productId': l['productId'],
+                'name': 'Coca-Cola 33 cl',
+                'quantity': l['quantity'],
+              },
+          ],
+        },
+      ],
+    };
+    myTransfersJson = [accepted];
+    return accepted;
+  }
+
+  ApiException? handoverError;
+
+  @override
+  Future<Map<String, dynamic>> handoverTransfer(
+    Map<String, dynamic> body,
+  ) async {
+    if (handoverError != null) throw handoverError!;
+    handoverBodies.add(body);
+    myTransfersJson = [];
+    return {};
+  }
+
+  @override
+  Future<Map<String, dynamic>> closeTransfer(String id) async {
+    closed.add(id);
+    myTransfersJson = [];
+    return {};
+  }
+
+  // Vente hors zone.
+  @override
+  Future<List<dynamic>> searchOutlets({
+    String? q,
+    double? lat,
+    double? lng,
+  }) async => [
+    {
+      'id': 'o-maquis',
+      'name': 'Maquis Cocody',
+      'zoneName': 'Cocody',
+      'distance': lat == null ? null : 850,
+      'inScope': false,
+    },
+  ];
+
+  @override
+  Future<Map<String, dynamic>> outOfZoneContext(String outletId) async => {
+    'outlet': {'id': outletId, 'name': 'Maquis Cocody', 'zoneName': 'Cocody'},
+    'catalog': await orderCatalog(outletId),
+    'balance': {
+      'creditLimit': null,
+      'outstanding': 0,
+      'advance': 0,
+      'available': 0,
+    },
+  };
 }
+
+/// Demande de dépannage telle que l'API la renvoie.
+Map<String, dynamic> transferJson({
+  required String id,
+  required String requesterId,
+  required String requesterName,
+  required List<Map<String, dynamic>> lines,
+  String? token,
+  List<Map<String, dynamic>> legs = const [],
+  Map<String, num> myStock = const {},
+  int? distanceM,
+}) => {
+  'id': id,
+  'status': 'open',
+  'statusLabel': 'En recherche',
+  'requesterId': requesterId,
+  'requesterName': requesterName,
+  'requesterVanId': 'v-x',
+  'note': null,
+  'createdAt': '2026-11-07T14:00:00.000Z',
+  'lines': lines,
+  'legs': legs,
+  'token': token,
+  'myStock': myStock,
+  'distanceM': distanceM,
+};
 
 class FakeSharer implements FileSharer {
   final shared = <(String, int)>[];

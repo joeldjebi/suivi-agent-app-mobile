@@ -370,8 +370,15 @@ Future<(SubmitOutcome, OrderItem?)> sendSale(
   required num total,
   required num paidAmount,
   PaymentMethod? method,
+
+  /// Vente d'urgence chez un client hors de la zone de l'agent : motif obligatoire.
+  String? outOfZoneReason,
 }) async {
-  final position = await ref.read(trackerProvider).lastKnown();
+  // Hors zone : le serveur vérifie que l'agent est sur place, il faut une position fraîche.
+  final tracker = ref.read(trackerProvider);
+  final position = outOfZoneReason != null
+      ? await tracker.freshPosition()
+      : await tracker.lastKnown();
   final (outcome, json) = await _queue(
     ref,
     kind: 'sale',
@@ -388,6 +395,10 @@ Future<(SubmitOutcome, OrderItem?)> sendSale(
       'total': total,
       'lat': ?position?.latitude,
       'lng': ?position?.longitude,
+      if (outOfZoneReason != null) ...{
+        'outOfZoneReason': outOfZoneReason,
+        'accuracy': ?position?.accuracy,
+      },
       'soldAt': DateTime.now().toUtc().toIso8601String(),
     },
   );

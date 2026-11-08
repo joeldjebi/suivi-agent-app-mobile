@@ -48,6 +48,8 @@ import 'features/team/team_map_screen.dart';
 import 'features/team/team_screen.dart';
 import 'features/van_sales/sale_editor_screen.dart';
 import 'features/van_sales/van_screen.dart';
+import 'features/van_sales/transfer_screens.dart';
+import 'features/van_sales/transfers.dart';
 import 'widgets/tablet_frame.dart';
 
 /// Rafraîchit le routeur quand la session change.
@@ -187,6 +189,32 @@ final _vanRoute = GoRoute(
       path: 'unload',
       builder: (_, _) =>
           const VanDeclarationScreen(kind: VanDeclaration.unload),
+    ),
+    // Dépannage entre camions.
+    GoRoute(
+      path: 'transfer/new',
+      builder: (_, _) => const TransferRequestScreen(),
+    ),
+    GoRoute(
+      path: 'transfer/:id/take',
+      builder: (_, s) => TransferTakeScreen(transfer: s.extra! as Transfer),
+    ),
+    GoRoute(
+      path: 'transfer/:id/handover',
+      builder: (_, s) {
+        final x = s.extra! as ({Transfer transfer, TransferLeg leg});
+        return TransferHandoverScreen(transfer: x.transfer, leg: x.leg);
+      },
+    ),
+    // Vente d'urgence hors zone.
+    GoRoute(
+      path: 'out-of-zone',
+      builder: (_, _) => const OutOfZoneSearchScreen(),
+    ),
+    GoRoute(
+      path: 'out-of-zone/:id',
+      builder: (_, s) =>
+          SaleEditorScreen(outletId: s.pathParameters['id']!, outOfZone: true),
     ),
   ],
 );

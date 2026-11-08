@@ -13,15 +13,23 @@ import '../missions/product_readings_input.dart'
     show UnitQuantityField, formatQuantity;
 import '../orders/orders.dart';
 import '../outlets/outlets_controller.dart';
+import 'transfers.dart';
 import 'van_sales.dart';
 
 /// Vente directe depuis le camion : les produits aux prix du client, dans la limite du stock
 /// du camion ; payée sur place en tout ou partie, le reste à crédit si le client y a droit
 /// (dans la limite de son plafond). Fonctionne sans réseau.
 class SaleEditorScreen extends ConsumerStatefulWidget {
-  const SaleEditorScreen({super.key, required this.outletId});
+  const SaleEditorScreen({
+    super.key,
+    required this.outletId,
+    this.outOfZone = false,
+  });
 
   final String outletId;
+
+  /// Client hors de la zone de l'agent (vente d'urgence) : motif obligatoire, vendu sur place.
+  final bool outOfZone;
 
   @override
   ConsumerState<SaleEditorScreen> createState() => _SaleEditorScreenState();
@@ -31,6 +39,7 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
   final _quantities = <String, num>{};
   final _paid = TextEditingController();
   final _search = TextEditingController();
+  final _reason = TextEditingController();
   PaymentMethod _method = PaymentMethod.cash;
 
   /// L'agent a modifié le montant payé : il ne suit plus le total.
@@ -42,6 +51,7 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
   void dispose() {
     _paid.dispose();
     _search.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
@@ -99,6 +109,10 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
       setState(() => _error = 'Saisissez la quantité d’au moins un produit.');
       return;
     }
+    if (widget.outOfZone && _reason.text.trim().length < 3) {
+      setState(() => _error = 'Indiquez le motif de cette vente hors zone.');
+      return;
+    }
     final problem = _problem(catalog, van, balance);
     if (problem != null) {
       setState(() => _error = problem);
@@ -133,6 +147,7 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
         total: total,
         paidAmount: paid,
         method: paid > 0 ? _method : null,
+        outOfZoneReason: widget.outOfZone ? _reason.text.trim() : null,
       );
       if (!mounted) return;
       if (outcome == SubmitOutcome.queued || order == null) {
@@ -157,10 +172,20 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final catalog = ref.watch(orderCatalogProvider(widget.outletId));
+    // Hors zone : client, prix et crédit chargés d'un bloc (client hors du secteur).
+    final context0 = widget.outOfZone
+        ? ref.watch(outOfZoneContextProvider(widget.outletId))
+        : null;
+    final AsyncValue<OrderCatalog> catalog = context0 != null
+        ? context0.whenData((c) => c.catalog)
+        : ref.watch(orderCatalogProvider(widget.outletId));
     final vanState = ref.watch(myVanProvider);
-    final balance = ref.watch(outletBalanceProvider(widget.outletId)).value;
-    final outlet = ref.watch(outletProvider(widget.outletId)).value?.outlet;
+    final balance = widget.outOfZone
+        ? context0?.value?.balance
+        : ref.watch(outletBalanceProvider(widget.outletId)).value;
+    final outletName = widget.outOfZone
+        ? context0?.value?.name
+        : ref.watch(outletProvider(widget.outletId)).value?.outlet.name;
     final c = catalog.value;
     final van = vanState.value;
     final error = catalog.error ?? vanState.error;
@@ -178,7 +203,7 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
     final problem = c == null || van == null ? null : _problem(c, van, balance);
 
     return Scaffold(
-      appBar: AppBar(title: Text(outlet?.name ?? 'Vente')),
+      appBar: AppBar(title: Text(outletName ?? 'Vente')),
       body: switch ((c, van)) {
         _ when error != null && (c == null || van == null) => Padding(
           padding: const EdgeInsets.all(Space.page),
@@ -223,6 +248,26 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
                 message: _error!,
               ),
               const SizedBox(height: Space.md),
+            ],
+            if (widget.outOfZone) ...[
+              InfoBanner(
+                icon: Icons.wrong_location_outlined,
+                tone: Tone.warning,
+                message:
+                    'Client hors de votre secteur${context0?.value?.zoneName == null ? '' : ' (zone ${context0!.value!.zoneName})'} : vente possible seulement sur place, avec un motif. Vos chefs sont prévenus.',
+              ),
+              const SizedBox(height: Space.sm),
+              TextField(
+                controller: _reason,
+                maxLength: 300,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Motif de la vente hors zone *',
+                  hintText: 'Ex. : rupture urgente, son commercial est absent',
+                ),
+                onChanged: (_) => setState(() => _error = null),
+              ),
+              const SizedBox(height: Space.sm),
             ],
             Text(
               'Tarif ${cat.priceList} · ${v.van!.name}. Saisissez les quantités vendues.',
@@ -317,7 +362,7 @@ class _SaleEditorScreenState extends ConsumerState<SaleEditorScreen> {
                           c,
                           van!,
                           balance,
-                          outlet?.name ?? 'ce point de vente',
+                          outletName ?? 'ce point de vente',
                         ),
                 ),
               ),
