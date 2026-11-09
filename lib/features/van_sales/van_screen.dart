@@ -121,6 +121,22 @@ class VanScreen extends ConsumerWidget {
       ),
       const SizedBox(height: Space.sm),
       _DayCard(day: v.today),
+      const SizedBox(height: Space.sm),
+      // Tout ce qui s'est passé avant aujourd'hui : ventes, chargements, dépannages…
+      SurfaceCard(
+        padding: EdgeInsets.zero,
+        child: ListRow(
+          leading: IconSquircle(
+            icon: Icons.history_rounded,
+            color: Theme.of(context).colorScheme.primary,
+            size: 28,
+            solid: true,
+          ),
+          title: 'Historique',
+          subtitle: 'Ventes, approvisionnements, dépannages, casse, retours',
+          onTap: () => context.push('/van/history'),
+        ),
+      ),
       const SizedBox(height: Space.lg),
       _StockSection(stock: v.stock),
       const SizedBox(height: Space.lg),

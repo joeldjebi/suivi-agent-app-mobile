@@ -133,6 +133,200 @@ class VanRepo extends OrdersRepo {
   @override
   Future<List<int>> receiptPdf(String orderId) async => [37, 80, 68, 70];
 
+  // Historique du camion : deux ventes (une à crédit), un chargement reçu avec un écart et
+  // un à confirmer, ma demande de dépannage et ma part chez un collègue, une casse, un
+  // retour en attente. Les filtres « à crédit » et « reçus » sont appliqués.
+  final historyQueries = <Map<String, dynamic>>[];
+
+  @override
+  Future<Map<String, dynamic>> vanHistory(Map<String, dynamic> query) async {
+    historyQueries.add(query);
+    Map<String, dynamic> product(String id, num quantity) => {
+      ..._line(id, quantity),
+      'name': id == 'p-coca' ? 'Coca-Cola 33 cl' : 'Fanta 33 cl',
+    };
+    switch (query['type']) {
+      case 'sales':
+        final credit = query['payment'] == 'credit';
+        final sales = [
+          if (!credit)
+            _sale('s1', 'Boutique Awa', 3600, 3600, '2026-11-09T09:15:00Z'),
+          _sale('s2', 'Chez Koffi', 1500, 500, '2026-11-08T16:40:00Z'),
+        ];
+        return {
+          'items': sales,
+          'total': sales.length,
+          'summary': {
+            'count': sales.length,
+            'amount': credit ? 1500 : 5100,
+            'paid': credit ? 500 : 4100,
+            'credit': 1000,
+            'cancelled': 0,
+            'currency': 'XOF',
+          },
+        };
+      case 'loads':
+        return {
+          'items': [
+            _movement('m-l2', 'load', 'pending', [
+              {...product('p-fanta', 12), 'received': null},
+            ], at: '2026-11-09T07:00:00Z'),
+            _movement('m-l1', 'load', 'done', [
+              {...product('p-coca', 48), 'received': 46},
+              {...product('p-fanta', 24), 'received': 24},
+            ], at: '2026-11-08T07:30:00Z'),
+          ],
+          'total': 2,
+          'summary': {
+            'count': 2,
+            'products': [product('p-coca', 46), product('p-fanta', 36)],
+          },
+        };
+      case 'transfers':
+        final mine = transferJson(
+          id: 't-mine',
+          requesterId: 'u1',
+          requesterName: 'Koffi Brou',
+          lines: [
+            {
+              'productId': 'p-coca',
+              'name': 'Coca-Cola 33 cl',
+              'requested': 6,
+              'reserved': 0,
+              'given': 4,
+              'remaining': 2,
+            },
+          ],
+          legs: [
+            {
+              'id': 'leg-1',
+              'giverId': 'u2',
+              'giverName': 'Awa Koné',
+              'status': 'done',
+              'statusLabel': 'Remise',
+              'lines': [
+                {
+                  'productId': 'p-coca',
+                  'name': 'Coca-Cola 33 cl',
+                  'quantity': 4,
+                },
+              ],
+            },
+          ],
+        )..['direction'] = 'received';
+        final theirs = transferJson(
+          id: 't-theirs',
+          requesterId: 'u3',
+          requesterName: 'Yao Kouassi',
+          lines: [
+            {
+              'productId': 'p-fanta',
+              'name': 'Fanta 33 cl',
+              'requested': 3,
+              'reserved': 0,
+              'given': 3,
+              'remaining': 0,
+            },
+          ],
+          legs: [
+            {
+              'id': 'leg-2',
+              'giverId': 'u1',
+              'giverName': 'Koffi Brou',
+              'status': 'done',
+              'statusLabel': 'Remise',
+              'lines': [
+                {'productId': 'p-fanta', 'name': 'Fanta 33 cl', 'quantity': 3},
+              ],
+            },
+          ],
+        );
+        theirs
+          ..['status'] = 'done'
+          ..['statusLabel'] = 'Terminé'
+          ..['direction'] = 'given';
+        final received = query['direction'] == 'received';
+        return {
+          'items': [if (!received) theirs, mine],
+          'total': received ? 1 : 2,
+          'summary': {
+            'requested': 1,
+            'helped': received ? 0 : 1,
+            'products': [
+              {...product('p-coca', 0), 'received': 4, 'given': 0},
+              if (!received)
+                {...product('p-fanta', 0), 'received': 0, 'given': 3},
+            ],
+          },
+        };
+      case 'losses':
+        return {
+          'items': [
+            _movement('m-loss', 'loss', 'done', [
+              product('p-fanta', 2),
+            ], note: 'Casier tombé'),
+          ],
+          'total': 1,
+          'summary': {
+            'count': 1,
+            'products': [product('p-fanta', 2)],
+          },
+        };
+      default:
+        return {
+          'items': [
+            _movement('m-unload', 'unload', 'pending', [product('p-coca', 10)]),
+          ],
+          'total': 1,
+          'summary': {
+            'count': 1,
+            'products': [product('p-coca', 10)],
+          },
+        };
+    }
+  }
+
+  Map<String, dynamic> _sale(
+    String id,
+    String outlet,
+    num total,
+    num paid,
+    String at,
+  ) => {
+    'id': id,
+    'reference': 'CMD-00${id.substring(1)}',
+    'kind': 'sale',
+    'outletId': 'o-$id',
+    'outletName': outlet,
+    'agentId': 'u1',
+    'agentName': 'Koffi Brou',
+    'status': paid < total ? 'delivered' : 'paid',
+    'total': total,
+    'paidAmount': paid,
+    'due': total - paid,
+    'currency': 'XOF',
+    'takenAt': at,
+    'lines': 1,
+  };
+
+  Map<String, dynamic> _movement(
+    String id,
+    String kind,
+    String status,
+    List<Map<String, dynamic>> lines, {
+    String at = '2026-11-08T11:00:00Z',
+    String? note,
+  }) => {
+    'id': id,
+    'kind': kind,
+    'status': status,
+    'occurredAt': at,
+    'fromName': kind == 'load' ? 'Dépôt Yopougon' : 'Camion 1',
+    'toName': kind == 'load' ? 'Camion 1' : 'Dépôt Yopougon',
+    'note': note,
+    'lines': lines,
+  };
+
   // Dépannage entre camions.
   List<Map<String, dynamic>> myTransfersJson = [];
   List<Map<String, dynamic>> nearbyJson = [];

@@ -1050,7 +1050,7 @@ class _FilterBar extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (agents.isNotEmpty) ...[
-              _FilterChip(
+              FilterPill(
                 icon: Icons.person_outline_rounded,
                 label: filter.agentName ?? 'Tous les agents',
                 active: filter.agentId != null,
@@ -1076,7 +1076,7 @@ class _FilterBar extends ConsumerWidget {
               ),
               const SizedBox(width: Space.sm),
             ],
-            _FilterChip(
+            FilterPill(
               icon: Icons.calendar_today_rounded,
               label: filter.period.label,
               active: filter.period != SubmissionPeriod.all,
@@ -1095,7 +1095,7 @@ class _FilterBar extends ConsumerWidget {
               },
             ),
             const SizedBox(width: Space.sm),
-            _FilterChip(
+            FilterPill(
               icon: Icons.task_alt_rounded,
               label: switch (filter.rejected) {
                 null => 'Tous les statuts',
@@ -1127,60 +1127,6 @@ class _FilterBar extends ConsumerWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Pastille de filtre : grise au repos, à la couleur de la structure si active.
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = active ? scheme.primary : scheme.onSurface;
-    return Semantics(
-      button: true,
-      label: 'Filtre : $label',
-      excludeSemantics: true,
-      child: Material(
-        color: active
-            ? scheme.primary.withValues(alpha: 0.12)
-            : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(Radii.pill),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.pill),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 15, color: color),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: color),
-                ),
-                const SizedBox(width: 2),
-                Icon(Icons.expand_more_rounded, size: 16, color: color),
-              ],
-            ),
-          ),
         ),
       ),
     );

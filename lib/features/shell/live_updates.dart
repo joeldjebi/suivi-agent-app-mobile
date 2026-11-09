@@ -29,6 +29,7 @@ import '../outlets/route_screen.dart' show outletRouteProvider;
 import '../outlets/suggestions.dart';
 import '../outlets/visit_forms.dart';
 import '../van_sales/transfers.dart';
+import '../van_sales/van_history.dart' show vanHistoryProvider;
 import '../van_sales/van_sales.dart';
 
 /// Écrans à relire, regroupés.
@@ -277,6 +278,7 @@ class LiveUpdates {
           ref.invalidate(nearbyTransfersProvider);
           ref.invalidate(ownProductsProvider);
           ref.invalidate(outOfZoneContextProvider);
+          ref.invalidate(vanHistoryProvider);
         case LiveArea.outlets:
           ref.invalidate(outletsProvider);
           ref.invalidate(outletProvider);

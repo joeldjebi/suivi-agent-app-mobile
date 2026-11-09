@@ -1167,11 +1167,16 @@ void main() {
         then: () async {
           await tester.tap(tab('Camion'));
           await pumpN(tester);
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -300),
+          );
+          await pumpN(tester);
           await tester.tap(find.text('Épuisés aujourd’hui (1)'));
           await pumpN(tester);
           await tester.drag(
             find.byType(Scrollable).first,
-            const Offset(0, -400),
+            const Offset(0, -200),
           );
           await pumpN(tester);
         },
@@ -1188,6 +1193,45 @@ void main() {
           await pumpN(tester);
           await tester.tap(find.text('Vendre à un client'));
           await pumpN(tester);
+        },
+      ),
+    );
+    testWidgets(
+      'historique du camion : les ventes',
+      (tester) => _capture(
+        tester,
+        vanApp(busyVan()..loadPending = false),
+        '60d-agent-historique-ventes',
+        then: () async {
+          await tester.tap(tab('Camion'));
+          await pumpN(tester);
+          await tester.ensureVisible(find.text('Historique'));
+          await pumpN(tester);
+          await tester.tap(find.text('Historique'));
+          await pumpN(tester, 12);
+        },
+      ),
+    );
+    testWidgets(
+      'historique du camion : les dépannages',
+      (tester) => _capture(
+        tester,
+        vanApp(busyVan()..loadPending = false),
+        '60e-agent-historique-depannages',
+        then: () async {
+          await tester.tap(tab('Camion'));
+          await pumpN(tester);
+          await tester.ensureVisible(find.text('Historique'));
+          await pumpN(tester);
+          await tester.tap(find.text('Historique'));
+          await pumpN(tester, 12);
+          await tester.tap(
+            find.descendant(
+              of: find.byType(TabBar),
+              matching: find.text('Dépannages'),
+            ),
+          );
+          await pumpN(tester, 12);
         },
       ),
     );

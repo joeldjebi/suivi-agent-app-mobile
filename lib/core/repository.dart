@@ -339,6 +339,11 @@ class Repository {
   Future<Map<String, dynamic>> myVan() =>
       api.get<Map<String, dynamic>>('/van-sales/me');
 
+  /// Historique du camion, un onglet à la fois (sales, loads, transfers, losses, unloads) :
+  /// liste paginée et totaux de la période.
+  Future<Map<String, dynamic>> vanHistory(Map<String, dynamic> query) =>
+      api.get<Map<String, dynamic>>('/van-sales/history', query: query);
+
   /// Vente directe depuis le camion (prix, stock et crédit vérifiés par le serveur) ;
   /// idempotente sur clientId.
   Future<Map<String, dynamic>> createSale(Map<String, dynamic> body) =>

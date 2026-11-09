@@ -280,6 +280,80 @@ Future<bool> confirmSheet(
   return result ?? false;
 }
 
+/// Pastille de filtre : grise au repos, à la couleur de la structure si active ; un toucher
+/// ouvre le choix. Sa hauteur vient du parent (rangée de hauteur fixe) ou de [minHeight].
+class FilterPill extends StatelessWidget {
+  const FilterPill({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.minHeight = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = active ? scheme.primary : scheme.onSurface;
+    return Semantics(
+      button: true,
+      label: 'Filtre : $label',
+      excludeSemantics: true,
+      child: Material(
+        color: active
+            ? scheme.primary.withValues(alpha: 0.12)
+            : scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(Radii.pill),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Radii.pill),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: minHeight > 0 ? 6 : 0,
+              ),
+              // Largeur bornée (rangée qui va à la ligne) : le libellé passe à la ligne
+              // si la place manque ; dans une rangée défilante, il garde sa largeur.
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final label = Text(
+                    this.label,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: color),
+                  );
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 15, color: color),
+                      const SizedBox(width: 6),
+                      if (box.hasBoundedWidth)
+                        Flexible(child: label)
+                      else
+                        label,
+                      const SizedBox(width: 2),
+                      Icon(Icons.expand_more_rounded, size: 16, color: color),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Choix dans une liste (feuille du bas, coche sur l'option active).
 /// Renvoie null si on ferme sans choisir ; sinon la valeur (qui peut être null).
 Future<({T value})?> pickOption<T>(
