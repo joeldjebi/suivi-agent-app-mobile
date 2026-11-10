@@ -42,6 +42,7 @@ import 'features/profile/account_screens.dart';
 import 'features/profile/notifications_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'features/shell/pending_screen.dart';
 import 'features/shell/suspended_screen.dart';
 import 'features/team/requests_screen.dart';
 import 'features/team/team_map_screen.dart';
@@ -364,6 +365,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   final van = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.hasVanSales),
   );
+  final pendingApproval = ref.watch(
+    authProvider.select((a) => a is SignedIn && a.me.pendingApproval),
+  );
   final suspended = ref.watch(
     authProvider.select((a) => a is SignedIn && a.me.suspended),
   );
@@ -390,12 +394,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       return switch (auth) {
         AuthLoading() => state.matchedLocation == '/splash' ? null : '/splash',
         SignedOut() => atLogin || at == '/welcome' ? null : '/login',
+        SignedIn() when pendingApproval =>
+          state.matchedLocation == '/pending' ? null : '/pending',
         SignedIn() when suspended =>
           state.matchedLocation == '/suspended' ? null : '/suspended',
         SignedIn() =>
           atLogin ||
                   at == '/splash' ||
                   at == '/onboarding' ||
+                  at == '/pending' ||
                   at == '/suspended' ||
                   at == '/update'
               ? home
@@ -425,6 +432,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const OnboardingReplayScreen(),
       ),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: '/pending', builder: (_, _) => const PendingScreen()),
       GoRoute(path: '/suspended', builder: (_, _) => const SuspendedScreen()),
       if (role != null)
         leader
