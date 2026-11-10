@@ -12,6 +12,7 @@ import '../../core/providers.dart';
 import '../../design/components.dart';
 import '../../design/tokens.dart';
 import '../../widgets/common.dart';
+import '../../widgets/user_avatar.dart';
 import 'alerts_screen.dart' show alertLabelOf;
 import 'map_options.dart';
 import 'team_controller.dart';
@@ -795,6 +796,10 @@ class _AgentPin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = selected ? 46.0 : 36.0;
+    final color = agentColor(context, agent);
+    // Avec photo : l'anneau prend la couleur du statut et la photo remplit le cercle.
+    // Sans photo : pastille pleine aux initiales, comme avant.
+    final hasPhoto = agent.avatarVersion != null;
     return Semantics(
       button: true,
       label: '${agent.name}, ${agentAlert(agent)}',
@@ -809,17 +814,27 @@ class _AgentPin extends StatelessWidget {
             height: size,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: agentColor(context, agent),
+              color: hasPhoto ? Colors.white : color,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2.5),
-            ),
-            child: Text(
-              _initials(agent.name),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Colors.white,
-                fontSize: selected ? 15 : 12.5,
+              border: Border.all(
+                color: hasPhoto ? color : Colors.white,
+                width: hasPhoto ? 3 : 2.5,
               ),
             ),
+            child: hasPhoto
+                ? UserAvatar(
+                    userId: agent.agentId,
+                    version: agent.avatarVersion,
+                    initials: _initials(agent.name),
+                    size: size - 6,
+                  )
+                : Text(
+                    _initials(agent.name),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontSize: selected ? 15 : 12.5,
+                    ),
+                  ),
           ),
         ),
       ),

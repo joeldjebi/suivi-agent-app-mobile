@@ -949,6 +949,7 @@ class LiveAgent {
     required this.outsideZone,
     required this.isMocked,
     required this.signalLost,
+    this.avatarVersion,
     this.outsideSince,
     this.outsideMaxMeters,
     this.alerts = const [],
@@ -963,6 +964,9 @@ class LiveAgent {
   final LatLng? position;
   final String agentId;
   final String name;
+
+  /// Version de la photo de profil (null : pas de photo → initiales sur la carte).
+  final int? avatarVersion;
   final DayStatus status;
   final String? zoneId;
   final DateTime startedAt;
@@ -990,6 +994,7 @@ class LiveAgent {
           : LatLng(_num(position!['lat']), _num(position['lng'])),
       agentId: agent['id'] as String,
       name: '${agent['firstName']} ${agent['lastName']}',
+      avatarVersion: agent['avatarVersion'] as int?,
       status: DayStatus.values.byName(json['status'] as String),
       zoneId: json['zoneId'] as String?,
       startedAt: _date(json['startedAt'])!,
