@@ -28,6 +28,8 @@ Me fakeMe({
   String role = 'agent',
   String first = 'Koffi',
   String subscriptionStatus = 'active',
+  String approvalStatus = 'approved',
+  String? rejectionReason,
   Set<String>? features,
   int workdayMinutes = 480,
   bool submissionRequiresDay = true,
@@ -35,6 +37,8 @@ Me fakeMe({
   workdayMinutes: workdayMinutes,
   submissionRequiresDay: submissionRequiresDay,
   subscriptionStatus: subscriptionStatus,
+  approvalStatus: approvalStatus,
+  rejectionReason: rejectionReason,
   features:
       features ??
       const {

@@ -579,6 +579,47 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('inscription en attente de validation : l’app est bloquée', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(fakeMe(approvalStatus: 'pending')),
+      ),
+    );
+    await _settle(tester);
+    expect(find.text('Compte en attente'), findsOneWidget);
+    expect(find.byType(AppNavBar), findsNothing);
+    expect(find.text('Se déconnecter'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('inscription refusée : écran bloquant avec le motif', (
+    tester,
+  ) async {
+    _phone(tester);
+    await tester.pumpWidget(
+      testApp(
+        auth: () => SignedInAuth(
+          fakeMe(
+            approvalStatus: 'rejected',
+            rejectionReason: 'Documents manquants.',
+          ),
+        ),
+      ),
+    );
+    await _settle(tester);
+    expect(find.text('Inscription non retenue'), findsOneWidget);
+    expect(find.text('Documents manquants.'), findsOneWidget);
+    expect(find.byType(AppNavBar), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('rémunération : mes gains, reçu et gains de l’équipe', (
     tester,
   ) async {

@@ -38,6 +38,8 @@ class Me {
     this.phone,
     this.avatarVersion,
     this.subscriptionStatus = 'active',
+    this.approvalStatus = 'approved',
+    this.rejectionReason,
     this.features = const {
       'groups',
       'manual_approval',
@@ -53,10 +55,20 @@ class Me {
   /// État de l'abonnement de la structure (trialing, active, past_due, suspended…).
   final String subscriptionStatus;
 
+  /// Validation de l'inscription par l'éditeur : pending, approved, rejected.
+  final String approvalStatus;
+
+  /// Motif du refus, quand l'inscription a été refusée par l'éditeur.
+  final String? rejectionReason;
+
   /// Fonctionnalités ouvertes par la formule de la structure.
   final Set<String> features;
 
   bool get suspended => subscriptionStatus == 'suspended';
+
+  /// Structure pas encore validée (ou refusée) par l'éditeur : l'app est bloquée.
+  bool get pendingApproval => approvalStatus != 'approved';
+  bool get rejected => approvalStatus == 'rejected';
   bool get hasMissions => features.contains('missions');
 
   /// Répertoire des points de vente (formule qui l'inclut).
@@ -149,6 +161,13 @@ class Me {
           (json['subscription'] as Map<String, dynamic>?)?['status']
               as String? ??
           'active',
+      approvalStatus:
+          (json['subscription'] as Map<String, dynamic>?)?['approvalStatus']
+              as String? ??
+          'approved',
+      rejectionReason:
+          (json['tenant'] as Map<String, dynamic>?)?['rejectionReason']
+              as String?,
       features: json['subscription'] == null
           ? const {
               'groups',
