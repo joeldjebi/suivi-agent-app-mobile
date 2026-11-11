@@ -49,9 +49,29 @@ void _sentryOptions(SentryFlutterOptions options) {
     ..sendDefaultPii = false
     ..attachScreenshot = false
     ..beforeSend = (event, hint) {
+      // Échec de téléchargement d'une tuile de carte (réseau mobile lent/coupé) : attendu,
+      // pas un bug — on ne le remonte pas pour ne pas polluer le journal d'erreurs.
+      if (_isTileLoadError(event)) return null;
       event.user = null;
       return event;
     };
+}
+
+/// Vrai si l'événement vient d'un échec de chargement de tuile (flutter_map / OSM).
+bool _isTileLoadError(SentryEvent event) {
+  bool mark(String? s) =>
+      s != null &&
+      (s.contains('NetworkTileImageProvider') ||
+          s.contains('tile_provider/network') ||
+          s.contains('tile.openstreetmap'));
+  if (mark(event.throwable?.toString())) return true;
+  for (final ex in event.exceptions ?? const <SentryException>[]) {
+    if (mark(ex.value)) return true;
+    for (final f in ex.stackTrace?.frames ?? const <SentryStackFrame>[]) {
+      if (mark(f.absPath) || mark(f.fileName) || mark(f.function)) return true;
+    }
+  }
+  return false;
 }
 
 Future<void> _run() async {
