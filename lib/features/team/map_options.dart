@@ -8,10 +8,10 @@ import '../../design/tokens.dart';
 
 /// Adresse des tuiles OpenStreetMap, remplaçable au build par un serveur dédié :
 /// --dart-define=TILE_URL=...
-const _osmUrl = String.fromEnvironment(
-  'TILE_URL',
-  defaultValue: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-);
+const _defaultOsmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const _osmUrl = String.fromEnvironment('TILE_URL', defaultValue: _defaultOsmUrl);
+// Serveur de tuiles dédié (ex. MapTiler) configuré au build : attribution à ajouter.
+const _customTiles = _osmUrl != _defaultOsmUrl;
 
 /// Styles de carte, tous issus des données OpenStreetMap.
 enum MapStyle {
@@ -33,6 +33,8 @@ enum MapStyle {
 
   String get attribution => this == MapStyle.humanitaire
       ? '© les contributeurs d’OpenStreetMap · OSM France'
+      : _customTiles
+      ? '© MapTiler · © les contributeurs d’OpenStreetMap'
       : '© les contributeurs d’OpenStreetMap';
 
   /// Sobre et Sombre : les tuiles standard, retouchées sur le téléphone.
